@@ -29,6 +29,7 @@ export function migrateState(s) {
   }
   // v1.3 底部图标映射表需是普通对象
   if (!s.settings.tabIcons || typeof s.settings.tabIcons !== 'object' || Array.isArray(s.settings.tabIcons)) s.settings.tabIcons = {}
+  // v1.4.1 底部菜单图标自定义已移除，历史 tabIcons 数据保留但不再使用
   // v1.2 记账模板 + 交易行级新字段（可选字段，逐行补默认即可）
   if (!Array.isArray(s.templates)) s.templates = []
   if (Array.isArray(s.transactions)) {

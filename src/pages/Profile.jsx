@@ -1,11 +1,9 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
-import { Sheet, Confirm, EmojiPicker, Seg } from '../ui.jsx'
+import { Sheet, Confirm } from '../ui.jsx'
 import { AvatarFace, useMediaActions } from '../theme.jsx'
 import { bookkeepingDays, streakOf, txsOfLedger } from '../utils.js'
-
-const AVATARS = ['🐣', '🐼', '🦊', '🐰', '🐨', '🦁', '🐯', '🦄', '🌙', '⭐', '🌸', '🍀', '💎', '🚀', '🎵', '📖']
 
 export default function Profile() {
   const { state, set, toast } = useStore()
@@ -14,7 +12,6 @@ export default function Profile() {
   const avatarFileRef = useRef(null)
   const [nameOpen, setNameOpen] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
-  const [avatarTab, setAvatarTab] = useState('emoji')
   const [aboutOpen, setAboutOpen] = useState(false)
   const [fbOpen, setFbOpen] = useState(false)
   const [fbText, setFbText] = useState('')
@@ -28,8 +25,8 @@ export default function Profile() {
       await media.saveAvatarPhoto(file)
       toast('头像照片已更新')
       setAvatarOpen(false)
-    } catch {
-      toast('图片读取失败，请换一张试试', 'err')
+    } catch (e) {
+      toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底照片' : '图片读取失败，请换一张试试', 'err')
     } finally {
       setBusy(false)
     }
@@ -62,7 +59,7 @@ export default function Profile() {
       <div className="page-body" style={{ paddingTop: 0 }}>
         <div className="me-head">
           <div className="me-row">
-            <div className="avatar" onClick={() => { setAvatarTab(state.settings.avatarPhotoAt ? 'photo' : 'emoji'); setAvatarOpen(true) }}><AvatarFace /></div>
+            <div className="avatar" onClick={() => setAvatarOpen(true)}><AvatarFace /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="me-name" onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
                 <span className="me-name-txt">{state.settings.nickname}</span>
@@ -126,40 +123,29 @@ export default function Profile() {
         <button className="btn" style={{ marginTop: 12 }} onClick={saveName}>保存修改</button>
       </Sheet>
 
-      {/* 换头像 */}
+      {/* 换头像（v1.4.1 仅白底图片，非白底拦截） */}
       <Sheet open={avatarOpen} onClose={() => setAvatarOpen(false)} title="换个形象">
-        <Seg
-          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 相册图片', value: 'photo' }]}
-          value={avatarTab}
-          onChange={setAvatarTab}
-        />
-        <div style={{ height: 12 }} />
-        {avatarTab === 'emoji' ? (
-          <EmojiPicker value={state.settings.avatar} onChange={(e) => { set((d) => { d.settings.avatar = e }); setAvatarOpen(false); toast('头像已更新') }} />
-        ) : (
-          <div>
-            <div className="center-box" style={{ padding: '6px 0 12px' }}>
-              <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
-                <AvatarFace />
-              </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>方形图片会自动居中裁切</div>
-            </div>
-            <button className="btn" disabled={busy} onClick={() => avatarFileRef.current?.click()}>
-              {busy ? '处理中…' : '📷 从相册选择图片'}
-            </button>
-            {state.settings.avatarPhotoAt && (
-              <button className="btn ghost" style={{ marginTop: 10 }} disabled={busy} onClick={async () => {
-                await media.clearAvatarPhoto()
-                setAvatarTab('emoji')
-                toast('已移除头像照片')
-              }}>移除照片，用回表情</button>
-            )}
-            <input
-              ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) pickAvatarPhoto(f); e.target.value = '' }}
-            />
+        <div className="center-box" style={{ padding: '6px 0 12px' }}>
+          <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
+            <AvatarFace />
           </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            仅支持白底图片（如证件照），自动居中裁切；非白底将无法使用
+          </div>
+        </div>
+        <button className="btn" disabled={busy} onClick={() => avatarFileRef.current?.click()}>
+          {busy ? '处理中…' : '📷 选择白底图片'}
+        </button>
+        {state.settings.avatarPhotoAt && (
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={busy} onClick={async () => {
+            await media.clearAvatarPhoto()
+            toast('已移除头像照片')
+          }}>移除照片，恢复默认</button>
         )}
+        <input
+          ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) pickAvatarPhoto(f); e.target.value = '' }}
+        />
       </Sheet>
 
       {/* 关于 */}
@@ -167,7 +153,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.4.0 · 全功能免费</div>
+          <div className="muted">v1.4.1 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>

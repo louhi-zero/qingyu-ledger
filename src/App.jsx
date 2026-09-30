@@ -85,10 +85,9 @@ function WelcomePage({ onStart }) {
   )
 }
 
-// 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘
+// 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘（v1.4.1 起图标固定默认，不再自定义）
 const TabBar = memo(function TabBar({ tab, setTab, openAdd }) {
-  const { state } = useStore()
-  const icons = { ...DEFAULT_TAB_ICONS, ...(state.settings.tabIcons || {}) }
+  const icons = DEFAULT_TAB_ICONS
   return (
     <nav className="tabbar">
       {Object.entries(TAB_PAGES).map(([key, cfg]) =>

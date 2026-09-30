@@ -664,3 +664,27 @@ export function netWorthSeries(state, days = 30) {
   }
   return out
 }
+
+// ---------- v1.4.1 头像白底检测（纯像素判定，供 canvas getImageData 后调用） ----------
+// data: RGBA 像素数组；取样四角 12×12 补丁均值，四角全为近白色（低饱和）才判定白底
+export function isWhiteBgPixels(data, w, h) {
+  const P = 12
+  let whiteCnt = 0
+  for (const [x0, y0] of [[0, 0], [w - P, 0], [0, h - P], [w - P, h - P]]) {
+    let r = 0
+    let g = 0
+    let b = 0
+    let n = 0
+    for (let y = y0; y < y0 + P; y++) {
+      for (let x = x0; x < x0 + P; x++) {
+        const i = (y * w + x) * 4
+        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++
+      }
+    }
+    r /= n; g /= n; b /= n
+    const mx = Math.max(r, g, b)
+    const mn = Math.min(r, g, b)
+    if (mn >= 225 && mx - mn <= 24) whiteCnt++
+  }
+  return whiteCnt === 4
+}

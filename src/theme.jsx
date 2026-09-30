@@ -163,7 +163,8 @@ export function useMediaActions() {
   return useMemo(
     () => ({
       async saveAvatarPhoto(file) {
-        const blob = await fileToJpeg(file, { maxSize: 256, quality: 0.85, cover: true })
+        // v1.4.1 头像仅允许白底图片（非白底在压缩时直接抛错）
+        const blob = await fileToJpeg(file, { maxSize: 256, quality: 0.85, cover: true, whiteBg: true })
         const hash = await hashBlob(blob)
         const at = new Date().toISOString()
         await replaceBlob('avatar', blob)

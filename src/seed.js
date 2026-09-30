@@ -91,8 +91,8 @@ export function emptyState() {
       aiIncludeNotes: true, // 分析时是否附带账单备注原文
       // v1.2 熬夜归属：0 点后（<5 点）记一笔默认算昨天
       nightAcross: false,
-      // v1.3 个性化：底部菜单图标（key→emoji，空串=用默认）、AI 助手形象、启动页背景
-      tabIcons: {}, // { home, charts, discover, profile }
+      // 个性化：AI 助手形象、启动页背景（tabIcons 为 v1.3 遗留，v1.4.1 起废弃不再使用）
+      tabIcons: {}, // v1.4.1 已废弃，仅兼容旧数据
       aiFace: '🤖', // AI 形象 emoji（照片优先，见 aiFaceAt）
       aiFaceAt: null,
       welcomeBgAt: null, // 启动页背景更新时间，本体在 IndexedDB

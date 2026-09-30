@@ -5,6 +5,8 @@
  * - 图片经 canvas 压缩为 JPEG 后写入；SHA-256 作为同步比对 hash
  */
 
+import { isWhiteBgPixels } from './utils.js'
+
 const DB_NAME = 'qingyu_blobs_v1'
 const STORE = 'kv'
 
@@ -90,7 +92,8 @@ export async function hashBlob(blob) {
 // ---------- 图片压缩 ----------
 // cover=true：居中裁切为 maxSize×maxSize 正方形（头像 256）
 // cover=false：等比缩放到宽不超过 maxSize（壁纸 1440）
-export async function fileToJpeg(file, { maxSize = 256, quality = 0.85, cover = false } = {}) {
+// whiteBg=true：头像白底强制校验，四角非近白色直接抛错
+export async function fileToJpeg(file, { maxSize = 256, quality = 0.85, cover = false, whiteBg = false } = {}) {
   const bmp = await createImageBitmap(file)
   try {
     let sx = 0
@@ -117,6 +120,10 @@ export async function fileToJpeg(file, { maxSize = 256, quality = 0.85, cover = 
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, cw, ch)
     ctx.drawImage(bmp, sx, sy, sw, sh, 0, 0, cw, ch)
+    if (whiteBg) {
+      const px = ctx.getImageData(0, 0, cw, ch)
+      if (!isWhiteBgPixels(px.data, cw, ch)) throw new Error('非白底图片，仅支持白底照片')
+    }
     return await new Promise((resolve, reject) => {
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error('图片压缩失败'))),

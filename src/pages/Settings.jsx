@@ -1,20 +1,13 @@
 ﻿import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { useNav, DEFAULT_TAB_ICONS } from '../App.jsx'
+import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
 import { AvatarFace, AiFace, useAiFacePhoto, useWelcomeBg, useMediaActions } from '../theme.jsx'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES } from '../utils.js'
 
-const APP_VERSION = '1.4.0'
+const APP_VERSION = '1.4.1'
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
-
-const TAB_ICON_ITEMS = [
-  { key: 'home', name: '明细' },
-  { key: 'charts', name: '图表' },
-  { key: 'discover', name: '发现' },
-  { key: 'profile', name: '我的' },
-]
 
 export default function Settings({ nav }) {
   const { state, set, toast, loadDemo, clearAll, restoreState } = useStore()
@@ -25,13 +18,10 @@ export default function Settings({ nav }) {
   const [confirmClear, setConfirmClear] = useState(false)
   const [nameOpen, setNameOpen] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
-  const [avatarTab, setAvatarTab] = useState('emoji')
   const [name, setName] = useState(s.nickname)
   const [pending, setPending] = useState(null)
   const [busyImg, setBusyImg] = useState(false)
   // v1.3 个性化
-  const [tabIconOpen, setTabIconOpen] = useState(false)
-  const [pickTab, setPickTab] = useState(null) // 正在选图标的 tab key
   const [welcomeOpen, setWelcomeOpen] = useState(false)
   const [aiFaceOpen, setAiFaceOpen] = useState(false)
   const [aiFaceTab, setAiFaceTab] = useState('emoji')
@@ -64,8 +54,8 @@ export default function Settings({ nav }) {
         toast('AI 形象已更新')
         setAiFaceOpen(false)
       }
-    } catch {
-      toast('图片读取失败，请换一张试试', 'err')
+    } catch (e) {
+      toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底照片' : '图片读取失败，请换一张试试', 'err')
     } finally {
       setBusyImg(false)
     }
@@ -120,9 +110,9 @@ export default function Settings({ nav }) {
             <div className="cmain"><div className="ctitle">昵称</div></div>
             <div className="cright">{s.nickname}<span className="arrow">›</span></div>
           </div>
-          <div className="cell" onClick={() => { setAvatarTab(s.avatarPhotoAt ? 'photo' : 'emoji'); setAvatarOpen(true) }}>
+          <div className="cell" onClick={() => setAvatarOpen(true)}>
             <div className="cico"><AvatarFace /></div>
-            <div className="cmain"><div className="ctitle">头像</div><div className="cdesc">表情或相册照片，照片随云同步</div></div>
+            <div className="cmain"><div className="ctitle">头像</div><div className="cdesc">上传白底照片（如证件照），随云同步</div></div>
             <div className="cright"><span className="arrow">›</span></div>
           </div>
         </div>
@@ -177,17 +167,6 @@ export default function Settings({ nav }) {
             ref={wallpaperRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('wallpaper', f); e.target.value = '' }}
           />
-          <div className="cell" onClick={() => { setPickTab(null); setTabIconOpen(true) }}>
-            <div className="cico">🧩</div>
-            <div className="cmain">
-              <div className="ctitle">底部菜单图标</div>
-              <div className="cdesc">把明细/图表/发现/我的换成喜欢的图标</div>
-            </div>
-            <div className="cright">
-              <span className="tico-preview">{TAB_ICON_ITEMS.some((t) => s.tabIcons?.[t.key]) ? '已自定义' : '默认'}</span>
-              <span className="arrow">›</span>
-            </div>
-          </div>
           <div className="cell" onClick={() => setWelcomeOpen(true)}>
             <div className="cico">🌅</div>
             <div className="cmain">
@@ -385,75 +364,29 @@ export default function Settings({ nav }) {
         </div>
       </Sheet>
 
-      {/* 头像 */}
+      {/* 头像（v1.4.1 仅白底图片，非白底拦截） */}
       <Sheet open={avatarOpen} onClose={() => setAvatarOpen(false)} title="选择头像">
-        <Seg
-          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 相册图片', value: 'photo' }]}
-          value={avatarTab}
-          onChange={setAvatarTab}
+        <div className="center-box" style={{ padding: '6px 0 12px' }}>
+          <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
+            <AvatarFace />
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            仅支持白底图片（如证件照），自动居中裁切；非白底将无法使用
+          </div>
+        </div>
+        <button className="btn" disabled={busyImg} onClick={() => avatarFileRef.current?.click()}>
+          {busyImg ? '处理中…' : '📷 选择白底图片'}
+        </button>
+        {s.avatarPhotoAt && (
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyImg} onClick={async () => {
+            await media.clearAvatarPhoto()
+            toast('已移除头像照片')
+          }}>移除照片，恢复默认</button>
+        )}
+        <input
+          ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('avatar', f); e.target.value = '' }}
         />
-        <div style={{ height: 12 }} />
-        {avatarTab === 'emoji' ? (
-          <EmojiPicker value={s.avatar} onChange={(e) => {
-            set((d) => { d.settings.avatar = e })
-            setAvatarOpen(false)
-            toast('头像已更新')
-          }} />
-        ) : (
-          <div>
-            <div className="center-box" style={{ padding: '6px 0 12px' }}>
-              <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
-                <AvatarFace />
-              </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>方形图片会自动居中裁切，压缩后上传</div>
-            </div>
-            <button className="btn" disabled={busyImg} onClick={() => avatarFileRef.current?.click()}>
-              {busyImg ? '处理中…' : '📷 从相册选择图片'}
-            </button>
-            {s.avatarPhotoAt && (
-              <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyImg} onClick={async () => {
-                await media.clearAvatarPhoto()
-                setAvatarTab('emoji')
-                toast('已移除头像照片')
-              }}>移除照片，用回表情</button>
-            )}
-            <input
-              ref={avatarFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('avatar', f); e.target.value = '' }}
-            />
-          </div>
-        )}
-      </Sheet>
-
-      {/* 底部菜单图标 */}
-      <Sheet open={tabIconOpen} onClose={() => { setTabIconOpen(false); setPickTab(null) }} title="底部菜单图标">
-        {pickTab ? (
-          <div>
-            <button className="chip" style={{ marginBottom: 10 }} onClick={() => setPickTab(null)}>‹ 返回</button>
-            <EmojiPicker
-              value={s.tabIcons?.[pickTab] || DEFAULT_TAB_ICONS[pickTab]}
-              onChange={(e) => {
-                set((d) => { d.settings.tabIcons[pickTab] = e })
-                setPickTab(null)
-                toast('图标已更新')
-              }}
-            />
-          </div>
-        ) : (
-          <div>
-            {TAB_ICON_ITEMS.map((t) => (
-              <div key={t.key} className="cell" style={{ padding: '11px 4px' }} onClick={() => setPickTab(t.key)}>
-                <div className="tico-cell">{s.tabIcons?.[t.key] || DEFAULT_TAB_ICONS[t.key]}</div>
-                <div className="cmain"><div className="ctitle">{t.name}</div></div>
-                <div className="cright muted">点击更换<span className="arrow">›</span></div>
-              </div>
-            ))}
-            <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => {
-              set((d) => { d.settings.tabIcons = {} })
-              toast('已恢复默认图标')
-            }}>恢复默认图标</button>
-          </div>
-        )}
       </Sheet>
 
       {/* 启动页背景 */}
