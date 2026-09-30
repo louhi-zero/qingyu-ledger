@@ -12,6 +12,8 @@ import os from 'os'
 import path from 'path'
 
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'qy-smoke-v16-')))
+// Windows 下窗口被遮挡会被 Chromium 判定为隐藏而停帧（transition 不推进），禁用原生遮挡检测
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -114,6 +116,44 @@ app.whenReady().then(async () => {
     await run(`(${clickText})('.cell', '按压缩放与轻震动')`)
     await sleep(200)
     assert('点击反馈开：data-tap=on', await run(`document.documentElement.dataset.tap === 'on'`))
+
+    // v1.6.3 玻璃开关端到端耗时实测：点击 → data-glass 翻转（即时响应）→ 首个 background-color
+    // transitionend（视觉完成），要求翻转 <100ms、全程 <1s。
+    // 注意：隐藏/被遮挡窗口不产合成帧、transition 不推进（见 v1.5 教训），计时期间需显示并聚焦窗口，
+    // 且须等渲染进程处理完可见性变更（show 后立即点击会让过渡在"隐藏"瞬间创建而被冻结）
+    win.show()
+    win.focus()
+    await sleep(300)
+    const timing = await run(`new Promise((resolve) => {
+      const t0 = performance.now()
+      let flipped = null
+      const obs = new MutationObserver(() => {
+        if (flipped === null && document.documentElement.dataset.glass === 'off') flipped = Math.round(performance.now() - t0)
+      })
+      obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-glass'] })
+      const el = document.querySelector('.group')
+      let done = false
+      el.addEventListener('transitionend', (ev) => {
+        if (ev.propertyName === 'background-color' && !done) {
+          done = true; obs.disconnect()
+          resolve({ flipped, total: Math.round(performance.now() - t0), timeout: false })
+        }
+      })
+      setTimeout(() => {
+        if (!done) { done = true; obs.disconnect(); resolve({ flipped, total: Math.round(performance.now() - t0), timeout: true }) }
+      }, 3000)
+      const c = [...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('液态玻璃效果'))
+      if (c) c.click()
+      else resolve({ flipped: -1, total: -1, timeout: true })
+    })`)
+    win.hide()
+    await sleep(150)
+    console.log(`  (实测：翻转 ${timing.flipped}ms，视觉完成 ${timing.total}ms${timing.timeout ? '，超时' : ''})`)
+    assert('玻璃开关：状态翻转即时（<100ms）', timing.flipped >= 0 && timing.flipped < 100)
+    assert('玻璃开关：1 秒内完成视觉切换', !timing.timeout && timing.total >= 0 && timing.total < 1000)
+    // 恢复开启（后续持久化断言依赖 glassOn=true）
+    await run(`(${clickText})('.cell', '液态玻璃效果')`)
+    await sleep(400)
 
     // 5. 底部菜单图标：非白底拦截 → 白底成功（v1.6.1 仅图片方式，无表情入口）
     await run(`(${clickText})('.cell', '底部菜单图标')`)
