@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">轻语记账</string>
+    <string name="title_activity_main">轻语记账</string>
+    <string name="package_name">com.qingyu.ledger</string>
+    <string name="custom_url_scheme">com.qingyu.ledger</string>
+</resources>

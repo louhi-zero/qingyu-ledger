@@ -1,0 +1,63 @@
+{
+  "name": "qingyu-ledger",
+  "private": true,
+  "version": "1.1.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:sync": "node scripts/sync-test.mjs",
+    "test:ai": "node scripts/ai-test.mjs",
+    "icon": "node scripts/make-ico.mjs",
+    "assets:mobile": "node scripts/make-mobile-assets.mjs",
+    "cap:sync": "vite build && cap sync",
+    "android:build": "vite build && cap sync android",
+    "desktop": "node scripts/electron-dev.cjs",
+    "desktop:build": "vite build && npm run icon && electron-builder --win"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.9",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.qingyu.ledger",
+    "productName": "轻语记账",
+    "copyright": "轻语记账",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "轻语记账",
+      "artifactName": "轻语记账-${version}-setup.${ext}"
+    }
+  }
+}

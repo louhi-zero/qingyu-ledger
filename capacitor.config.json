@@ -1,0 +1,24 @@
+{
+  "appId": "com.qingyu.ledger",
+  "appName": "轻语记账",
+  "webDir": "dist",
+  "backgroundColor": "#f3f5fa",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#f3f5fa"
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "SplashScreen": {
+      "launchShowDuration": 500,
+      "launchAutoHide": true,
+      "backgroundColor": "#f3f5fa",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": false,
+      "splashImmersive": false
+    }
+  }
+}
