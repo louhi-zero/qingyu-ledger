@@ -70,6 +70,16 @@ export async function replaceBlob(key, blob) {
   else await blobDel(key)
 }
 
+// v1.4 OCR：Blob → dataURL（GLM-4V image_url 入参）
+export function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(r.result)
+    r.onerror = () => reject(new Error('读取图片失败'))
+    r.readAsDataURL(blob)
+  })
+}
+
 // ---------- 哈希 ----------
 export async function hashBlob(blob) {
   const buf = await blob.arrayBuffer()

@@ -261,6 +261,8 @@ export function mergeStates(base, local, remote, opts = {}) {
     .sort((a, b) => (a.at || '').localeCompare(b.at || ''))
   // v1.3 汇率表：低频手动修改，整体按标量三向合并
   out.fxRates = mergeScalar(b.fxRates ?? null, local.fxRates ?? null, remote.fxRates ?? null, 'fxRates', ctx)
+  // v1.4 净值日快照：key=日期，按条目 at 的 LWW 并集
+  out.netWorthSnapshots = mergeLwwMap(local.netWorthSnapshots, remote.netWorthSnapshots)
 
   return { data: out, conflicts }
 }

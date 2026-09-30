@@ -13,7 +13,7 @@ export default function Reimburse({ nav }) {
   const [cancelTx, setCancelTx] = useState(null)
 
   const reimTxs = useMemo(
-    () => state.transactions.filter((t) => t.type === 'expense' && (t.reimburse === 'pending' || t.reimburse === 'done')),
+    () => state.transactions.filter((t) => t.type === 'expense' && !t.deletedAt && (t.reimburse === 'pending' || t.reimburse === 'done')),
     [state.transactions],
   )
   const list = useMemo(() => {

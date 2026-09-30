@@ -21,6 +21,7 @@ export default function Discover() {
   const nw = netWorth(state)
 
   const tools = [
+    { icon: '📸', name: '扫票记账', page: 'scan' },
     { icon: '🏦', name: '资产管家', page: 'assets' },
     { icon: '🪪', name: '信用卡', page: 'creditCards' },
     { icon: '📉', name: '债务管理', page: 'debts' },

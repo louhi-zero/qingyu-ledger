@@ -254,7 +254,7 @@ function DayList({ date }) {
   const { state } = useStore()
   const nav = useNav()
   const list = state.transactions
-    .filter((t) => t.ledgerId === state.currentLedgerId && t.date === date)
+    .filter((t) => t.ledgerId === state.currentLedgerId && t.date === date && !t.deletedAt)
     .sort((a, b) => b.time.localeCompare(a.time))
   if (!list.length) return <Empty icon="🍃" text="这一天没有账单" />
   return (

@@ -114,7 +114,8 @@ export function accountName(state, id) {
 // ---------- 账单选择 ----------
 export function txsOfLedger(state, ledgerId) {
   const lid = ledgerId || state.currentLedgerId
-  return state.transactions.filter((t) => t.ledgerId === lid)
+  // v1.4：软删（回收站）行不参与一切统计与列表
+  return state.transactions.filter((t) => t.ledgerId === lid && !t.deletedAt)
 }
 export function txsInRange(txs, start, end) {
   // end 排他
@@ -153,6 +154,7 @@ export function accountBalance(state, accId, ledgerId) {
   if (!acc) return 0
   let bal = Number(acc.initial || 0)
   for (const t of state.transactions) {
+    if (t.deletedAt) continue // v1.4 软删行不参与余额
     if (ledgerId && t.ledgerId !== ledgerId) continue
     if (t.type === 'income' && t.accountId === accId) bal += Number(t.amount)
     if (t.type === 'expense' && t.accountId === accId) bal -= Number(t.amount)
@@ -218,6 +220,7 @@ export function creditDue(state, card, today) {
   if (!start) return null
   let due = 0
   for (const t of state.transactions) {
+    if (t.deletedAt) continue // v1.4 软删行不参与应还
     if (t.date < start || t.date > today) continue
     if ((t.type === 'expense' || t.type === 'transfer') && t.accountId === card.id) due += Number(t.amount)
     else if ((t.type === 'income' || t.type === 'transfer') && t.toAccountId === card.id) due -= Number(t.amount)
@@ -362,6 +365,8 @@ function guessCat(state, text, type) {
   }
   return null
 }
+// v1.4 智能填单用：关键词 → 支出分类 id
+export const guessCategoryId = guessCat
 export function parseBillCSV(text, state) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
   const drafts = []
@@ -521,4 +526,141 @@ export function downloadFile(name, content, mime = 'text/plain') {
   a.download = name
   a.click()
   setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+}
+
+// ---------- v1.4 智能填单（本地正则兜底解析，无 API Key 也可用） ----------
+export function parseTxTextLocal(text, state) {
+  const t = String(text || '').trim()
+  if (!t) return null
+  // 类型：命中收入词即收入，默认支出
+  const type = /(收入|工资|进账|收到|到账|报销|红包|奖金|退款|薪)/.test(t) ? 'income' : 'expense'
+  // 日期：前天/昨天/昨晚/X月X日/YYYY-MM-DD，默认今天
+  let date = todayStr()
+  if (/前天/.test(t)) date = addDays(todayStr(), -2)
+  else if (/昨天|昨晚/.test(t)) date = addDays(todayStr(), -1)
+  else {
+    const dfull = t.match(/(\d{4})[-/年.](\d{1,2})[-/月.](\d{1,2})/)
+    const dshort = !dfull ? t.match(/(\d{1,2})月(\d{1,2})[日号]?/) : null
+    if (dfull) date = `${dfull[1]}-${pad2(Number(dfull[2]))}-${pad2(Number(dfull[3]))}`
+    else if (dshort) {
+      const now = new Date()
+      const y = Number(dshort[1]) > now.getMonth() + 1 ? now.getFullYear() - 1 : now.getFullYear()
+      date = `${y}-${pad2(Number(dshort[1]))}-${pad2(Number(dshort[2]))}`
+    }
+  }
+  // 金额：¥xx / xx块 / xx元，否则取最后一个数字
+  let amount = 0
+  const m1 = t.match(/[¥￥]\s*(\d+(?:\.\d{1,2})?)/) || t.match(/(\d+(?:\.\d{1,2})?)\s*(?:块|元)/)
+  if (m1) amount = Number(m1[1])
+  else {
+    const nums = [...t.matchAll(/(\d+(?:\.\d{1,2})?)/g)]
+      .map((x) => Number(x[1])).filter((n) => n > 0 && n < 1e7)
+    if (nums.length) amount = nums[nums.length - 1]
+  }
+  if (!(amount > 0)) return null
+  // 备注：剥离日期与金额后的文字
+  let note = t
+    .replace(/(\d{4}[-/年.]\d{1,2}[-/月.]\d{1,2})|\d{1,2}月\d{1,2}[日号]?/g, '')
+    .replace(/[¥￥]\s*\d+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?\s*(?:块|元)/g, '')
+    .replace(/昨天|前天|今天|昨晚|花了?|消费|支出|收入一笔|记一笔/g, '')
+    .replace(/[\s,，。.、；;！!]+/g, ' ')
+    .trim()
+  if (note.length > 20) note = note.slice(0, 20)
+  return { type, amount: round2(amount), date, note, categoryId: guessCategoryId(state, t, type), source: 'local' }
+}
+
+// ---------- v1.4 月账单导出 PDF（打印样式，走系统打印/另存为 PDF） ----------
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+}
+export function buildMonthHtml(state, period) {
+  const sd = state.settings.monthStartDay || 1
+  const txs = txsOfPeriod(state, period)
+  const exp = sumBy(txs, 'expense')
+  const inc = sumBy(txs, 'income')
+  const catStats = statByCategory(txs, 'expense', state).slice(0, 12)
+  const incStats = statByCategory(txs, 'income', state).slice(0, 8)
+  const ledgerName = state.ledgers.find((l) => l.id === state.currentLedgerId)?.name || '默认账本'
+  const sorted = [...txs].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+  const rows = sorted.map((t) => {
+    const info = catInfo(state, t)
+    const acc = t.type === 'transfer'
+      ? `${escHtml(accountName(state, t.accountId))} → ${escHtml(accountName(state, t.toAccountId))}`
+      : escHtml(accountName(state, t.accountId))
+    return `<tr>
+      <td>${escHtml(t.date.slice(5))} ${escHtml(t.time)}</td>
+      <td>${t.type === 'expense' ? '支出' : t.type === 'income' ? '收入' : '转账'}</td>
+      <td>${t.type === 'transfer' ? '转账' : escHtml(info.name)}</td>
+      <td>${acc}</td>
+      <td>${escHtml(t.note || '')}</td>
+      <td class="r ${t.type}">${t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''}${fmt(t.amount)}</td>
+    </tr>`
+  }).join('')
+  const catRows = catStats.map((c, i) => `
+    <tr><td>${i + 1}</td><td>${escHtml(c.name)}</td><td>${c.count}</td><td class="r">${fmt(c.value)}</td>
+    <td class="r">${exp > 0 ? Math.round((c.value / exp) * 1000) / 10 : 0}%</td></tr>`).join('')
+  const incRows = incStats.map((c) => `<tr><td>${escHtml(c.name)}</td><td>${c.count}</td><td class="r income">${fmt(c.value)}</td></tr>`).join('')
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>${escHtml(periodLabel(period))}账单 · ${escHtml(ledgerName)}</title>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body { font: 12px/1.6 "PingFang SC","Microsoft YaHei",sans-serif; color: #26303e; margin: 0; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .sub { color: #7a8494; margin-bottom: 14px; font-size: 11px; }
+  .sum { display: flex; gap: 10px; margin-bottom: 14px; }
+  .sum div { flex: 1; border-radius: 10px; padding: 10px 12px; background: #f2f5fa; }
+  .sum b { display: block; font-size: 16px; margin-top: 2px; }
+  .expense { color: #e5484d; } .income { color: #159570; } .transfer { color: #4c7dff; }
+  h2 { font-size: 13px; margin: 16px 0 6px; border-left: 3px solid #6f6bff; padding-left: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid #e6eaf1; padding: 5px 6px; text-align: left; }
+  th { background: #f2f5fa; font-size: 11px; color: #5b6472; }
+  .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .foot { margin-top: 16px; color: #9aa1af; font-size: 10px; text-align: center; }
+</style></head><body>
+<h1>${escHtml(periodLabel(period))}账单</h1>
+<div class="sub">${escHtml(ledgerName)} · 账期起始 ${sd} 日 · 导出时间 ${escHtml(todayStr())} · 轻语记账</div>
+<div class="sum">
+  <div>总收入<b class="income">¥${fmt(inc)}</b></div>
+  <div>总支出<b class="expense">¥${fmt(exp)}</b></div>
+  <div>结余<b class="${inc - exp >= 0 ? 'income' : 'expense'}">¥${fmt(inc - exp)}</b></div>
+</div>
+${catStats.length ? `<h2>支出分类统计</h2><table><tr><th>#</th><th>分类</th><th>笔数</th><th class="r">金额</th><th class="r">占比</th></tr>${catRows}</table>` : ''}
+${incStats.length ? `<h2>收入分类统计</h2><table><tr><th>分类</th><th>笔数</th><th class="r">金额</th></tr>${incRows}</table>` : ''}
+<h2>账单明细（${txs.length} 笔）</h2>
+<table><tr><th>时间</th><th>类型</th><th>分类</th><th>账户</th><th>备注</th><th class="r">金额</th></tr>${rows || '<tr><td colspan="6">本期暂无账单</td></tr>'}</table>
+<div class="foot">由轻语记账生成 · 数据仅保存在你的设备</div>
+<script>window.onload = function() {}</script>
+</body></html>`
+}
+// 隐藏 iframe 打印（浏览器/Electron/Android WebView 通用，无弹窗拦截问题）
+export function printHtml(html) {
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0;border:0;'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentDocument
+  doc.open()
+  doc.write(html)
+  doc.close()
+  const kick = () => {
+    // __QY_NO_PRINT__：无头测试钩子，跳过系统打印对话框（会永久阻塞隐藏窗口）
+    if (!window.__QY_NO_PRINT__) {
+      try { iframe.contentWindow.focus(); iframe.contentWindow.print() } catch { /* ignore */ }
+    }
+    setTimeout(() => iframe.remove(), 60000)
+  }
+  setTimeout(kick, 120)
+}
+
+// ---------- v1.4 净值快照序列（稀疏取点，供趋势线绘制） ----------
+export function netWorthSeries(state, days = 30) {
+  const snaps = state.netWorthSnapshots || {}
+  const today = todayStr()
+  const out = []
+  for (let i = days - 1; i >= 0; i--) {
+    const ds = addDays(today, -i)
+    const s = snaps[ds]
+    if (s && Number.isFinite(Number(s.net))) out.push({ date: ds, asset: Number(s.asset) || 0, debt: Number(s.debt) || 0, net: Number(s.net) || 0 })
+  }
+  return out
 }

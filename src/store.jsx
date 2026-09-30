@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { emptyState, demoState } from './seed.js'
-import { uid, todayStr, nowTime, nextRunDates, periodOf } from './utils.js'
+import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth } from './utils.js'
+import { blobDel } from './blobdb.js'
+import { syncDailyReminder } from './notify.js'
 
 const KEY = 'qingyu_state_v3'
 const StoreCtx = createContext(null)
@@ -35,7 +37,12 @@ export function migrateState(s) {
       if (!Array.isArray(t.tags)) t.tags = []
       if (t.reimburse !== 'pending' && t.reimburse !== 'done') t.reimburse = 'none'
       if (!('attachAt' in t)) t.attachAt = null
+      if (!('deletedAt' in t)) t.deletedAt = null // v1.4 回收站软删
     }
+  }
+  // v1.4 净值日快照
+  if (!s.netWorthSnapshots || typeof s.netWorthSnapshots !== 'object' || Array.isArray(s.netWorthSnapshots)) {
+    s.netWorthSnapshots = {}
   }
   // v1.3 资金管理：储蓄目标、汇率表、账户新字段（币种/信用卡/债务）
   if (!Array.isArray(s.goals)) s.goals = []
@@ -149,6 +156,39 @@ export function AppProvider({ children }) {
     if (posted > 0) setTimeout(() => toast(`已自动记入 ${posted} 笔周期账单`, 'ok'), 600)
   }, [])
 
+  // v1.4 启动时：写当日净值快照 + 清理回收站超 30 天的账单
+  useEffect(() => {
+    setState((prev) => {
+      if (!prev.settings?.welcomed) return prev
+      const draft = structuredClone(prev)
+      let changed = false
+      // 当日净值快照（覆盖式：以当天最后一次打开为准）
+      const nw = netWorth(draft)
+      const today = todayStr()
+      const cur = draft.netWorthSnapshots?.[today]
+      if (!cur || cur.net !== nw.net || cur.asset !== nw.asset || cur.debt !== nw.debt) {
+        if (!draft.netWorthSnapshots || typeof draft.netWorthSnapshots !== 'object') draft.netWorthSnapshots = {}
+        draft.netWorthSnapshots[today] = { asset: nw.asset, debt: nw.debt, net: nw.net, at: new Date().toISOString() }
+        changed = true
+      }
+      // 回收站：软删超 30 天物理清除
+      const limit = Date.now() - 30 * 86400000
+      const purged = []
+      const keep = []
+      for (const t of draft.transactions) {
+        if (t.deletedAt && new Date(t.deletedAt).getTime() < limit) purged.push(t.id)
+        else keep.push(t)
+      }
+      if (purged.length) {
+        draft.transactions = keep
+        changed = true
+        // 附件本体一并清理（异步，失败忽略）
+        for (const id of purged) blobDel(`att_${id}`).catch(() => {})
+      }
+      return changed ? draft : prev
+    })
+  }, [])
+
   // 每日记账提醒（Notification API）
   useEffect(() => {
     if (!state.settings.remindEnabled) return
@@ -167,6 +207,11 @@ export function AppProvider({ children }) {
       }
     }, 30000)
     return () => clearInterval(timer)
+  }, [state.settings.remindEnabled, state.settings.remindTime])
+
+  // v1.4 Android 原生定时提醒：开关/时间变化与冷启动时重排（Web 端内部静默降级）
+  useEffect(() => {
+    syncDailyReminder(state.settings.remindEnabled, state.settings.remindTime)
   }, [state.settings.remindEnabled, state.settings.remindTime])
 
   const actions = {

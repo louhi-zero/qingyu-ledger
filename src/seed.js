@@ -1,4 +1,4 @@
-import { uid, todayStr, addDays, periodOf, periodAdd, pad2 } from './utils.js'
+import { uid, todayStr, addDays, periodOf, periodAdd, pad2, round2, netWorth } from './utils.js'
 
 // 分类色板
 const PAL = ['#ff8a65', '#42a5f5', '#66bb6a', '#ab47bc', '#ffa726', '#29b6f6', '#ec407a', '#26c6da', '#8d6e63', '#7e57c2', '#d4e157', '#5c6bc0']
@@ -121,6 +121,8 @@ export function emptyState() {
       USD: 7.12, EUR: 7.75, JPY: 0.0479, GBP: 9.05,
       HKD: 0.91, AUD: 4.72, CAD: 5.21, SGD: 5.35, KRW: 0.0052,
     },
+    // v1.4 净值日快照：{ 'YYYY-MM-DD': { asset, debt, net, at } }，随云同步
+    netWorthSnapshots: {},
     // v1.1 图片资产元数据（本体 Blob 在 IndexedDB，经 WebDAV 同步）
     assetsMeta: {
       avatar: { at: null, hash: null },
@@ -246,5 +248,19 @@ export function demoState() {
   ]
   // 发票抬头示例
   s.invoices = [{ id: uid(), name: '示例公司', taxNo: '91110000XXXXXXXXXX', address: '北京市朝阳区xx路1号', phone: '010-88888888', bank: 'XX银行北京分行', account: '6222 0000 0000 0000' }]
+  // v1.4 示例净值快照：近 14 天随机走势，终点为当前真实净值
+  {
+    const nw = netWorth(s)
+    const snaps = {}
+    let v = round2(nw.net - 900)
+    for (let i = 13; i >= 1; i--) {
+      v = round2(v + (Math.random() - 0.32) * 320)
+      const ds = addDays(today, -i)
+      const asset = round2(Math.max(1, nw.asset + (Math.random() - 0.42) * 240))
+      snaps[ds] = { asset, debt: round2(Math.max(0, asset - v)), net: v, at: ds + 'T20:00:00.000Z' }
+    }
+    snaps[today] = { asset: nw.asset, debt: nw.debt, net: nw.net, at: new Date().toISOString() }
+    s.netWorthSnapshots = snaps
+  }
   return s
 }

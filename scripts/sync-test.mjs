@@ -156,6 +156,30 @@ assert.equal(bCc?.creditLimit, 30000)
 assert.equal(stableJson(A.local), stableJson(B.local), 'v1.3 字段合并后两端必须收敛一致')
 ok('v1.3 储蓄目标/汇率表/账户新字段跨端下发一致，两端收敛')
 
+// v1.4：软删 deletedAt 行级字段 + netWorthSnapshots 按 at LWW
+const softTxId = A.local.transactions[1].id
+A.local.transactions.find((x) => x.id === softTxId).deletedAt = '2026-10-04T00:00:00Z'
+A.local.netWorthSnapshots = A.local.netWorthSnapshots || {}
+A.local.netWorthSnapshots['2026-10-04'] = { asset: 120000, debt: 30000, net: 90000, at: '2026-10-04T22:00:00Z' }
+// B 端同 key 写入更新的快照（应获胜），另加一个 A 没有的独有 key
+B.local.netWorthSnapshots = B.local.netWorthSnapshots || {}
+B.local.netWorthSnapshots['2026-10-04'] = { asset: 121000, debt: 30000, net: 91000, at: '2026-10-05T08:00:00Z' }
+B.local.netWorthSnapshots['2026-10-05'] = { asset: 122000, debt: 30000, net: 92000, at: '2026-10-05T22:00:00Z' }
+await devSync(A, tA)
+await devSync(B, tB)
+const bSoft = B.local.transactions.find((x) => x.id === softTxId)
+assert.ok(bSoft, '软删行仍在列表中（物理不删）')
+assert.equal(bSoft.deletedAt, '2026-10-04T00:00:00Z', '软删标记随行三向合并下发')
+assert.equal(B.local.netWorthSnapshots['2026-10-04'].net, 91000, '同 key 快照取 at 更新的一方')
+assert.equal(B.local.netWorthSnapshots['2026-10-05'].net, 92000, '他端独有快照 key 保留')
+await devSync(B, tB)
+await devSync(A, tA)
+assert.equal(A.local.transactions.find((x) => x.id === softTxId)?.deletedAt, '2026-10-04T00:00:00Z')
+assert.equal(A.local.netWorthSnapshots['2026-10-04'].net, 91000)
+assert.equal(A.local.netWorthSnapshots['2026-10-05'].net, 92000)
+assert.equal(stableJson(A.local), stableJson(B.local), 'v1.4 字段合并后两端必须收敛一致')
+ok('v1.4 软删标记随行下发、净值快照同键按 at 取新，两端收敛')
+
 // 结果断言
 const ids = new Set(A.local.transactions.map((x) => x.id))
 assert.ok(ids.has('sync-a1') && ids.has('sync-a2') && ids.has('sync-b1'), '三笔新增都在')

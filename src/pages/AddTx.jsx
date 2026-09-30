@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { Seg, Confirm, Empty, Sheet } from '../ui.jsx'
 import { fmt, uid, todayStr, nowTime, addDays, accountName } from '../utils.js'
-import { blobDel, getObjectUrl, replaceBlob, fileToJpeg } from '../blobdb.js'
+import { getObjectUrl, replaceBlob, fileToJpeg, blobToDataUrl } from '../blobdb.js'
+import { loadAiCfg, parseTxText, parseReceiptImage } from '../ai.js'
 
 // 熬夜归属：0:00–4:59 记账默认算昨天
 function defaultDate(settings) {
@@ -42,6 +43,12 @@ export default function AddTx({ open, editTx, onClose }) {
   const [savingTpl, setSavingTpl] = useState(false)
   const [busyAttach, setBusyAttach] = useState(false)
   const fileRef = useRef(null)
+  // v1.4 智能填单 / 小票 OCR
+  const [smartOpen, setSmartOpen] = useState(false)
+  const [smartText, setSmartText] = useState('')
+  const [smartBusy, setSmartBusy] = useState(false)
+  const [ocrBusy, setOcrBusy] = useState(false)
+  const ocrRef = useRef(null)
   // 新建时预生成 id，附件 Blob 以此为 key；「再记一笔」后换新
   const txIdRef = useRef(editTx?.id || uid())
   const skipCatReset = useRef(false)
@@ -126,10 +133,13 @@ export default function AddTx({ open, editTx, onClose }) {
   }
 
   const del = () => {
-    set((d) => { d.transactions = d.transactions.filter((t) => t.id !== editTx.id) })
-    if (editTx?.attachAt) blobDel(`att_${editTx.id}`).catch(() => {})
+    // v1.4 软删：移入回收站，30 天内可恢复，附件保留
+    set((d) => {
+      const t = d.transactions.find((x) => x.id === editTx.id)
+      if (t) t.deletedAt = new Date().toISOString()
+    })
     setDelConfirm(false)
-    toast('已删除该账单')
+    toast('已移入回收站，30 天内可在设置中恢复')
     onClose()
   }
 
@@ -187,6 +197,71 @@ export default function AddTx({ open, editTx, onClose }) {
     toast('已移除附件')
   }
 
+  // ---------- v1.4 智能填单 / 小票识别 ----------
+  // 把解析结果填进表单
+  const applyParsed = (p, srcLabel) => {
+    if (!p) { toast('没解析出账单，试试「¥28 午餐 面馆」这样的写法', 'err'); return }
+    skipCatReset.current = true
+    setType(p.type)
+    setAmount(String(p.amount))
+    setCategoryId(p.categoryId || null)
+    setSubId(null)
+    if (p.accountId && state.accounts.some((a) => a.id === p.accountId)) setAccountId(p.accountId)
+    if (p.date) setDate(p.date)
+    if (p.time) setTime(p.time)
+    setNote(p.note || '')
+    if (p.type === 'transfer') { setTags([]); setReimburse('none'); setAttachAt(null) }
+    setShowKp(true)
+    toast(srcLabel || '已填入')
+  }
+
+  const doSmartParse = async () => {
+    const text = smartText.trim()
+    if (!text) { toast('先输入一句话或粘贴账单文本', 'err'); return }
+    setSmartBusy(true)
+    try {
+      const p = await parseTxText(loadAiCfg(), text, state)
+      if (p) {
+        applyParsed(p, p.source === 'ai' ? '✨ AI 已解析并填入' : '已按本地规则填入，可再调整')
+        setSmartOpen(false)
+        setSmartText('')
+      } else {
+        toast('没解析出金额，写法里带上金额数字再试', 'err')
+      }
+    } catch (e) {
+      toast(e?.name === 'AbortError' ? '已取消' : '解析失败，请重试', 'err')
+    } finally {
+      setSmartBusy(false)
+    }
+  }
+
+  // 智能填单 Sheet 内：识别小票图 → 填表 + 原图存为附件
+  const onPickOcr = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    const cfg = loadAiCfg()
+    if (!cfg.key) { toast('识别小票需要先在「设置 → AI 分析设置」配置智谱 API Key', 'err'); return }
+    setOcrBusy(true)
+    try {
+      const jpeg = await fileToJpeg(f, { maxSize: 1280, quality: 0.8 })
+      const p = await parseReceiptImage(cfg, await blobToDataUrl(jpeg), state)
+      if (!p) { toast('没认出小票金额，可手动填写', 'err'); return }
+      await replaceBlob(`att_${txIdRef.current}`, jpeg)
+      applyParsed({
+        type: 'expense', amount: p.amount, date: p.date, time: p.time,
+        note: p.note || p.merchant || '', categoryId: p.categoryId,
+      }, '✨ 小票已识别并填入，原图已作附件')
+      setAttachAt(new Date().toISOString())
+      setSmartOpen(false)
+      setSmartText('')
+    } catch (err) {
+      toast(err?.name === 'AbortError' ? '已取消' : '识别失败，请重试或手动填写', 'err')
+    } finally {
+      setOcrBusy(false)
+    }
+  }
+
   const addTag = (g) => {
     const v = String(g || '').trim().replace(/^#/, '').slice(0, 12)
     if (!v) return
@@ -217,6 +292,13 @@ export default function AddTx({ open, editTx, onClose }) {
                   ⚡ {t.name} · ¥{fmt(t.amount)}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* v1.4 智能填单入口 */}
+          {!editTx && (
+            <div className="meta-row" style={{ marginBottom: 8 }}>
+              <button className="meta-pill" onClick={() => setSmartOpen(true)}>✨ 智能填单 · 一句话记一笔</button>
             </div>
           )}
 
@@ -364,6 +446,25 @@ export default function AddTx({ open, editTx, onClose }) {
           </div>
         </Sheet>
 
+        {/* v1.4 智能填单 */}
+        <Sheet open={smartOpen} onClose={() => setSmartOpen(false)} title="智能填单">
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.7, marginBottom: 10 }}>
+            用一句话描述这笔账，自动识别金额、分类与日期；已配置 API Key 时由智谱 GLM 解析，未配置时按本地规则解析。
+          </div>
+          <textarea
+            className="input" rows={3} autoFocus
+            placeholder={'例如：昨天中午吃了碗面花了28块\n或：9月30日 打车 23.5 滴滴'}
+            value={smartText} onChange={(e) => setSmartText(e.target.value)}
+          />
+          <button className="btn" style={{ marginTop: 12 }} disabled={smartBusy} onClick={doSmartParse}>
+            {smartBusy ? '解析中…' : '✨ 解析并填入'}
+          </button>
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={ocrBusy || smartBusy} onClick={() => ocrRef.current?.click()}>
+            {ocrBusy ? '识别中…' : '📷 识别小票图片自动填单'}
+          </button>
+          <input ref={ocrRef} type="file" accept="image/*" hidden onChange={onPickOcr} />
+        </Sheet>
+
         {/* v1.2 附件预览 */}
         <Sheet open={attachOpen} onClose={() => setAttachOpen(false)} title="小票照片">
           {attachUrl && (
@@ -378,7 +479,7 @@ export default function AddTx({ open, editTx, onClose }) {
         </Sheet>
       </div>
 
-      <Confirm open={delConfirm} title="删除这条账单？" text="删除后不可恢复" okText="删除" danger onOk={del} onCancel={() => setDelConfirm(false)} />
+      <Confirm open={delConfirm} title="删除这条账单？" text="将移入回收站，30 天内可在「设置 → 回收站」恢复" okText="删除" danger onOk={del} onCancel={() => setDelConfirm(false)} />
     </div>
   )
 

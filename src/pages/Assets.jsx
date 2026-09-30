@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm, Empty } from '../ui.jsx'
 import { ACCOUNT_TYPES } from '../seed.js'
-import { accountBalance, netWorth, fmt, fmtCur, toBase, uid, round2 } from '../utils.js'
+import { accountBalance, netWorth, fmt, fmtCur, toBase, uid, round2, netWorthSeries } from '../utils.js'
 
 const PALETTE = ['#ff8a65', '#42a5f5', '#66bb6a', '#ab47bc', '#ffa726', '#26c6da', '#ec407a', '#7e57c2']
 const CURRENCIES = ['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'AUD', 'CAD', 'SGD', 'KRW']
@@ -91,6 +91,9 @@ export default function Assets({ nav }) {
             </div>
           </div>
         </div>
+
+        {/* v1.4 净值趋势（每日快照，手写 SVG） */}
+        <NetWorthTrend state={state} />
 
         {state.accounts.length === 0 && (
           <div className="card">
@@ -284,5 +287,59 @@ export default function Assets({ nav }) {
         onCancel={() => setDelId(null)}
       />
     </>
+  )
+}
+
+// v1.4 净值趋势卡：取最近 30 天快照画面积折线
+function NetWorthTrend({ state }) {
+  const series = useMemo(() => netWorthSeries(state, 30), [state])
+  if (series.length < 2) {
+    return (
+      <div className="card">
+        <div className="card-title">净值趋势</div>
+        <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.8, marginTop: 8 }}>
+          每天打开轻语记账，都会自动记录当日净资产，攒够两天就能看到趋势曲线。
+        </div>
+      </div>
+    )
+  }
+  const W = 320
+  const H = 90
+  const P = 6
+  const vals = series.map((s) => s.net)
+  const min = Math.min(...vals)
+  const max = Math.max(...vals)
+  const span = max - min || 1
+  const pts = series.map((s, i) => [
+    P + (i / (series.length - 1)) * (W - P * 2),
+    H - P - ((s.net - min) / span) * (H - P * 2),
+  ])
+  const line = pts.map((p) => p.map((n) => Math.round(n * 10) / 10).join(',')).join(' ')
+  const area = `${P},${H - P} ${line} ${W - P},${H - P}`
+  const delta = round2(vals[vals.length - 1] - vals[0])
+  const up = delta >= 0
+  return (
+    <div className="card">
+      <div className="card-title">
+        净值趋势
+        <span className="muted" style={{ fontWeight: 400, marginLeft: 'auto' }}>近 {series.length} 天</span>
+      </div>
+      <div style={{ fontSize: 13, marginTop: 8 }}>
+        {series[0].date.slice(5)} 至 {series[series.length - 1].date.slice(5)} 净资产
+        <b style={{ color: up ? 'var(--green)' : 'var(--expense)', marginLeft: 4 }}>
+          {up ? '+' : '-'}¥{fmt(Math.abs(delta))}
+        </b>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', marginTop: 6, display: 'block' }} preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="nwgrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--brand)" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <polygon points={area} fill="url(#nwgrad)" />
+        <polyline points={line} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    </div>
   )
 }

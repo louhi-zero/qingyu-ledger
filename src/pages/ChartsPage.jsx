@@ -7,7 +7,7 @@ import { AiFace } from '../theme.jsx'
 import {
   fmt, fmt0, todayStr, periodOf, periodAdd, periodLabel, weekdayOf,
   txsOfPeriod, txsOfWeek, txsOfYear, sumBy, statByCategory, weekKey, weekDays, weekLabel,
-  pad2, periodBounds, round2, yearOf,
+  pad2, periodBounds, round2, yearOf, buildMonthHtml, printHtml,
 } from '../utils.js'
 
 export default function ChartsPage() {
@@ -29,6 +29,11 @@ export default function ChartsPage() {
   const inc = sumBy(curTxs, 'income')
   const bal = round2(inc - exp)
   const metricVal = metric === 'balance' ? bal : metric === 'expense' ? exp : inc
+
+  // v1.4 月账单导出 PDF（打印样式，系统打印面板里选「另存为 PDF」）
+  const exportPdf = () => {
+    printHtml(buildMonthHtml(state, period))
+  }
 
   // 周视图数据
   const weekData = useMemo(() => {
@@ -117,6 +122,11 @@ export default function ChartsPage() {
 
         {/* 汇总 */}
         <div className="card">
+          {scope === 'month' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button className="chip" onClick={exportPdf}>⬇ 导出 PDF</button>
+            </div>
+          )}
           <div style={{ marginBottom: 10 }}>
             <Seg options={[{ value: 'balance', label: '结余' }, { value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} value={metric} onChange={setMetric} />
           </div>

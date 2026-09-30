@@ -12,7 +12,7 @@
 import {
   round2, sumBy, statByCategory, catInfo, findCat, accountById,
   txsOfLedger, txsInRange, txsOfPeriod, periodBounds, periodAdd, periodLabel,
-  yearBounds, addDays, parseD, todayStr, pad2,
+  yearBounds, addDays, parseD, todayStr, pad2, parseTxTextLocal, guessCategoryId,
 } from './utils.js'
 
 // ---------- 本机配置（不云同步） ----------
@@ -461,3 +461,145 @@ export async function testConnection(cfg) {
 
 // 报告缓存 key
 export const reportKey = (kind, key) => (kind === 'year' ? String(key) : String(key))
+
+// ---------- v1.4 智能填单：口语文本 → 结构化账单 ----------
+function mapCategory(state, name, type) {
+  if (!name) return null
+  const clean = String(name).trim()
+  if (!clean) return null
+  const list = type === 'income' ? state.categories.income : state.categories.expense
+  for (const c of list) {
+    if (c.name === clean) return c.id
+    const sub = (c.children || []).find((x) => x.name === clean)
+    if (sub) return sub.id
+  }
+  for (const c of list) {
+    if (c.name.includes(clean) || clean.includes(c.name)) return c.id
+    for (const sub of c.children || []) {
+      if (sub.name.includes(clean) || clean.includes(sub.name)) return sub.id
+    }
+  }
+  return null
+}
+function mapAccount(state, name) {
+  if (!name) return null
+  const clean = String(name).trim()
+  if (!clean) return null
+  const hit = state.accounts.find((a) => a.name === clean)
+    || state.accounts.find((a) => a.name.includes(clean) || clean.includes(a.name))
+  return hit ? hit.id : null
+}
+
+// GLM 结构化解析（非流式 json_object）；失败抛错/返回 null
+export async function parseTxTextAI(cfg, text, state, { signal } = {}) {
+  const today = todayStr()
+  const expNames = state.categories.expense.map((c) => c.name).join('、')
+  const incNames = state.categories.income.map((c) => c.name).join('、')
+  const accNames = state.accounts.map((a) => a.name).join('、')
+  const sys = [
+    '你是记账助手。从用户的一句话或粘贴文本中抽取一笔账单，严格只输出一个 JSON 对象，不要 markdown 代码块，格式：',
+    '{"type":"expense|income|transfer","amount":数字(元),"date":"YYYY-MM-DD","time":"HH:mm","note":"不超过20字","category":"分类名","account":"账户名"}',
+    `今天是 ${today}；「昨天/前天/上周」等要换算成具体日期。`,
+    `type=expense 时 category 从：${expNames}；type=income 时从：${incNames}。`,
+    `account 尽量从：${accNames} 里选，不确定给空字符串。`,
+    '无法确定就给默认：type=expense、date=今天、time=12:00，category/account/note 空字符串。金额必须大于 0。',
+  ].join('\n')
+  const body = JSON.stringify({
+    model: cfg.model,
+    messages: [
+      { role: 'system', content: sys },
+      { role: 'user', content: String(text || '').slice(0, 200) },
+    ],
+    stream: false,
+    temperature: 0.1,
+    response_format: { type: 'json_object' },
+    max_tokens: 220,
+  })
+  const r = await postText(cfg, body, { signal })
+  if (!r.ok) throw new AiHttpError(r.status, r.text)
+  let parsed
+  try { parsed = JSON.parse(r.text) } catch { return null }
+  const content = parsed?.choices?.[0]?.message?.content || ''
+  const start = content.indexOf('{')
+  const end = content.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  let j
+  try { j = JSON.parse(content.slice(start, end + 1)) } catch { return null }
+  const amount = round2(Number(j.amount))
+  if (!(amount > 0)) return null
+  const type = ['expense', 'income', 'transfer'].includes(j.type) ? j.type : 'expense'
+  return {
+    type,
+    amount,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(j.date || '') ? j.date : today,
+    time: /^\d{1,2}:\d{2}/.test(j.time || '') ? j.time.slice(0, 5) : null,
+    note: typeof j.note === 'string' ? j.note.trim().slice(0, 20) : '',
+    categoryId: type === 'transfer' ? null : mapCategory(state, j.category, type),
+    accountId: mapAccount(state, j.account),
+    source: 'ai',
+  }
+}
+
+// 统一入口：配置了 Key 走 AI，无 Key / AI 失败 / 解析不出 → 本地正则兜底
+export async function parseTxText(cfg, text, state, { signal } = {}) {
+  if (cfg?.key) {
+    try {
+      const r = await parseTxTextAI(cfg, text, state, { signal })
+      if (r) return r
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e
+    }
+  }
+  return parseTxTextLocal(text, state)
+}
+
+// ---------- v1.4 扫票 OCR：GLM-4V 多模态识别小票 ----------
+export async function parseReceiptImage(cfg, dataUrl, state, { signal } = {}) {
+  const today = todayStr()
+  const catNames = state.categories.expense.map((c) => c.name).join('、')
+  const sys = [
+    '你是小票识别助手。识别图片中的购物小票/发票/支付账单截图，严格只输出一个 JSON 对象，不要 markdown 代码块，格式：',
+    '{"total":数字(元,实付合计),"date":"YYYY-MM-DD","time":"HH:mm","merchant":"商家名","category":"分类名","note":"不超过16字的消费摘要"}',
+    `今天是 ${today}。date/time 取小票上的交易时间，识别不出用今天和 12:00。`,
+    'total 取「实收/合计/实付/本次支付」金额；没有金额就输出 {"total":0}。',
+    `category 只能从这些支出分类里选：${catNames}。`,
+  ].join('\n')
+  const body = JSON.stringify({
+    model: cfg.model,
+    messages: [
+      { role: 'system', content: sys },
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: dataUrl } },
+          { type: 'text', text: '识别这张小票并按要求输出 JSON' },
+        ],
+      },
+    ],
+    stream: false,
+    temperature: 0.1,
+    max_tokens: 300,
+  })
+  const r = await postText(cfg, body, { signal })
+  if (!r.ok) throw new AiHttpError(r.status, r.text)
+  let parsed
+  try { parsed = JSON.parse(r.text) } catch { return null }
+  const content = parsed?.choices?.[0]?.message?.content || ''
+  const start = content.indexOf('{')
+  const end = content.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  let j
+  try { j = JSON.parse(content.slice(start, end + 1)) } catch { return null }
+  const amount = round2(Number(j.total))
+  if (!(amount > 0)) return null
+  const merchant = typeof j.merchant === 'string' ? j.merchant.trim().slice(0, 16) : ''
+  return {
+    amount,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(j.date || '') ? j.date : today,
+    time: /^\d{1,2}:\d{2}/.test(j.time || '') ? j.time.slice(0, 5) : '12:00',
+    merchant,
+    note: (typeof j.note === 'string' && j.note.trim()) ? j.note.trim().slice(0, 16) : merchant,
+    categoryId: guessCategoryId(state, `${merchant} ${j.category || ''}`, 'expense'),
+    source: 'ocr',
+  }
+}

@@ -1,11 +1,11 @@
-import React, { useRef, useState } from 'react'
+﻿import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav, DEFAULT_TAB_ICONS } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
 import { AvatarFace, AiFace, useAiFacePhoto, useWelcomeBg, useMediaActions } from '../theme.jsx'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES } from '../utils.js'
 
-const APP_VERSION = '1.3.0'
+const APP_VERSION = '1.4.0'
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
 
@@ -282,7 +282,10 @@ export default function Settings({ nav }) {
             toast(next ? '已开启每日提醒' : '已关闭提醒')
           }}>
             <div className="cico">⏰</div>
-            <div className="cmain"><div className="ctitle">每日记账提醒</div></div>
+            <div className="cmain">
+              <div className="ctitle">每日记账提醒</div>
+              <div className="cdesc">App 内走系统定时通知，浏览器/桌面版为页面通知</div>
+            </div>
             <div className="cright"><Switch on={s.remindEnabled} onChange={() => {
               const next = !s.remindEnabled
               set((d) => { d.settings.remindEnabled = next })
@@ -326,6 +329,19 @@ export default function Settings({ nav }) {
           </div>
           <input ref={restoreRef} type="file" accept=".json,application/json" style={{ display: 'none' }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) readRestore(f); e.target.value = '' }} />
+          <div className="cell" onClick={() => nav.push({ page: 'trash', title: '回收站' })}>
+            <div className="cico">♻️</div>
+            <div className="cmain">
+              <div className="ctitle">回收站</div>
+              <div className="cdesc">删除的账单保留 30 天，可恢复</div>
+            </div>
+            <div className="cright">
+              {state.transactions.some((t) => t.deletedAt) && (
+                <span className="tico-preview">{state.transactions.filter((t) => t.deletedAt).length} 件</span>
+              )}
+              <span className="arrow">›</span>
+            </div>
+          </div>
           <div className="cell" onClick={() => { loadDemo(); toast('已载入示例数据，可随意体验') }}>
             <div className="cico">🎁</div>
             <div className="cmain"><div className="ctitle">载入示例数据</div><div className="cdesc">覆盖当前数据，用于体验全部功能</div></div>

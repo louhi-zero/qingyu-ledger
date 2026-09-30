@@ -24,6 +24,8 @@ import Templates from './pages/Templates.jsx'
 import CreditCards from './pages/CreditCards.jsx'
 import Debts from './pages/Debts.jsx'
 import Goals from './pages/Goals.jsx'
+import ScanReceipt from './pages/ScanReceipt.jsx'
+import Trash from './pages/Trash.jsx'
 import { ThemeProvider, Backdrop, useWelcomeBg } from './theme.jsx'
 
 const NavCtx = createContext(null)
@@ -60,6 +62,8 @@ const SUB_PAGES = {
   creditCards: CreditCards,
   debts: Debts,
   goals: Goals,
+  scan: ScanReceipt,
+  trash: Trash,
 }
 
 // 欢迎页（启动页）：可自定义背景图（设置-外观-启动页背景）
