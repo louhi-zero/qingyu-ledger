@@ -140,6 +140,22 @@ assert.equal(bTx.attachAt, '2026-10-02T00:00:00Z')
 assert.equal(B.local.templates.find((t) => t.id === 'tpl1')?.name, '午餐模板')
 ok('交易行级 v1.2 字段（标签/报销/附件时间）与记账模板跨端下发一致')
 
+// v1.3：goals / fxRates / 账户新字段（币种、信用卡、债务）跨端同步
+A.local.goals = A.local.goals || []
+A.local.goals.push({ id: 'goal1', name: '旅行基金', icon: '🧳', target: 20000, saved: 5000, deadline: '2027-03-01', note: '', at: '2026-10-03T00:00:00Z' })
+A.local.fxRates = { ...(A.local.fxRates || {}), USD: 7.35 }
+A.local.accounts.push({ id: 'acc-cc1', name: '外币信用卡', type: 'credit', icon: '🪪', initial: 0, color: '#ab47bc', currency: 'USD', billingDay: 5, dueDay: 23, creditLimit: 30000 })
+await devSync(A, tA)
+await devSync(B, tB)
+assert.equal(B.local.goals.find((g) => g.id === 'goal1')?.name, '旅行基金')
+assert.equal(B.local.fxRates.USD, 7.35)
+const bCc = B.local.accounts.find((a) => a.id === 'acc-cc1')
+assert.equal(bCc?.currency, 'USD')
+assert.equal(bCc?.billingDay, 5)
+assert.equal(bCc?.creditLimit, 30000)
+assert.equal(stableJson(A.local), stableJson(B.local), 'v1.3 字段合并后两端必须收敛一致')
+ok('v1.3 储蓄目标/汇率表/账户新字段跨端下发一致，两端收敛')
+
 // 结果断言
 const ids = new Set(A.local.transactions.map((x) => x.id))
 assert.ok(ids.has('sync-a1') && ids.has('sync-a2') && ids.has('sync-b1'), '三笔新增都在')

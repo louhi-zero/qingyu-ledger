@@ -1,16 +1,27 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Sheet, Switch, Confirm, Seg } from '../ui.jsx'
-import { EmojiPicker } from '../ui.jsx'
-import { AvatarFace, useMediaActions } from '../theme.jsx'
-import { txsOfLedger, txsToCSV, downloadFile, todayStr } from '../utils.js'
+import { useNav, DEFAULT_TAB_ICONS } from '../App.jsx'
+import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
+import { AvatarFace, AiFace, useAiFacePhoto, useWelcomeBg, useMediaActions } from '../theme.jsx'
+import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES } from '../utils.js'
 
-const APP_VERSION = '1.2.0'
+const APP_VERSION = '1.3.0'
+
+const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
+
+const TAB_ICON_ITEMS = [
+  { key: 'home', name: '明细' },
+  { key: 'charts', name: '图表' },
+  { key: 'discover', name: '发现' },
+  { key: 'profile', name: '我的' },
+]
 
 export default function Settings({ nav }) {
   const { state, set, toast, loadDemo, clearAll, restoreState } = useStore()
   const s = state.settings
   const media = useMediaActions()
+  const aiFacePhoto = useAiFacePhoto()
+  const welcomeBg = useWelcomeBg()
   const [confirmClear, setConfirmClear] = useState(false)
   const [nameOpen, setNameOpen] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
@@ -18,9 +29,19 @@ export default function Settings({ nav }) {
   const [name, setName] = useState(s.nickname)
   const [pending, setPending] = useState(null)
   const [busyImg, setBusyImg] = useState(false)
+  // v1.3 个性化
+  const [tabIconOpen, setTabIconOpen] = useState(false)
+  const [pickTab, setPickTab] = useState(null) // 正在选图标的 tab key
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
+  const [aiFaceOpen, setAiFaceOpen] = useState(false)
+  const [aiFaceTab, setAiFaceTab] = useState('emoji')
+  // v1.3 资金管理：本位币与汇率
+  const [fxOpen, setFxOpen] = useState(false)
   const restoreRef = useRef(null)
   const avatarFileRef = useRef(null)
   const wallpaperRef = useRef(null)
+  const welcomeFileRef = useRef(null)
+  const aiFaceFileRef = useRef(null)
 
   const pickImage = async (kind, file) => {
     if (!file) return
@@ -30,10 +51,18 @@ export default function Settings({ nav }) {
         await media.saveAvatarPhoto(file)
         toast('头像已更新')
         setAvatarOpen(false)
-      } else {
+      } else if (kind === 'wallpaper') {
         await media.saveWallpaper(file)
         set((d) => { d.settings.glassOn = true })
         toast('壁纸已更换，液态玻璃已开启')
+      } else if (kind === 'welcome') {
+        await media.saveWelcomeBg(file)
+        toast('启动页背景已更新')
+        setWelcomeOpen(false)
+      } else if (kind === 'aiface') {
+        await media.saveAiFace(file)
+        toast('AI 形象已更新')
+        setAiFaceOpen(false)
       }
     } catch {
       toast('图片读取失败，请换一张试试', 'err')
@@ -148,11 +177,38 @@ export default function Settings({ nav }) {
             ref={wallpaperRef} type="file" accept="image/*" style={{ display: 'none' }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('wallpaper', f); e.target.value = '' }}
           />
+          <div className="cell" onClick={() => { setPickTab(null); setTabIconOpen(true) }}>
+            <div className="cico">🧩</div>
+            <div className="cmain">
+              <div className="ctitle">底部菜单图标</div>
+              <div className="cdesc">把明细/图表/发现/我的换成喜欢的图标</div>
+            </div>
+            <div className="cright">
+              <span className="tico-preview">{TAB_ICON_ITEMS.some((t) => s.tabIcons?.[t.key]) ? '已自定义' : '默认'}</span>
+              <span className="arrow">›</span>
+            </div>
+          </div>
+          <div className="cell" onClick={() => setWelcomeOpen(true)}>
+            <div className="cico">🌅</div>
+            <div className="cmain">
+              <div className="ctitle">启动页背景</div>
+              <div className="cdesc">{s.welcomeBgAt ? '已设置，点击重新选择' : '上传一张图，首次打开更有专属感'}</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
         </div>
 
         {/* AI */}
         <div className="group">
           <div className="gtitle">AI 智能分析</div>
+          <div className="cell" onClick={() => { setAiFaceTab(s.aiFaceAt ? 'photo' : 'emoji'); setAiFaceOpen(true) }}>
+            <div className="cico"><AiFace style={{ fontSize: 22, lineHeight: 1 }} /></div>
+            <div className="cmain">
+              <div className="ctitle">AI 助手形象</div>
+              <div className="cdesc">出现在账单分析、消费点评入口处</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
           <div className="cell" onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}>
             <div className="cico">🤖</div>
             <div className="cmain">
@@ -179,6 +235,14 @@ export default function Settings({ nav }) {
                 {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d}日</option>)}
               </select>
             </div>
+          </div>
+          <div className="cell" onClick={() => setFxOpen(true)}>
+            <div className="cico">💱</div>
+            <div className="cmain">
+              <div className="ctitle">本位币与汇率</div>
+              <div className="cdesc">人民币 CNY · 1 美元 ≈ {(state.fxRates?.USD ?? FX_RATES.USD.rate).toFixed(2)}</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
           </div>
           <div className="cell" onClick={() => set((d) => { d.settings.hideAmount = !d.settings.hideAmount })}>
             <div className="cico">🔒</div>
@@ -343,6 +407,140 @@ export default function Settings({ nav }) {
             />
           </div>
         )}
+      </Sheet>
+
+      {/* 底部菜单图标 */}
+      <Sheet open={tabIconOpen} onClose={() => { setTabIconOpen(false); setPickTab(null) }} title="底部菜单图标">
+        {pickTab ? (
+          <div>
+            <button className="chip" style={{ marginBottom: 10 }} onClick={() => setPickTab(null)}>‹ 返回</button>
+            <EmojiPicker
+              value={s.tabIcons?.[pickTab] || DEFAULT_TAB_ICONS[pickTab]}
+              onChange={(e) => {
+                set((d) => { d.settings.tabIcons[pickTab] = e })
+                setPickTab(null)
+                toast('图标已更新')
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            {TAB_ICON_ITEMS.map((t) => (
+              <div key={t.key} className="cell" style={{ padding: '11px 4px' }} onClick={() => setPickTab(t.key)}>
+                <div className="tico-cell">{s.tabIcons?.[t.key] || DEFAULT_TAB_ICONS[t.key]}</div>
+                <div className="cmain"><div className="ctitle">{t.name}</div></div>
+                <div className="cright muted">点击更换<span className="arrow">›</span></div>
+              </div>
+            ))}
+            <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => {
+              set((d) => { d.settings.tabIcons = {} })
+              toast('已恢复默认图标')
+            }}>恢复默认图标</button>
+          </div>
+        )}
+      </Sheet>
+
+      {/* 启动页背景 */}
+      <Sheet open={welcomeOpen} onClose={() => setWelcomeOpen(false)} title="启动页背景">
+        <div className="center-box" style={{ padding: '6px 0 12px' }}>
+          <div className={`welcome-preview${welcomeBg ? ' has-img' : ''}`}>
+            {welcomeBg && <img src={welcomeBg} alt="" decoding="async" draggable={false} />}
+            {!welcomeBg && <span style={{ fontSize: 30 }}>🌅</span>}
+          </div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            {welcomeBg ? '已设置背景，下次首次打开生效' : '当前为默认渐变背景'}
+          </div>
+        </div>
+        <button className="btn" disabled={busyImg} onClick={() => welcomeFileRef.current?.click()}>
+          {busyImg ? '处理中…' : '📷 选择背景图片'}
+        </button>
+        {s.welcomeBgAt && (
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyImg} onClick={async () => {
+            await media.clearWelcomeBg()
+            toast('已恢复默认背景')
+          }}>恢复默认渐变背景</button>
+        )}
+        <input
+          ref={welcomeFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('welcome', f); e.target.value = '' }}
+        />
+      </Sheet>
+
+      {/* AI 助手形象 */}
+      <Sheet open={aiFaceOpen} onClose={() => setAiFaceOpen(false)} title="AI 助手形象">
+        <Seg
+          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 相册图片', value: 'photo' }]}
+          value={aiFaceTab}
+          onChange={setAiFaceTab}
+        />
+        <div style={{ height: 12 }} />
+        {aiFaceTab === 'emoji' ? (
+          <div>
+            <div className="center-box" style={{ padding: '6px 0 12px' }}>
+              <div className="aiface-preview"><AiFace /></div>
+            </div>
+            <EmojiPicker value={s.aiFace} onChange={(e) => {
+              set((d) => { d.settings.aiFace = e; d.settings.aiFaceAt = null })
+              media.clearAiFace().catch(() => {})
+              toast('AI 形象已更新')
+            }} />
+          </div>
+        ) : (
+          <div>
+            <div className="center-box" style={{ padding: '6px 0 12px' }}>
+              <div className="aiface-preview"><AiFace /></div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>方形图片会自动居中裁切</div>
+            </div>
+            <button className="btn" disabled={busyImg} onClick={() => aiFaceFileRef.current?.click()}>
+              {busyImg ? '处理中…' : '📷 从相册选择图片'}
+            </button>
+            {s.aiFaceAt && (
+              <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyImg} onClick={async () => {
+                await media.clearAiFace()
+                setAiFaceTab('emoji')
+                toast('已移除照片，用回表情')
+              }}>移除照片，用回表情</button>
+            )}
+            <input
+              ref={aiFaceFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) pickImage('aiface', f); e.target.value = '' }}
+            />
+          </div>
+        )}
+      </Sheet>
+
+      {/* 本位币与汇率（v1.3 多币种） */}
+      <Sheet open={fxOpen} onClose={() => setFxOpen(false)} title="本位币与汇率">
+        <div className="field">
+          <label>本位币（统计折算目标）</label>
+          <select className="input" value="CNY" disabled><option value="CNY">人民币 CNY</option></select>
+          <div className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.7 }}>
+            外币账户按下方汇率折算为人民币，参与净资产与资产合计；交易与图表仍按账户币种记录。汇率为离线手动值，可按银行牌价自行修改。
+          </div>
+        </div>
+        <div className="field">
+          <label>汇率（1 单位外币 ≈ 人民币）</label>
+          {FX_CODES.map((c) => (
+            <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <div style={{ width: 92, flexShrink: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{c}</div>
+                <div className="muted" style={{ fontSize: 11 }}>{FX_RATES[c].name} {FX_RATES[c].sym}</div>
+              </div>
+              <input className="input" type="number" inputMode="decimal" step="0.0001"
+                value={state.fxRates?.[c] ?? FX_RATES[c].rate}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  set((d) => { d.fxRates[c] = Number.isFinite(v) && v > 0 ? v : 1 })
+                }} />
+            </div>
+          ))}
+        </div>
+        <button className="btn ghost" onClick={() => {
+          set((d) => {
+            for (const c of FX_CODES) d.fxRates[c] = FX_RATES[c].rate
+          })
+          toast('已恢复默认参考汇率')
+        }}>恢复默认参考汇率</button>
       </Sheet>
 
       <Confirm

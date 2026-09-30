@@ -74,8 +74,8 @@ export function Bars({ data, height = 150, color = 'var(--brand)', fmtVal = fmt0
   )
 }
 
-// 预算环形进度
-export function Ring({ pct, size = 96, thickness = 10, color = 'var(--brand)', track = 'var(--card2)' }) {
+// 预算环形进度（label 可换文案，如储蓄目标用「已存」）
+export function Ring({ pct, size = 96, thickness = 10, color = 'var(--brand)', track = 'var(--card2)', label = '已使用' }) {
   const r = (size - thickness) / 2
   const c = 2 * Math.PI * r
   const p = Math.min(pct, 100)
@@ -89,7 +89,7 @@ export function Ring({ pct, size = 96, thickness = 10, color = 'var(--brand)', t
       </svg>
       <div className="donut-center">
         <div className="l2" style={{ fontSize: 17 }}>{Math.round(pct)}%</div>
-        <div className="l1">已使用</div>
+        <div className="l1">{label}</div>
       </div>
     </div>
   )

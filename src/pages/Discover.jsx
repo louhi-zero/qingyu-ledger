@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { Seg, StatRow, Bar, Amount } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
+import { AiFace } from '../theme.jsx'
 import { fmt, periodOf, periodLabel, txsOfPeriod, sumBy, netWorth, round2, todayStr } from '../utils.js'
 
 export default function Discover() {
@@ -21,6 +22,9 @@ export default function Discover() {
 
   const tools = [
     { icon: '🏦', name: '资产管家', page: 'assets' },
+    { icon: '🪪', name: '信用卡', page: 'creditCards' },
+    { icon: '📉', name: '债务管理', page: 'debts' },
+    { icon: '🎯', name: '储蓄目标', page: 'goals' },
     { icon: '💼', name: '报销管理', page: 'reimburse' },
     { icon: '⚡', name: '记账模板', page: 'templates' },
     { icon: '🏠', name: '房贷计算器', page: 'loan' },
@@ -98,7 +102,7 @@ export default function Discover() {
         {/* AI 账单分析横幅 */}
         <div className="card" style={{ background: 'linear-gradient(135deg, rgba(111,107,255,.14), rgba(76,125,255,.08))', border: '1px solid color-mix(in srgb, var(--brand2) 25%, transparent)', cursor: 'pointer' }} onClick={() => nav.push({ page: 'ai', title: 'AI 账单分析', params: { kind: 'month', period } })}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 34 }}>🤖</div>
+            <AiFace style={{ fontSize: 34, lineHeight: 1 }} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700 }}>AI 账单分析</div>
               <div className="muted" style={{ marginTop: 2 }}>

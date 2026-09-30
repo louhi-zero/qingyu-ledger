@@ -100,7 +100,7 @@ export function Backdrop() {
   const glows = palette.length ? palette : FALLBACK_GLOWS
   return (
     <div className="backdrop" aria-hidden="true">
-      {wallUrl && <img className="bd-img" src={wallUrl} alt="" draggable={false} />}
+      {wallUrl && <img className="bd-img" src={wallUrl} alt="" decoding="async" draggable={false} />}
       <div className="bd-veil" />
       <div className="bd-glows">
         {glows.map((c, i) => (
@@ -111,20 +111,42 @@ export function Backdrop() {
   )
 }
 
-// ---------- 头像照片 ----------
-export function useAvatarPhoto() {
-  const { state } = useStore()
-  const at = state.settings.avatarPhotoAt
+// ---------- 图片资产通用 hook（at 变化 → 取 objectURL） ----------
+export function useAssetUrl(at, key) {
   const [url, setUrl] = useState(null)
   useEffect(() => {
     let alive = true
     if (!at) { setUrl(null); return }
-    getObjectUrl('avatar')
+    getObjectUrl(key)
       .then((u) => { if (alive) setUrl(u) })
       .catch(() => {})
     return () => { alive = false }
-  }, [at])
+  }, [at, key])
   return url
+}
+
+// ---------- 头像照片 ----------
+export function useAvatarPhoto() {
+  const { state } = useStore()
+  return useAssetUrl(state.settings.avatarPhotoAt, 'avatar')
+}
+
+// 启动页背景（IndexedDB 'welcomebg'）
+export function useWelcomeBg() {
+  const { state } = useStore()
+  return useAssetUrl(state.settings.welcomeBgAt, 'welcomebg')
+}
+
+// AI 助手形象内容：照片优先，否则 emoji
+export function useAiFacePhoto() {
+  const { state } = useStore()
+  return useAssetUrl(state.settings.aiFaceAt, 'aiface')
+}
+export function AiFace({ className = '', style }) {
+  const { state } = useStore()
+  const url = useAiFacePhoto()
+  if (url) return <img className={`ai-face-img ${className}`} src={url} alt="AI 助手" style={style} draggable={false} />
+  return <span className={className} style={style}>{state.settings.aiFace || '🤖'}</span>
 }
 
 // 头像内容：照片优先，否则 emoji
@@ -172,6 +194,40 @@ export function useMediaActions() {
         set((d) => {
           d.settings.wallpaperAt = null
           d.assetsMeta.wallpaper = { at: null, hash: null }
+        })
+      },
+      async saveWelcomeBg(file) {
+        const blob = await fileToJpeg(file, { maxSize: 1080, quality: 0.8, cover: false })
+        const hash = await hashBlob(blob)
+        const at = new Date().toISOString()
+        await replaceBlob('welcomebg', blob)
+        set((d) => {
+          d.settings.welcomeBgAt = at
+          d.assetsMeta.welcomebg = { at, hash }
+        })
+      },
+      async clearWelcomeBg() {
+        await replaceBlob('welcomebg', null)
+        set((d) => {
+          d.settings.welcomeBgAt = null
+          d.assetsMeta.welcomebg = { at: null, hash: null }
+        })
+      },
+      async saveAiFace(file) {
+        const blob = await fileToJpeg(file, { maxSize: 256, quality: 0.85, cover: true })
+        const hash = await hashBlob(blob)
+        const at = new Date().toISOString()
+        await replaceBlob('aiface', blob)
+        set((d) => {
+          d.settings.aiFaceAt = at
+          d.assetsMeta.aiface = { at, hash }
+        })
+      },
+      async clearAiFace() {
+        await replaceBlob('aiface', null)
+        set((d) => {
+          d.settings.aiFaceAt = null
+          d.assetsMeta.aiface = { at: null, hash: null }
         })
       },
     }),

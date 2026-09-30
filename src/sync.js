@@ -256,6 +256,11 @@ export function mergeStates(base, local, remote, opts = {}) {
   const toTplMap = (arr) => Object.fromEntries((arr || []).filter((t) => t && t.id).map((t) => [t.id, t]))
   out.templates = Object.values(mergeLwwMap(toTplMap(local.templates), toTplMap(remote.templates)))
     .sort((a, b) => (a.at || '').localeCompare(b.at || ''))
+  // v1.3 储蓄目标：同模板，按条目 at 做 LWW 并集
+  out.goals = Object.values(mergeLwwMap(toTplMap(local.goals), toTplMap(remote.goals)))
+    .sort((a, b) => (a.at || '').localeCompare(b.at || ''))
+  // v1.3 汇率表：低频手动修改，整体按标量三向合并
+  out.fxRates = mergeScalar(b.fxRates ?? null, local.fxRates ?? null, remote.fxRates ?? null, 'fxRates', ctx)
 
   return { data: out, conflicts }
 }

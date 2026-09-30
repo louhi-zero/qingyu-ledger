@@ -91,6 +91,13 @@ export function emptyState() {
       aiIncludeNotes: true, // 分析时是否附带账单备注原文
       // v1.2 熬夜归属：0 点后（<5 点）记一笔默认算昨天
       nightAcross: false,
+      // v1.3 个性化：底部菜单图标（key→emoji，空串=用默认）、AI 助手形象、启动页背景
+      tabIcons: {}, // { home, charts, discover, profile }
+      aiFace: '🤖', // AI 形象 emoji（照片优先，见 aiFaceAt）
+      aiFaceAt: null,
+      welcomeBgAt: null, // 启动页背景更新时间，本体在 IndexedDB
+      // v1.3 资金管理：本位币（暂仅支持 CNY，预留字段）
+      baseCurrency: 'CNY',
     },
     categories: cats,
     accounts,
@@ -107,10 +114,19 @@ export function emptyState() {
     aiReports: {},
     // v1.2 记账模板：{id,name,type,amount,categoryId,accountId,note,at}
     templates: [],
+    // v1.3 储蓄目标：{id,name,icon,target,saved,deadline,note,at}
+    goals: [],
+    // v1.3 离线汇率表：1 单位外币 ≈ 多少 CNY（用户可在设置中修改，随云同步）
+    fxRates: {
+      USD: 7.12, EUR: 7.75, JPY: 0.0479, GBP: 9.05,
+      HKD: 0.91, AUD: 4.72, CAD: 5.21, SGD: 5.35, KRW: 0.0052,
+    },
     // v1.1 图片资产元数据（本体 Blob 在 IndexedDB，经 WebDAV 同步）
     assetsMeta: {
       avatar: { at: null, hash: null },
       wallpaper: { at: null, hash: null },
+      welcomebg: { at: null, hash: null },
+      aiface: { at: null, hash: null },
     },
   }
 }
@@ -121,6 +137,10 @@ export function demoState() {
   s.settings.welcomed = true
   s.accounts = defaultAccounts()
   const [cash, card, alipay, wechat] = s.accounts
+  // v1.3 示例：信用卡 + 负债账户（资金管理页演示）
+  const credit = { id: uid(), name: '招行信用卡', type: 'credit', icon: '🪪', initial: -600, color: PAL[5], currency: 'CNY', billingDay: 5, dueDay: 23, creditLimit: 30000 }
+  const loan = { id: uid(), name: '车贷', type: 'debt', icon: '🚗', initial: -40000, color: PAL[6], currency: 'CNY', rate: 4.5, dueDate: addDays(todayStr(), 400) }
+  s.accounts.push(credit, loan)
   const ledgers = s.ledgers
   ledgers.push({ id: uid(), name: '旅行账本', icon: '🧳', template: '旅行账本' })
   const cats = s.categories
@@ -187,6 +207,8 @@ export function demoState() {
   const recent = addDays(today, -1)
   txs.push(mk(recent, '13:00', 'expense', 58, find('餐饮', '午餐'), alipay.id, '和同事聚餐', { tags: ['聚餐', '同事'], reimburse: 'pending' }))
   txs.push(mk(today, '09:00', 'expense', 6, find('交通出行', '公交地铁'), alipay.id, '', { tags: ['通勤'] }))
+  // 本月一笔信用卡消费（信用卡页「本期应还」演示）
+  txs.push(mk(`${ty}-${pad2(tm)}-08`, '15:30', 'expense', 1299, find('购物', '数码家电'), credit.id, '换个新耳机'))
   // 转账一笔：工资卡 → 支付宝
   {
     const tr = mk(addDays(today, -3), '20:00', 'transfer', 500, null, card.id, '卡里转支付宝')
@@ -216,6 +238,11 @@ export function demoState() {
   s.templates = [
     { id: uid(), name: '工作日午餐', type: 'expense', amount: 22, categoryId: find('餐饮', '午餐'), accountId: alipay.id, note: '工作餐', at: new Date().toISOString() },
     { id: uid(), name: '地铁通勤', type: 'expense', amount: 6, categoryId: find('交通出行', '公交地铁'), accountId: alipay.id, note: '', at: new Date().toISOString() },
+  ]
+  // v1.3 示例储蓄目标
+  s.goals = [
+    { id: uid(), name: '云南旅行基金', icon: '🧳', target: 20000, saved: 6500, deadline: addDays(today, 180), note: '明年春天出发', at: new Date().toISOString() },
+    { id: uid(), name: '应急备用金', icon: '🛟', target: 30000, saved: 31200, deadline: addDays(today, 90), note: '已达成，保持住', at: new Date().toISOString() },
   ]
   // 发票抬头示例
   s.invoices = [{ id: uid(), name: '示例公司', taxNo: '91110000XXXXXXXXXX', address: '北京市朝阳区xx路1号', phone: '010-88888888', bank: 'XX银行北京分行', account: '6222 0000 0000 0000' }]

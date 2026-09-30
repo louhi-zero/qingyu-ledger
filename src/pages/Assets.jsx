@@ -2,12 +2,13 @@ import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm, Empty } from '../ui.jsx'
 import { ACCOUNT_TYPES } from '../seed.js'
-import { accountBalance, netWorth, fmt, uid, round2 } from '../utils.js'
+import { accountBalance, netWorth, fmt, fmtCur, toBase, uid, round2 } from '../utils.js'
 
 const PALETTE = ['#ff8a65', '#42a5f5', '#66bb6a', '#ab47bc', '#ffa726', '#26c6da', '#ec407a', '#7e57c2']
+const CURRENCIES = ['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'AUD', 'CAD', 'SGD', 'KRW']
 
 function blankAcc() {
-  return { id: uid(), name: '', type: 'cash', icon: '💵', initial: 0, color: PALETTE[0] }
+  return { id: uid(), name: '', type: 'cash', icon: '💵', initial: 0, color: PALETTE[0], currency: 'CNY' }
 }
 
 export default function Assets({ nav }) {
@@ -17,17 +18,18 @@ export default function Assets({ nav }) {
 
   const nw = useMemo(() => netWorth(state), [state])
 
-  // 分组：资产账户 / 负债账户
+  // 分组：信用卡 / 其他负债 / 资产账户
   const groups = useMemo(() => {
-    const asset = [], debt = []
+    const asset = [], credit = [], debt = []
     for (const a of state.accounts) {
       const bal = accountBalance(state, a.id)
       const t = ACCOUNT_TYPES.find((x) => x.type === a.type)
       const item = { ...a, balance: bal, typeName: t?.name || '自定义' }
-      if (t?.liability) debt.push(item)
+      if (a.type === 'credit') credit.push(item)
+      else if (t?.liability) debt.push(item)
       else asset.push(item)
     }
-    return { asset, debt }
+    return { asset, credit, debt }
   }, [state])
 
   const save = () => {
@@ -35,7 +37,10 @@ export default function Assets({ nav }) {
     set((d) => {
       const idx = d.accounts.findIndex((a) => a.id === edit.id)
       const t = ACCOUNT_TYPES.find((x) => x.type === edit.type)
-      const data = { ...edit, name: edit.name.trim(), initial: round2(Number(edit.initial) || 0), icon: edit.icon || t?.icon || '⭐' }
+      const data = { ...edit, name: edit.name.trim(), initial: round2(Number(edit.initial) || 0), icon: edit.icon || t?.icon || '⭐', currency: edit.currency || 'CNY' }
+      // 类型切换后清理不适用于该类型的字段
+      if (data.type !== 'credit') { delete data.billingDay; delete data.dueDay; delete data.creditLimit }
+      if (data.type !== 'debt' && data.type !== 'claim') { delete data.rate; delete data.dueDate }
       if (idx >= 0) d.accounts[idx] = data
       else d.accounts.push(data)
     })
@@ -95,6 +100,29 @@ export default function Assets({ nav }) {
           </div>
         )}
 
+        {groups.credit.length > 0 && (
+          <div className="group">
+            <div className="gtitle">信用卡 · {groups.credit.length}
+              <button className="chip on" style={{ marginLeft: 'auto' }} onClick={() => nav.push({ page: 'creditCards', title: '信用卡' })}>管理 ›</button>
+            </div>
+            {groups.credit.map((a) => (
+              <div key={a.id} className="cell" onClick={() => setEdit({ ...a, initial: String(a.initial) })}>
+                <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
+                <div className="cmain">
+                  <div className="ctitle">{a.name}</div>
+                  <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>
+                </div>
+                <div className="cright">
+                  <b style={{ color: a.balance > 0 ? 'var(--expense)' : 'var(--ink)', fontSize: 15 }}>
+                    {a.balance > 0 ? '-' : ''}{fmtCur(Math.abs(a.balance), a.currency)}
+                  </b>
+                  {a.currency !== 'CNY' && <div className="cdesc">折合 ¥{fmt(toBase(state, a.balance, a.currency))}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {groups.asset.length > 0 && (
           <div className="group">
             <div className="gtitle">资产账户 · {groups.asset.length}</div>
@@ -103,12 +131,13 @@ export default function Assets({ nav }) {
                 <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
                 <div className="cmain">
                   <div className="ctitle">{a.name}</div>
-                  <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ¥${fmt(a.initial)}` : ''}</div>
+                  <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>
                 </div>
                 <div className="cright">
                   <b style={{ color: a.balance < 0 ? 'var(--expense)' : 'var(--ink)', fontSize: 15 }}>
-                    {a.balance < 0 ? '-' : ''}¥{fmt(Math.abs(a.balance))}
+                    {a.balance < 0 ? '-' : ''}{fmtCur(Math.abs(a.balance), a.currency)}
                   </b>
+                  {a.currency !== 'CNY' && <div className="cdesc">折合 ¥{fmt(toBase(state, a.balance, a.currency))}</div>}
                 </div>
               </div>
             ))}
@@ -117,18 +146,21 @@ export default function Assets({ nav }) {
 
         {groups.debt.length > 0 && (
           <div className="group">
-            <div className="gtitle">负债账户 · {groups.debt.length}</div>
+            <div className="gtitle">负债账户 · {groups.debt.length}
+              <button className="chip on" style={{ marginLeft: 'auto' }} onClick={() => nav.push({ page: 'debts', title: '债务管理' })}>管理 ›</button>
+            </div>
             {groups.debt.map((a) => (
               <div key={a.id} className="cell" onClick={() => setEdit({ ...a, initial: String(a.initial) })}>
                 <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
                 <div className="cmain">
                   <div className="ctitle">{a.name}</div>
-                  <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ¥${fmt(a.initial)}` : ''}</div>
+                  <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>
                 </div>
                 <div className="cright">
                   <b style={{ color: a.balance > 0 ? 'var(--expense)' : 'var(--ink)', fontSize: 15 }}>
-                    {a.balance > 0 ? '-' : ''}¥{fmt(Math.abs(a.balance))}
+                    {a.balance > 0 ? '-' : ''}{fmtCur(Math.abs(a.balance), a.currency)}
                   </b>
+                  {a.currency !== 'CNY' && <div className="cdesc">折合 ¥{fmt(toBase(state, a.balance, a.currency))}</div>}
                 </div>
               </div>
             ))}
@@ -168,10 +200,57 @@ export default function Assets({ nav }) {
                 onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
             </div>
             <div className="field">
-              <label>期初余额（元，可填 0）</label>
+              <label>期初余额（可填 0）</label>
               <input className="input" type="number" inputMode="decimal" value={edit.initial}
                 onChange={(e) => setEdit({ ...edit, initial: e.target.value })} />
             </div>
+            <div className="field">
+              <label>币种（外币按设置-汇率折算为人民币统计）</label>
+              <select className="input" value={edit.currency || 'CNY'}
+                onChange={(e) => setEdit({ ...edit, currency: e.target.value })}>
+                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {edit.type === 'credit' && (
+              <>
+                <div className="field">
+                  <label>信用额度（元）</label>
+                  <input className="input" type="number" inputMode="decimal" value={edit.creditLimit || ''}
+                    placeholder="例如 30000"
+                    onChange={(e) => setEdit({ ...edit, creditLimit: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="field">
+                  <label>账单日 / 还款日（1-28 日）</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <select className="input" value={edit.billingDay || ''}
+                      onChange={(e) => setEdit({ ...edit, billingDay: Number(e.target.value) || null })}>
+                      <option value="">账单日</option>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d} 日</option>)}
+                    </select>
+                    <select className="input" value={edit.dueDay || ''}
+                      onChange={(e) => setEdit({ ...edit, dueDay: Number(e.target.value) || null })}>
+                      <option value="">还款日</option>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d} 日</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+            {(edit.type === 'debt' || edit.type === 'claim') && (
+              <>
+                <div className="field">
+                  <label>年利率（%，可留空）</label>
+                  <input className="input" type="number" inputMode="decimal" value={edit.rate || ''}
+                    placeholder="例如 4.5"
+                    onChange={(e) => setEdit({ ...edit, rate: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="field">
+                  <label>到期日（可留空）</label>
+                  <input className="input" type="date" value={edit.dueDate || ''}
+                    onChange={(e) => setEdit({ ...edit, dueDate: e.target.value || null })} />
+                </div>
+              </>
+            )}
             <div className="field">
               <label>图标颜色</label>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

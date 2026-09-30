@@ -63,54 +63,57 @@ export default function Profile() {
         <div className="me-head">
           <div className="me-row">
             <div className="avatar" onClick={() => { setAvatarTab(state.settings.avatarPhotoAt ? 'photo' : 'emoji'); setAvatarOpen(true) }}><AvatarFace /></div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 19, fontWeight: 800 }} onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
-                {state.settings.nickname} <span style={{ fontSize: 13, opacity: .8 }}>›</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="me-name" onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
+                <span className="me-name-txt">{state.settings.nickname}</span>
+                <span className="me-edit">✏️</span>
               </div>
-              <div style={{ fontSize: 12, opacity: .8, marginTop: 3 }}>点头像换形象 · 点昵称改名</div>
+              <div className="me-sub">点头像换形象 · 点昵称改名</div>
             </div>
             <button className={`punch ${checkedToday ? 'done' : ''}`} onClick={punch} disabled={checkedToday}>
-              {checkedToday ? `已连击 ${streak} 天` : '📋 打卡'}
+              {checkedToday ? `🔥 连击 ${streak} 天` : '📋 打卡'}
             </button>
           </div>
           <div className="me-stats">
-            <div className="ms"><div className="k">记账总天数</div><div className="v">{days}</div></div>
-            <div className="ms"><div className="k">记账总笔数</div><div className="v">{totalTx}</div></div>
-            <div className="ms"><div className="k">连续打卡</div><div className="v">{streak} 天</div></div>
+            <div className="ms"><div className="k">记账天数</div><div className="v">{days}<i>天</i></div></div>
+            <div className="ms"><div className="k">记账笔数</div><div className="v">{totalTx}<i>笔</i></div></div>
+            <div className="ms"><div className="k">连续打卡</div><div className="v">{streak}<i>天</i></div></div>
           </div>
         </div>
 
         <div className="group">
+          <div className="gtitle">记账</div>
           <div className="cell" onClick={() => nav.push({ page: 'ledgers' })}>
-            <div className="cico">📒</div>
+            <div className="cico c-amber">📒</div>
             <div className="cmain"><div className="ctitle">我的账本</div><div className="cdesc">{state.ledgers.length} 个账本</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => nav.push({ page: 'recurring' })}>
-            <div className="cico">🔁</div>
+            <div className="cico c-teal">🔁</div>
             <div className="cmain"><div className="ctitle">周期记账</div><div className="cdesc">工资房租这类固定收支自动入账</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => nav.push({ page: 'import' })}>
-            <div className="cico">📥</div>
+            <div className="cico c-blue">📥</div>
             <div className="cmain"><div className="ctitle">账单导入</div><div className="cdesc">支付宝 / 微信账单，导入自动去重</div></div>
             <div className="cright arrow">›</div>
           </div>
         </div>
 
         <div className="group">
+          <div className="gtitle">通用</div>
           <div className="cell" onClick={() => nav.push({ page: 'settings' })}>
-            <div className="cico">⚙️</div>
+            <div className="cico c-violet">⚙️</div>
             <div className="cmain"><div className="ctitle">设置</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setFbOpen(true)}>
-            <div className="cico">💬</div>
+            <div className="cico c-green">💬</div>
             <div className="cmain"><div className="ctitle">意见反馈</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setAboutOpen(true)}>
-            <div className="cico">ℹ️</div>
+            <div className="cico c-rose">ℹ️</div>
             <div className="cmain"><div className="ctitle">关于轻语记账</div></div>
             <div className="cright arrow">›</div>
           </div>
@@ -164,7 +167,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.2.0 · 全功能免费</div>
+          <div className="muted">v1.3.0 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>

@@ -3,6 +3,7 @@ import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Seg, Empty } from '../ui.jsx'
 import { Donut, Bars } from '../charts.jsx'
+import { AiFace } from '../theme.jsx'
 import {
   fmt, fmt0, todayStr, periodOf, periodAdd, periodLabel, weekdayOf,
   txsOfPeriod, txsOfWeek, txsOfYear, sumBy, statByCategory, weekKey, weekDays, weekLabel,
@@ -275,7 +276,7 @@ function AiMiniCard({ report, onOpen }) {
       onClick={onOpen}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 26 }}>🤖</div>
+        <AiFace style={{ fontSize: 26, lineHeight: 1 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 800, fontSize: 14.5 }}>
             {st?.title || 'AI 解读本期账单'}

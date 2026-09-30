@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react'
+import React, { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { AppProvider, useStore } from './store.jsx'
 import Home from './pages/Home.jsx'
 import ChartsPage from './pages/ChartsPage.jsx'
@@ -21,7 +21,10 @@ import AiInsight from './pages/AiInsight.jsx'
 import AiSettings from './pages/AiSettings.jsx'
 import Reimburse from './pages/Reimburse.jsx'
 import Templates from './pages/Templates.jsx'
-import { ThemeProvider, Backdrop } from './theme.jsx'
+import CreditCards from './pages/CreditCards.jsx'
+import Debts from './pages/Debts.jsx'
+import Goals from './pages/Goals.jsx'
+import { ThemeProvider, Backdrop, useWelcomeBg } from './theme.jsx'
 
 const NavCtx = createContext(null)
 export const useNav = () => useContext(NavCtx)
@@ -33,6 +36,9 @@ const TAB_PAGES = {
   discover: { title: '发现', comp: Discover },
   profile: { title: '我的', comp: Profile },
 }
+
+// 底部菜单默认图标（设置-外观-底部菜单图标 可自定义）
+export const DEFAULT_TAB_ICONS = { home: '📒', charts: '📊', discover: '🧭', profile: '👤' }
 
 const SUB_PAGES = {
   budget: Budget,
@@ -51,7 +57,51 @@ const SUB_PAGES = {
   aiSettings: AiSettings,
   reimburse: Reimburse,
   templates: Templates,
+  creditCards: CreditCards,
+  debts: Debts,
+  goals: Goals,
 }
+
+// 欢迎页（启动页）：可自定义背景图（设置-外观-启动页背景）
+function WelcomePage({ onStart }) {
+  const bg = useWelcomeBg()
+  return (
+    <div className="phone">
+      <div className="welcome">
+        {bg && <img className="welcome-bg" src={bg} alt="" decoding="async" draggable={false} />}
+        {bg && <div className="welcome-veil" />}
+        <div className="wlogo">📖</div>
+        <h1>轻语记账</h1>
+        <p>花一分钟，记下今天的收支</p>
+        <button className="btn" onClick={onStart}>从零开始记</button>
+        <div style={{ height: 10 }} />
+        <button className="btn ghost" onClick={onStart}>先随便看看（稍后可在设置加载示例数据）</button>
+      </div>
+    </div>
+  )
+}
+
+// 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘
+const TabBar = memo(function TabBar({ tab, setTab, openAdd }) {
+  const { state } = useStore()
+  const icons = { ...DEFAULT_TAB_ICONS, ...(state.settings.tabIcons || {}) }
+  return (
+    <nav className="tabbar">
+      {Object.entries(TAB_PAGES).map(([key, cfg]) =>
+        key === 'add' ? (
+          <button key={key} className="tab-add" onClick={() => openAdd(null)} aria-label="记一笔">
+            <div className="plus">+</div>
+          </button>
+        ) : (
+          <button key={key} className={`tab ${tab === key ? 'on' : ''}`} onClick={() => setTab(key)}>
+            <span className="tico">{icons[key]}</span>
+            <span>{cfg.title}</span>
+          </button>
+        ),
+      )}
+    </nav>
+  )
+})
 
 function Shell() {
   const { state, set, toast } = useStore()
@@ -74,7 +124,7 @@ function Shell() {
     return () => window.removeEventListener('popstate', h)
   }, [])
 
-  const openAdd = (tx = null) => { setEditTx(tx); setAddOpen(true) }
+  const openAdd = useCallback((tx = null) => { setEditTx(tx); setAddOpen(true) }, [])
   const closeAdd = () => { setAddOpen(false); setEditTx(null) }
 
   const nav = { push, pop, openAdd, tab, setTab }
@@ -113,18 +163,7 @@ function Shell() {
 
   // 欢迎页
   if (!state.settings.welcomed) {
-    return (
-      <div className="phone">
-        <div className="welcome">
-          <div className="wlogo">📖</div>
-          <h1>轻语记账</h1>
-          <p>花一分钟，记下今天的收支</p>
-          <button className="btn" onClick={() => { set((d) => { d.settings.welcomed = true }) }}>从零开始记</button>
-          <div style={{ height: 10 }} />
-          <button className="btn ghost" onClick={() => { set((d) => { d.settings.welcomed = true }) }}>先随便看看（稍后可在设置加载示例数据）</button>
-        </div>
-      </div>
-    )
+    return <WelcomePage onStart={() => set((d) => { d.settings.welcomed = true })} />
   }
 
   const top = stack[stack.length - 1]
@@ -146,22 +185,7 @@ function Shell() {
         </div>
 
         {/* 底部导航：仅在根级页面显示 */}
-        {!stack.length && (
-          <nav className="tabbar">
-            {Object.entries(TAB_PAGES).map(([key, cfg]) =>
-              key === 'add' ? (
-                <button key={key} className="tab-add" onClick={() => openAdd(null)} aria-label="记一笔">
-                  <div className="plus">+</div>
-                </button>
-              ) : (
-                <button key={key} className={`tab ${tab === key ? 'on' : ''}`} onClick={() => setTab(key)}>
-                  <span className="tico">{key === 'home' ? '📒' : key === 'charts' ? '📊' : key === 'discover' ? '🧭' : '👤'}</span>
-                  <span>{cfg.title}</span>
-                </button>
-              ),
-            )}
-          </nav>
-        )}
+        {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} />}
 
         {/* 记一笔 / 编辑账单 */}
         <AddTx

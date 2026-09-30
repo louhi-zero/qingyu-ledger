@@ -166,11 +166,74 @@ export function accountBalance(state, accId, ledgerId) {
 export function netWorth(state) {
   let asset = 0, debt = 0
   for (const a of state.accounts) {
-    const b = accountBalance(state, a.id)
+    // v1.3：外币账户按汇率折算为 CNY 参与合计（仅汇总层折算）
+    const b = toBase(state, accountBalance(state, a.id), a.currency)
     if (b >= 0) asset += b
     else debt += -b
   }
   return { asset: round2(asset), debt: round2(debt), net: round2(asset - debt) }
+}
+
+// ---------- v1.3 多币种（账户币种；仅汇总层折算本位币 CNY） ----------
+export function toBase(state, amount, currency) {
+  const v = Number(amount) || 0
+  const cur = currency || 'CNY'
+  if (cur === 'CNY') return round2(v)
+  const rate = Number(state?.fxRates?.[cur])
+  return round2(v * (Number.isFinite(rate) && rate > 0 ? rate : 1))
+}
+export function curSym(currency) {
+  const cur = currency || 'CNY'
+  return cur === 'CNY' ? '¥' : (FX_RATES[cur]?.sym || cur)
+}
+// 账户个体金额展示：CNY 用 ¥，外币用其符号（如 $100）
+export function fmtCur(amount, currency) {
+  return `${curSym(currency)}${fmt(amount)}`
+}
+
+// ---------- v1.3 信用卡账期 ----------
+// 当前账单周期起点（上个账单日，含）；未设置账单日返回 null
+export function creditCycleStart(card, today) {
+  const bd = Number(card?.billingDay)
+  if (!(bd >= 1 && bd <= 28)) return null
+  const d = parseD(today)
+  const start = d.getDate() >= bd
+    ? new Date(d.getFullYear(), d.getMonth(), bd)
+    : new Date(d.getFullYear(), d.getMonth() - 1, bd)
+  return fmtD(start)
+}
+// 距最近还款日天数（今天=0，已过则算下月）；未设置返回 null
+export function daysToDue(card, today) {
+  const dd = Number(card?.dueDay)
+  if (!(dd >= 1 && dd <= 28)) return null
+  const d = parseD(today)
+  const next = d.getDate() > dd
+    ? new Date(d.getFullYear(), d.getMonth() + 1, dd)
+    : new Date(d.getFullYear(), d.getMonth(), dd)
+  return Math.round((next - d) / 86400000)
+}
+// 本期应还：账单周期内（支出+转出）−（收入+转入还款）
+export function creditDue(state, card, today) {
+  const start = creditCycleStart(card, today)
+  if (!start) return null
+  let due = 0
+  for (const t of state.transactions) {
+    if (t.date < start || t.date > today) continue
+    if ((t.type === 'expense' || t.type === 'transfer') && t.accountId === card.id) due += Number(t.amount)
+    else if ((t.type === 'income' || t.type === 'transfer') && t.toAccountId === card.id) due -= Number(t.amount)
+  }
+  return round2(due)
+}
+
+// 等额本息月供（P 本金，annualRate 年利率 %，months 期数）
+export function annuityMonthly(P, annualRate, months) {
+  const n = Math.round(Number(months))
+  const p = Number(P) || 0
+  if (p <= 0 || n <= 0) return 0
+  const r = (Number(annualRate) || 0) / 100 / 12
+  if (r === 0) return round2(p / n)
+  const pow = Math.pow(1 + r, n)
+  return round2((p * r * pow) / (pow - 1))
 }
 
 // ---------- 统计 ----------

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Seg, Empty } from '../ui.jsx'
+import { AiFace } from '../theme.jsx'
 import {
   loadAiCfg, streamNarrative, fetchStructured, humanizeError,
 } from '../ai.js'
@@ -149,7 +150,7 @@ export default function AiInsight({ params = {} }) {
 
         {hasKey && status === 'idle' && !cached && (
           <div className="card">
-            <Empty icon="🤖" text={`让 AI 为你解读${label}的收支表现`}>
+            <Empty icon={<AiFace style={{ fontSize: 44 }} />} text={`让 AI 为你解读${label}的收支表现`}>
               <button className="btn" onClick={generate}>✨ 生成{label}分析</button>
               {state.settings.aiIncludeNotes && (
                 <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>

@@ -17,7 +17,7 @@ export function migrateState(s) {
   // v1.1 顶层新字段
   if (!s.aiReports || typeof s.aiReports !== 'object' || Array.isArray(s.aiReports)) s.aiReports = {}
   if (!s.assetsMeta || typeof s.assetsMeta !== 'object') s.assetsMeta = {}
-  for (const k of ['avatar', 'wallpaper']) {
+  for (const k of ['avatar', 'wallpaper', 'welcomebg', 'aiface']) {
     const m = s.assetsMeta[k]
     if (!m || typeof m !== 'object') s.assetsMeta[k] = { at: null, hash: null }
     else {
@@ -25,6 +25,8 @@ export function migrateState(s) {
       if (!('hash' in m)) m.hash = null
     }
   }
+  // v1.3 底部图标映射表需是普通对象
+  if (!s.settings.tabIcons || typeof s.settings.tabIcons !== 'object' || Array.isArray(s.settings.tabIcons)) s.settings.tabIcons = {}
   // v1.2 记账模板 + 交易行级新字段（可选字段，逐行补默认即可）
   if (!Array.isArray(s.templates)) s.templates = []
   if (Array.isArray(s.transactions)) {
@@ -33,6 +35,30 @@ export function migrateState(s) {
       if (!Array.isArray(t.tags)) t.tags = []
       if (t.reimburse !== 'pending' && t.reimburse !== 'done') t.reimburse = 'none'
       if (!('attachAt' in t)) t.attachAt = null
+    }
+  }
+  // v1.3 资金管理：储蓄目标、汇率表、账户新字段（币种/信用卡/债务）
+  if (!Array.isArray(s.goals)) s.goals = []
+  if (!s.fxRates || typeof s.fxRates !== 'object' || Array.isArray(s.fxRates)) {
+    s.fxRates = { USD: 7.12, EUR: 7.75, JPY: 0.0479, GBP: 9.05, HKD: 0.91, AUD: 4.72, CAD: 5.21, SGD: 5.35, KRW: 0.0052 }
+  }
+  if (Array.isArray(s.accounts)) {
+    for (const a of s.accounts) {
+      if (!a || typeof a !== 'object') continue
+      if (!a.currency) a.currency = 'CNY'
+      if (a.type === 'credit') {
+        if (!(a.billingDay >= 1 && a.billingDay <= 28)) a.billingDay = null
+        if (!(a.dueDay >= 1 && a.dueDay <= 28)) a.dueDay = null
+        if (!Number.isFinite(a.creditLimit)) a.creditLimit = 0
+      } else {
+        delete a.billingDay; delete a.dueDay; delete a.creditLimit
+      }
+      if (a.type === 'debt' || a.type === 'claim') {
+        if (!Number.isFinite(a.rate)) a.rate = 0
+        if (!a.dueDate) a.dueDate = null
+      } else {
+        delete a.rate; delete a.dueDate
+      }
     }
   }
   return s
