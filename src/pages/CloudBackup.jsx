@@ -6,7 +6,7 @@ import { WebDavTransport } from '../webdav.js'
 import { syncOnce, deepClone, parseRemote } from '../sync.js'
 import { syncAssets } from '../assetsync.js'
 
-const APP_VERSION = '1.6.1'
+const APP_VERSION = '1.6.2'
 const JIANGUO_URL = 'https://dav.jianguoyun.com/dav/qingyu/backup.json'
 const LS_CFG = 'qingyu_sync_cfg_v1'
 const LS_DEVICE = 'qingyu_sync_device_v1'

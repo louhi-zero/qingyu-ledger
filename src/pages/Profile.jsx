@@ -59,7 +59,7 @@ export default function Profile() {
 
   return (
     <>
-      <div className="page-body" style={{ paddingTop: 0 }}>
+      <div className="page-body">
         <div className="me-head">
           <div className="mh-glows" aria-hidden="true">
             {headGlows.slice(0, 3).map((c, i) => (
@@ -161,7 +161,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.6.1 · 全功能免费</div>
+          <div className="muted">v1.6.2 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>

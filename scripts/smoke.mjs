@@ -86,6 +86,9 @@ app.whenReady().then(async () => {
     })()`)
     assert('玻璃关：头部为白卡（rgb(255,255,255)）', headOff.bg === 'rgb(255, 255, 255)')
     assert('玻璃关：头部文字为深色墨色', headOff.color === 'rgb(31, 36, 48)')
+    // v1.6.2：根级页顶部预留状态栏安全区 + 玻璃过渡提速
+    assert('我的页顶部预留安全区（paddingTop=12px 基础间距）', await run(`getComputedStyle(document.querySelector('.page-body')).paddingTop === '12px'`))
+    assert('玻璃材质过渡提速至 0.24s', await run(`getComputedStyle(document.querySelector('.group')).transitionDuration.includes('0.24s')`))
 
     // 2. 头像上传非白底（红底）图片 → 成功（轮询等落盘）
     await run(`document.querySelector('.me-head .avatar').click()`)
