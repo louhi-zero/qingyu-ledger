@@ -431,6 +431,21 @@ textarea.input { resize: none; min-height: 90px; }
   content: ""; position: absolute; right: -50px; top: -70px; width: 200px; height: 200px;
   border-radius: 50%; background: rgba(255,255,255,.1);
 }
+/* v1.5 我的页头部晕光：取壁纸主色（无壁纸时用品牌渐变色），流动呼吸 */
+.mh-glows { position: absolute; inset: 0; pointer-events: none; }
+.mh-glow {
+  position: absolute; border-radius: 50%; filter: blur(44px);
+  width: 48%; aspect-ratio: 1; opacity: .38; pointer-events: none;
+  animation: mhfloat 18s ease-in-out infinite alternate;
+}
+.mh-glow.mh0 { left: -14%; top: -34%; }
+.mh-glow.mh1 { right: -12%; top: -18%; opacity: .3; animation-delay: -6s; }
+.mh-glow.mh2 { left: 32%; bottom: -46%; opacity: .24; animation-delay: -12s; }
+@keyframes mhfloat {
+  0% { transform: translate3d(0, 0, 0) scale(1) }
+  100% { transform: translate3d(6%, 10%, 0) scale(1.14) }
+}
+@media (prefers-reduced-motion: reduce) { .mh-glow { animation: none; } }
 .avatar {
   width: 64px; height: 64px; border-radius: 22px; background: rgba(255,255,255,.25);
   display: flex; align-items: center; justify-content: center; font-size: 33px;
@@ -562,9 +577,13 @@ table.plain th { color: var(--ink3); font-weight: 600; }
   --g-seg: rgba(0, 0, 0, .22);
 }
 
-/* 背景层：壁纸 + 遮罩 + 晕光 */
-.backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; display: none; }
-:root[data-glass="on"] .backdrop { display: block; }
+/* 背景层：壁纸 + 遮罩 + 晕光（v1.5 改透明度渐显，开关玻璃不再瞬跳） */
+.backdrop {
+  position: absolute; inset: 0; z-index: 0; overflow: hidden;
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .5s ease, visibility 0s linear .5s;
+}
+:root[data-glass="on"] .backdrop { opacity: 1; visibility: visible; transition: opacity .5s ease; }
 :root[data-glass="on"] .app { position: relative; z-index: 1; }
 .bd-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .bd-veil { position: absolute; inset: 0; background: rgba(243, 245, 250, .72); }
@@ -585,6 +604,22 @@ table.plain th { color: var(--ink3); font-weight: 600; }
   100% { transform: translate3d(-7%, 10%, 0) scale(.94) }
 }
 @media (prefers-reduced-motion: reduce) { .bd-glow { animation: none; } }
+/* 玻璃关闭时暂停晕光动画，省电 */
+:root:not([data-glass="on"]) .bd-glow { animation-play-state: paused; }
+
+/* v1.5 玻璃开关平滑过渡：材质相关属性在开/关两种形态间插值（.backdrop 已单独渐显）。
+   :active 按压反馈单独提速，避免整体 0.45s 显得迟钝 */
+.card, .group, .txlist, .topbar, .tabbar, .sheet, .quick, .searchbar,
+.chip, .ymnav button, .iconbtn, .topbar .back, .input, .selectline,
+.btn.ghost, .sheet-head .sx, .tag, .fx-rate, .seg, .me-head, .home-head,
+.cell, .txitem {
+  transition:
+    background-color .45s cubic-bezier(.4, 0, .2, 1),
+    border-color .45s cubic-bezier(.4, 0, .2, 1),
+    box-shadow .45s cubic-bezier(.4, 0, .2, 1),
+    backdrop-filter .45s cubic-bezier(.4, 0, .2, 1);
+}
+.cell:active, .txitem:active, .chip:active, .iconbtn:active, .btn:active { transition-duration: .12s; }
 
 /* 主玻璃容器 */
 :root[data-glass="on"] .card,
@@ -652,10 +687,32 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 :root[data-glass="on"] .cell:active,
 :root[data-glass="on"] .txitem:active { background: var(--g-press); }
 
-/* 首页渐变卡与我的页头保留实色渐变（保证白字可读），仅加镜面边 */
-:root[data-glass="on"] .home-head,
-:root[data-glass="on"] .me-head {
+/* 首页渐变卡保留实色渐变（保证白字可读），仅加镜面边 */
+:root[data-glass="on"] .home-head {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 12px 28px -12px rgba(91, 140, 255, .55);
+}
+
+/* v1.5 我的页头部：毛玻璃嵌套质感 —— 半透明品牌渐变叠在壁纸上再磨砂，
+   白字可读性用品牌色兜底，壁纸晕光（.mh-glow）透出 */
+:root[data-glass="on"] .me-head {
+  background:
+    radial-gradient(120% 90% at 88% -12%, rgba(255, 255, 255, .3), transparent 58%),
+    linear-gradient(150deg, color-mix(in srgb, #5b8cff 76%, transparent), color-mix(in srgb, #7a6bff 64%, transparent));
+  backdrop-filter: blur(calc(var(--g-blur) + 4px)) saturate(170%);
+  -webkit-backdrop-filter: blur(calc(var(--g-blur) + 4px)) saturate(170%);
+  border: 1px solid var(--g-border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 12px 28px -12px rgba(91, 140, 255, .55);
+}
+:root[data-glass="on"] .me-stats .ms {
+  background: rgba(255, 255, 255, .17);
+  border-color: rgba(255, 255, 255, .28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+:root[data-theme="dark"][data-glass="on"] .me-head {
+  background:
+    radial-gradient(120% 90% at 88% -12%, rgba(255, 255, 255, .12), transparent 58%),
+    linear-gradient(150deg, color-mix(in srgb, #5b8cff 42%, transparent), color-mix(in srgb, #7a6bff 36%, transparent));
 }
 
 /* 头像照片 */

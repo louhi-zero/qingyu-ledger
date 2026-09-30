@@ -665,6 +665,41 @@ export function netWorthSeries(state, days = 30) {
   return out
 }
 
+// ---------- v1.5 收支监控：解析微信/支付宝通知文本（纯函数） ----------
+// 返回 { amount(元,2位小数), kind:'income'|'expense', source:'wechat'|'alipay', title, text } 或 null。
+// 只有「来源 + 金额 + 收支方向」三要素齐备才解析成功，避免验证码/物流等噪声误弹窗。
+const QY_NOTIFY_INCOME_KW = /到账|收款|收到|入账|转入|进账|收益|退款|退回|返现|转账|红包/
+const QY_NOTIFY_EXPENSE_KW = /支出|付款|支付|消费|扣款|扣费|转出|代扣/
+const QY_NOTIFY_NOISE_KW = /验证码|校验码|登录|物流|快递|取件|投诉|客服|风险/
+
+export function parseMoneyNotify(title, text, pkg = '') {
+  const s = `${title || ''} ${text || ''}`
+  if (!s.trim()) return null
+  // 来源：包名优先，其次按文本关键词
+  let source = null
+  if (pkg === 'com.tencent.mm' || s.includes('微信')) source = 'wechat'
+  else if (pkg === 'com.eg.android.AlipayGphone' || s.includes('支付宝')) source = 'alipay'
+  if (!source) return null
+  if (QY_NOTIFY_NOISE_KW.test(s)) return null
+  // 金额：取第一个「数字元」（如 100、100.00、¥25.9）
+  const m = s.match(/(?:¥|￥)?(\d+(?:\.\d{1,2})?)\s*元/)
+  if (!m) return null
+  const amount = round2(Number(m[1]))
+  if (!(amount > 0) || amount > 1e7) return null
+  // 方向：优先收入词，其次支出词（微信/支付宝通知多为到账收入）
+  let kind = null
+  if (QY_NOTIFY_INCOME_KW.test(s)) kind = 'income'
+  else if (QY_NOTIFY_EXPENSE_KW.test(s)) kind = 'expense'
+  if (!kind) return null
+  return {
+    amount,
+    kind,
+    source,
+    title: String(title || '').slice(0, 40),
+    text: String(text || '').slice(0, 120),
+  }
+}
+
 // ---------- v1.4.1 头像白底检测（纯像素判定，供 canvas getImageData 后调用） ----------
 // data: RGBA 像素数组；取样四角 12×12 补丁均值，四角全为近白色（低饱和）才判定白底
 export function isWhiteBgPixels(data, w, h) {

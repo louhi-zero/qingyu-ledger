@@ -98,6 +98,8 @@ export function emptyState() {
       welcomeBgAt: null, // 启动页背景更新时间，本体在 IndexedDB
       // v1.3 资金管理：本位币（暂仅支持 CNY，预留字段）
       baseCurrency: 'CNY',
+      // v1.5 收支监控：Android 通知监听（微信/支付宝收支自动弹确认窗），仅原生端生效
+      notifyCatch: false,
     },
     categories: cats,
     accounts,

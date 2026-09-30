@@ -14,6 +14,10 @@ import LoanCalc from './pages/LoanCalc.jsx'
 import FxConverter from './pages/FxConverter.jsx'
 import Invoices from './pages/Invoices.jsx'
 import Settings from './pages/Settings.jsx'
+import SettingsSections from './pages/SettingsSections.jsx'
+import NotifyCatchSheet from './NotifyCatchSheet.jsx'
+import { startNotifyCatch, stopNotifyCatch } from './notifyCatch.js'
+import { parseMoneyNotify } from './utils.js'
 import CategoryManage from './pages/CategoryManage.jsx'
 import CloudBackup from './pages/CloudBackup.jsx'
 import AddTx from './pages/AddTx.jsx'
@@ -53,6 +57,7 @@ const SUB_PAGES = {
   fx: FxConverter,
   invoice: Invoices,
   settings: Settings,
+  settingsSection: SettingsSections,
   category: CategoryManage,
   cloud: CloudBackup,
   ai: AiInsight,
@@ -132,6 +137,31 @@ function Shell() {
 
   const nav = { push, pop, openAdd, tab, setTab }
 
+  // v1.5 收支监控：Android 原生通知监听 → 解析 → 弹确认窗（Web/桌面静默禁用）
+  const [caught, setCaught] = useState(null)
+  const seenRef = useRef(new Map())
+  useEffect(() => {
+    if (!state.settings.notifyCatch) return undefined
+    let alive = true
+    startNotifyCatch((n) => {
+      if (!alive || !n) return
+      // 同签名通知 15 秒内去重（系统会重复 post 分组通知）
+      const sig = `${n.title || ''}|${n.text || ''}`
+      const last = seenRef.current.get(sig) || 0
+      const now = Date.now()
+      if (now - last < 15000) return
+      seenRef.current.set(sig, now)
+      if (seenRef.current.size > 50) seenRef.current.clear()
+      const p = parseMoneyNotify(n.title, n.text, n.pkg)
+      if (p) setCaught(p)
+    }).catch(() => {})
+    return () => {
+      alive = false
+      stopNotifyCatch()
+      setCaught(null)
+    }
+  }, [state.settings.notifyCatch])
+
   // Android 物理返回键：仅 Capacitor 原生壳注册，浏览器/桌面端动态加载失败即静默
   const navRef = useRef(null)
   navRef.current = { addOpen, stackLen: stack.length, tab, pop, setTab, closeAdd, toast }
@@ -197,6 +227,9 @@ function Shell() {
           editTx={editTx}
           onClose={() => { setAddOpen(false); setEditTx(null) }}
         />
+
+        {/* v1.5 收支监控确认弹窗：仅 Android 原生且开启监控时才会触发 */}
+        <NotifyCatchSheet caught={caught} onClose={() => setCaught(null)} />
       </div>
     </NavCtx.Provider>
   )

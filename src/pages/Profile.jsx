@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { Sheet, Confirm } from '../ui.jsx'
-import { AvatarFace, useMediaActions } from '../theme.jsx'
+import { AvatarFace, useMediaActions, useTheme } from '../theme.jsx'
 import { bookkeepingDays, streakOf, txsOfLedger } from '../utils.js'
 
 export default function Profile() {
@@ -36,6 +36,9 @@ export default function Profile() {
   const days = bookkeepingDays(state)
   const streak = streakOf(state.checkins || [])
   const checkedToday = (state.checkins || []).includes(new Date().toLocaleDateString('sv'))
+  // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
+  const { palette } = useTheme()
+  const headGlows = palette.length ? palette : ['#5b8cff', '#7a6bff', '#42a5f5']
 
   const punch = () => {
     const today = new Date().toLocaleDateString('sv')
@@ -58,6 +61,11 @@ export default function Profile() {
     <>
       <div className="page-body" style={{ paddingTop: 0 }}>
         <div className="me-head">
+          <div className="mh-glows" aria-hidden="true">
+            {headGlows.slice(0, 3).map((c, i) => (
+              <i key={i} className={`mh-glow mh${i}`} style={{ background: c }} />
+            ))}
+          </div>
           <div className="me-row">
             <div className="avatar" onClick={() => setAvatarOpen(true)}><AvatarFace /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -153,7 +161,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.4.1 · 全功能免费</div>
+          <div className="muted">v1.5.0 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
