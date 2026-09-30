@@ -48,8 +48,12 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
+      - name: 检测签名 Secrets 是否已配置
+        id: keystore_check
+        run: echo "has=${{ secrets.ANDROID_KEYSTORE != '' }}" >> "$GITHUB_OUTPUT"
+
       - name: 准备 release 签名（仅在配置了 Secrets 时）
-        if: ${{ secrets.ANDROID_KEYSTORE != '' }}
+        if: steps.keystore_check.outputs.has == 'true'
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/qingyu-release.jks
           cat > android/app/keystore.properties <<EOF
@@ -66,7 +70,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: 构建 release APK（配置签名后）
-        if: ${{ secrets.ANDROID_KEYSTORE != '' }}
+        if: steps.keystore_check.outputs.has == 'true'
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
@@ -78,7 +82,7 @@ jobs:
           if-no-files-found: error
 
       - name: 上传 release APK
-        if: ${{ secrets.ANDROID_KEYSTORE != '' }}
+        if: steps.keystore_check.outputs.has == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: qingyu-1.1.0-release-apk
