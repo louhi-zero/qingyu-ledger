@@ -5,7 +5,7 @@ import { EmojiPicker } from '../ui.jsx'
 import { AvatarFace, useMediaActions } from '../theme.jsx'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr } from '../utils.js'
 
-const APP_VERSION = '1.1.0'
+const APP_VERSION = '1.2.0'
 
 export default function Settings({ nav }) {
   const { state, set, toast, loadDemo, clearAll, restoreState } = useStore()
@@ -201,6 +201,14 @@ export default function Settings({ nav }) {
         {/* 提醒 */}
         <div className="group">
           <div className="gtitle">记账提醒</div>
+          <div className="cell" onClick={() => set((d) => { d.settings.nightAcross = !d.settings.nightAcross })}>
+            <div className="cico">🦉</div>
+            <div className="cmain">
+              <div className="ctitle">熬夜归属前一天</div>
+              <div className="cdesc">凌晨 0-5 点记账默认算昨天（记「昨晚」更顺手）</div>
+            </div>
+            <div className="cright"><Switch on={s.nightAcross} onChange={() => set((d) => { d.settings.nightAcross = !d.settings.nightAcross })} /></div>
+          </div>
           <div className="cell" onClick={() => {
             const next = !s.remindEnabled
             set((d) => { d.settings.remindEnabled = next })

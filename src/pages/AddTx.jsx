@@ -1,7 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { Seg, Confirm, Empty } from '../ui.jsx'
+import { Seg, Confirm, Empty, Sheet } from '../ui.jsx'
 import { fmt, uid, todayStr, nowTime, addDays, accountName } from '../utils.js'
+import { blobDel, getObjectUrl, replaceBlob, fileToJpeg } from '../blobdb.js'
+
+// 熬夜归属：0:00–4:59 记账默认算昨天
+function defaultDate(settings) {
+  const now = new Date()
+  if (settings?.nightAcross && now.getHours() < 5) return addDays(todayStr(), -1)
+  return todayStr()
+}
 
 // 记一笔 / 编辑账单（全屏弹层）
 export default function AddTx({ open, editTx, onClose }) {
@@ -13,7 +21,7 @@ export default function AddTx({ open, editTx, onClose }) {
   const [subId, setSubId] = useState(null)
   const [accountId, setAccountId] = useState(editTx?.accountId || state.accounts[0]?.id || null)
   const [toAccountId, setToAccountId] = useState(editTx?.toAccountId || state.accounts[1]?.id || state.accounts[0]?.id || null)
-  const [date, setDate] = useState(editTx?.date || todayStr())
+  const [date, setDate] = useState(editTx?.date || defaultDate(state.settings))
   const [time, setTime] = useState(editTx?.time || nowTime())
   const [note, setNote] = useState(editTx?.note || '')
   const [showKp, setShowKp] = useState(true)
@@ -23,12 +31,50 @@ export default function AddTx({ open, editTx, onClose }) {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [accOpen, setAccOpen] = useState(false)
   const [accSetter, setAccSetter] = useState(null)
+  // v1.2 标签 / 报销 / 附件 / 模板
+  const [tags, setTags] = useState(editTx?.tags || [])
+  const [reimburse, setReimburse] = useState(editTx?.reimburse || 'none')
+  const [attachAt, setAttachAt] = useState(editTx?.attachAt || null)
+  const [attachUrl, setAttachUrl] = useState(null)
+  const [tagOpen, setTagOpen] = useState(false)
+  const [reimOpen, setReimOpen] = useState(false)
+  const [attachOpen, setAttachOpen] = useState(false)
+  const [savingTpl, setSavingTpl] = useState(false)
+  const [busyAttach, setBusyAttach] = useState(false)
+  const fileRef = useRef(null)
+  // 新建时预生成 id，附件 Blob 以此为 key；「再记一笔」后换新
+  const txIdRef = useRef(editTx?.id || uid())
+  const skipCatReset = useRef(false)
 
   const cats = type === 'income' ? state.categories.income : state.categories.expense
   const mainCat = useMemo(() => cats.find((c) => c.id === categoryId) || cats[0], [cats, categoryId])
+  const tplList = useMemo(
+    () => [...(state.templates || [])].sort((a, b) => (b.at || '').localeCompare(a.at || '')).slice(0, 8),
+    [state.templates],
+  )
+  const histTags = useMemo(() => {
+    const cnt = new Map()
+    for (const t of state.transactions) for (const g of t.tags || []) cnt.set(g, (cnt.get(g) || 0) + 1)
+    return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([g]) => g)
+  }, [state.transactions, open])
 
-  // 切换类型时重置分类
-  useEffect(() => { setCategoryId(null); setSubId(null) }, [type])
+  // 切换类型时重置分类（模板套用/编辑初始化除外）
+  useEffect(() => {
+    if (skipCatReset.current) { skipCatReset.current = false; return }
+    setCategoryId(null); setSubId(null)
+    if (type === 'transfer') { setTags([]); setReimburse('none'); setAttachAt(null) }
+  }, [type])
+
+  // 附件预览地址
+  useEffect(() => {
+    let alive = true
+    if (open && attachAt) {
+      getObjectUrl(`att_${txIdRef.current}`).then((u) => { if (alive) setAttachUrl(u) })
+    } else {
+      setAttachUrl(null)
+    }
+    return () => { alive = false }
+  }, [open, attachAt])
 
   if (!open) return null
 
@@ -57,18 +103,23 @@ export default function AddTx({ open, editTx, onClose }) {
       categoryId: type === 'transfer' ? null : cat,
       accountId, toAccountId: type === 'transfer' ? toAccountId : null,
       date, time, note: note.trim(),
+      tags: type === 'transfer' ? [] : tags.slice(0, 6),
+      reimburse: type === 'expense' ? reimburse : 'none',
+      attachAt: type === 'transfer' ? null : attachAt,
     }
     set((d) => {
       if (editTx) {
         const t = d.transactions.find((x) => x.id === editTx.id)
         Object.assign(t, payload)
       } else {
-        d.transactions.push({ id: uid(), ledgerId: d.currentLedgerId, createdAt: new Date().toISOString(), ...payload })
+        d.transactions.push({ id: txIdRef.current, ledgerId: d.currentLedgerId, createdAt: new Date().toISOString(), ...payload })
       }
     })
     toast(editTx ? '已保存修改' : `已记一笔 ${type === 'income' ? '收入' : type === 'expense' ? '支出' : '转账'} ¥${fmt(amt)}`)
     if (again) {
-      setAmount(''); setNote(''); setShowKp(true)
+      setAmount(''); setNote(''); setTags([]); setReimburse('none'); setAttachAt(null)
+      txIdRef.current = uid()
+      setShowKp(true)
     } else {
       onClose()
     }
@@ -76,10 +127,72 @@ export default function AddTx({ open, editTx, onClose }) {
 
   const del = () => {
     set((d) => { d.transactions = d.transactions.filter((t) => t.id !== editTx.id) })
+    if (editTx?.attachAt) blobDel(`att_${editTx.id}`).catch(() => {})
     setDelConfirm(false)
     toast('已删除该账单')
     onClose()
   }
+
+  // 套用模板：跳过 type 切换对分类的清空
+  const applyTemplate = (t) => {
+    skipCatReset.current = true
+    setType(t.type)
+    setAmount(String(t.amount))
+    setCategoryId(t.categoryId || null)
+    setAccountId(t.accountId || state.accounts[0]?.id || null)
+    setNote(t.note || '')
+    setShowKp(true)
+    toast(`已套用模板「${t.name}」`)
+  }
+
+  // 保存当前表单为模板（编辑态或已填表单均可）
+  const saveAsTemplate = () => {
+    const cat = categoryId || mainCat?.id
+    if (!(amt > 0) || !cat) { toast('请先填好金额与分类再存为模板', 'err'); return }
+    set((d) => {
+      d.templates.unshift({
+        id: uid(), name: note.trim().slice(0, 12) || `${catInfoOfName()?.name || '模板'}模板`,
+        type, amount: Math.round(amt * 100) / 100, categoryId: cat, accountId,
+        note: note.trim(), at: new Date().toISOString(),
+      })
+      if (d.templates.length > 30) d.templates.length = 30
+    })
+    toast('已保存为记账模板')
+  }
+  function catInfoOfName() { return state.categories[fmtTypeKey(type)]?.find((c) => c.id === (categoryId || mainCat?.id)) }
+  function fmtTypeKey(t) { return t === 'income' ? 'income' : 'expense' }
+
+  // 附件：选图 → 压缩 → 写入 IndexedDB
+  const onPickAttach = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setBusyAttach(true)
+    try {
+      const jpeg = await fileToJpeg(f, { maxSize: 1280, quality: 0.8 })
+      await replaceBlob(`att_${txIdRef.current}`, jpeg)
+      setAttachAt(new Date().toISOString())
+      toast('已添加小票照片')
+    } catch {
+      toast('图片处理失败，换一张试试', 'err')
+    } finally {
+      setBusyAttach(false)
+    }
+  }
+
+  const onRemoveAttach = async () => {
+    await replaceBlob(`att_${txIdRef.current}`, null).catch(() => {})
+    setAttachAt(null)
+    setAttachOpen(false)
+    toast('已移除附件')
+  }
+
+  const addTag = (g) => {
+    const v = String(g || '').trim().replace(/^#/, '').slice(0, 12)
+    if (!v) return
+    setTags((ts) => (ts.includes(v) || ts.length >= 6 ? ts : [...ts, v]))
+  }
+  const removeTag = (g) => setTags((ts) => ts.filter((x) => x !== g))
 
   const selCat = (c, isSub) => {
     if (isSub) { setSubId(c.id); setCategoryId(mainCat.id) }
@@ -96,6 +209,17 @@ export default function AddTx({ open, editTx, onClose }) {
           <div style={{ width: 30 }} />
         </div>
         <div className="sheet-body">
+          {/* v1.2 记账模板快捷 chips */}
+          {!editTx && tplList.length > 0 && (
+            <div className="tpl-chips">
+              {tplList.map((t) => (
+                <button key={t.id} className="chip tpl-chip" onClick={() => applyTemplate(t)}>
+                  ⚡ {t.name} · ¥{fmt(t.amount)}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* 类型切换 */}
           <Seg
             options={[{ value: 'expense', label: '支出' }, { value: 'income', label: '收入' }, { value: 'transfer', label: '转账' }]}
@@ -146,6 +270,23 @@ export default function AddTx({ open, editTx, onClose }) {
             <button className="meta-pill" onClick={() => setShowDatePicker((v) => !v)}>📅 <b>{date === todayStr() ? '今天' : date.slice(5)}</b></button>
             <button className="meta-pill" onClick={() => setTimeOpen((v) => !v)}>⏰ <b>{time}</b></button>
           </div>
+          {/* v1.2 标签 / 报销 / 附件 */}
+          {type !== 'transfer' && (
+            <div className="meta-row" style={{ marginTop: -2 }}>
+              <button className="meta-pill" onClick={() => setTagOpen(true)}>
+                #️⃣ {tags.length ? <b>{tags.map((g) => `#${g}`).join(' ')}</b> : '标签'}
+              </button>
+              {type === 'expense' && (
+                <button className={`meta-pill ${reimburse !== 'none' ? 'pill-on' : ''}`} onClick={() => setReimOpen(true)}>
+                  🧾 {reimburse === 'pending' ? <b>待报销</b> : reimburse === 'done' ? <b>已报销</b> : '报销'}
+                </button>
+              )}
+              <button className={`meta-pill ${attachAt ? 'pill-on' : ''}`} onClick={() => (attachAt ? setAttachOpen(true) : fileRef.current?.click())} disabled={busyAttach}>
+                📎 {busyAttach ? '处理中…' : attachAt ? <b>小票</b> : '附件'}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickAttach} />
+            </div>
+          )}
 
           {showDatePicker && (
             <div className="card" style={{ padding: 12 }}>
@@ -175,6 +316,7 @@ export default function AddTx({ open, editTx, onClose }) {
 
           <div className="btnrow" style={{ marginTop: 10 }}>
             <button className="btn ghost" onClick={() => save(true)}>再记一笔</button>
+            {editTx && <button className="btn ghost" onClick={saveAsTemplate}>存为模板</button>}
             {editTx && <button className="btn danger" onClick={() => setDelConfirm(true)}>删除</button>}
           </div>
         </div>
@@ -183,6 +325,57 @@ export default function AddTx({ open, editTx, onClose }) {
         <NoteEditor open={noteEditOpen} onClose={() => setNoteEditOpen(false)} note={note} setNote={setNote} />
         <TimeSheet open={timeOpen} onClose={() => setTimeOpen(false)} time={time} setTime={setTime} />
         <AccountSheet state={state} open={accOpen} onClose={() => setAccOpen(false)} onPick={(id) => { accSetter?.(id); setAccOpen(false) }} />
+
+        {/* v1.2 标签编辑 */}
+        <Sheet open={tagOpen} onClose={() => setTagOpen(false)} title="标签">
+          <div className="chips" style={{ marginBottom: 10 }}>
+            {tags.map((g) => (
+              <button key={g} className="chip on" onClick={() => removeTag(g)}>#{g} ✕</button>
+            ))}
+            {!tags.length && <div className="muted" style={{ padding: '4px 0 8px' }}>还没加标签，最多 6 个</div>}
+          </div>
+          <TagInput onAdd={addTag} />
+          {histTags.filter((g) => !tags.includes(g)).length > 0 && (
+            <>
+              <div className="ctitle" style={{ margin: '12px 0 8px', fontSize: 12 }}>历史标签</div>
+              <div className="chips">
+                {histTags.filter((g) => !tags.includes(g)).map((g) => (
+                  <button key={g} className="chip" onClick={() => addTag(g)}>#{g}</button>
+                ))}
+              </div>
+            </>
+          )}
+          <button className="btn" style={{ marginTop: 14 }} onClick={() => setTagOpen(false)}>完成</button>
+        </Sheet>
+
+        {/* v1.2 报销状态 */}
+        <Sheet open={reimOpen} onClose={() => setReimOpen(false)} title="报销状态" center>
+          <Seg
+            options={[
+              { value: 'none', label: '不报销' },
+              { value: 'pending', label: '待报销' },
+              { value: 'done', label: '已报销' },
+            ]}
+            value={reimburse}
+            onChange={(v) => { setReimburse(v); setReimOpen(false) }}
+          />
+          <div className="cdesc" style={{ marginTop: 10 }}>
+            选「待报销」后在 发现 → 报销管理 里统一核销
+          </div>
+        </Sheet>
+
+        {/* v1.2 附件预览 */}
+        <Sheet open={attachOpen} onClose={() => setAttachOpen(false)} title="小票照片">
+          {attachUrl && (
+            <div style={{ textAlign: 'center' }}>
+              <img src={attachUrl} alt="小票" style={{ maxWidth: '100%', maxHeight: 320, borderRadius: 12, border: '1px solid var(--line)' }} />
+              <div className="btnrow" style={{ marginTop: 12 }}>
+                <button className="btn" onClick={() => { setAttachOpen(false); fileRef.current?.click() }}>换一张</button>
+                <button className="btn danger" onClick={onRemoveAttach}>移除</button>
+              </div>
+            </div>
+          )}
+        </Sheet>
       </div>
 
       <Confirm open={delConfirm} title="删除这条账单？" text="删除后不可恢复" okText="删除" danger onOk={del} onCancel={() => setDelConfirm(false)} />
@@ -242,6 +435,23 @@ function AccountSheet({ state, open, onClose, onPick }) {
           )) : <Empty icon="💳" text="还没有账户，去「资产」添加一个" />}
         </div>
       </div>
+    </div>
+  )
+}
+
+// v1.2 标签输入
+function TagInput({ onAdd }) {
+  const [v, setV] = useState('')
+  const submit = () => { if (v.trim()) { onAdd(v); setV('') } }
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input
+        className="input" style={{ flex: 1 }} value={v} autoFocus
+        placeholder="输入标签，回车添加"
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
+      />
+      <button className="btn" style={{ padding: '0 16px' }} onClick={submit}>添加</button>
     </div>
   )
 }

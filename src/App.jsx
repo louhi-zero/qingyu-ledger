@@ -19,6 +19,8 @@ import CloudBackup from './pages/CloudBackup.jsx'
 import AddTx from './pages/AddTx.jsx'
 import AiInsight from './pages/AiInsight.jsx'
 import AiSettings from './pages/AiSettings.jsx'
+import Reimburse from './pages/Reimburse.jsx'
+import Templates from './pages/Templates.jsx'
 import { ThemeProvider, Backdrop } from './theme.jsx'
 
 const NavCtx = createContext(null)
@@ -47,6 +49,8 @@ const SUB_PAGES = {
   cloud: CloudBackup,
   ai: AiInsight,
   aiSettings: AiSettings,
+  reimburse: Reimburse,
+  templates: Templates,
 }
 
 function Shell() {

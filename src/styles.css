@@ -678,3 +678,28 @@ input[type="range"] { accent-color: var(--brand); }
 .ai-dotrow { display: flex; gap: 6px; align-items: center; color: var(--ink3); font-size: 12.5px; }
 .ai-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); animation: aipulse 1.2s ease-in-out infinite; }
 @keyframes aipulse { 50% { opacity: .25; transform: scale(.8) } }
+
+/* ─────────── v1.2 报销 / 标签 / 模板 / 附件 / 同比环比 ─────────── */
+
+/* 记一笔：模板快捷 chips 横滑行 */
+.tpl-chips {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 2px;
+  scrollbar-width: none;
+}
+.tpl-chips::-webkit-scrollbar { display: none }
+.tpl-chip { flex-shrink: 0; font-size: 12.5px; padding: 6px 12px; }
+
+/* meta-pill 激活态（有标签/待报销/有小票） */
+.meta-pill.pill-on {
+  border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: var(--brand);
+}
+
+/* 图表：同比/环比行 */
+.cmp-rows { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.cmp-line { display: flex; align-items: center; font-size: 12.5px; line-height: 1.5; }
+.cmp-line b { font-weight: 700; }
+
+/* 报销状态小 chip（列表内） */
+.txitem .chip { display: inline-block; margin-top: 2px; }

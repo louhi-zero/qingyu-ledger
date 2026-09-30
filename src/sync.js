@@ -252,6 +252,10 @@ export function mergeStates(base, local, remote, opts = {}) {
   // v1.1：AI 报告缓存（按报告自身 at）、头像/壁纸资产元数据（按条目 at，含删除态 at=null）
   out.aiReports = mergeLwwMap(local.aiReports, remote.aiReports)
   out.assetsMeta = mergeLwwMap(local.assetsMeta, remote.assetsMeta)
+  // v1.2 记账模板：数组转 id->item 后按 at 做 LWW 并集
+  const toTplMap = (arr) => Object.fromEntries((arr || []).filter((t) => t && t.id).map((t) => [t.id, t]))
+  out.templates = Object.values(mergeLwwMap(toTplMap(local.templates), toTplMap(remote.templates)))
+    .sort((a, b) => (a.at || '').localeCompare(b.at || ''))
 
   return { data: out, conflicts }
 }

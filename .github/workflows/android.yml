@@ -77,7 +77,7 @@ jobs:
       - name: 上传 debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: qingyu-1.1.0-debug-apk
+          name: qingyu-${{ github.ref_name }}-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -85,7 +85,7 @@ jobs:
         if: steps.keystore_check.outputs.has == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: qingyu-1.1.0-release-apk
+          name: qingyu-${{ github.ref_name }}-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 

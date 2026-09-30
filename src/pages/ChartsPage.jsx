@@ -57,6 +57,33 @@ export default function ChartsPage() {
   const catStats = useMemo(() => statByCategory(curTxs, metric === 'income' ? 'income' : 'expense', state), [curTxs, metric, state])
   const statTotal = catStats.reduce((a, c) => a + c.value, 0)
 
+  // v1.2 同比/环比（月视图：环比上月 + 同比去年同月；年视图：同比去年）
+  const cmp = useMemo(() => {
+    const pct = (cur, prev) => (prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : null)
+    if (scope === 'month') {
+      const prev = (() => {
+        const l = txsOfPeriod(state, periodAdd(period, -1, sd))
+        return { exp: sumBy(l, 'expense'), inc: sumBy(l, 'income') }
+      })()
+      const [y, m] = period.split('-').map(Number)
+      const l = txsOfPeriod(state, `${y - 1}-${pad2(m)}`)
+      const yoy = { exp: sumBy(l, 'expense'), inc: sumBy(l, 'income') }
+      return {
+        mom: { exp: pct(exp, prev.exp), inc: pct(inc, prev.inc), has: prev.exp > 0 || prev.inc > 0 },
+        yoy: { exp: pct(exp, yoy.exp), inc: pct(inc, yoy.inc), has: yoy.exp > 0 || yoy.inc > 0 },
+      }
+    }
+    if (scope === 'year') {
+      const l = txsOfYear(state, String(Number(year) - 1))
+      const pExp = sumBy(l, 'expense'); const pInc = sumBy(l, 'income')
+      return {
+        mom: null,
+        yoy: { exp: pct(exp, pExp), inc: pct(inc, pInc), has: pExp > 0 || pInc > 0 },
+      }
+    }
+    return null
+  }, [scope, state, period, year, sd, exp, inc])
+
   const colorOf = metric === 'income' ? 'var(--income)' : metric === 'balance' ? 'var(--brand)' : 'var(--expense)'
 
   const navTitle = () => {
@@ -102,6 +129,16 @@ export default function ChartsPage() {
             )}
             {metric === 'balance' && (
               <div className="muted">收 ¥{fmt(inc)} · 支 ¥{fmt(exp)}</div>
+            )}
+            {cmp && (cmp.mom || cmp.yoy) && (
+              <div className="cmp-rows">
+                {cmp.mom && (cmp.mom.has || cmp.yoy.has) && (
+                  <CmpLine label="环比" d={cmp.mom} />
+                )}
+                {cmp.yoy && (cmp.yoy.has || (cmp.mom && cmp.mom.has)) && (
+                  <CmpLine label="同比" d={cmp.yoy} />
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -194,6 +231,33 @@ export default function ChartsPage() {
         )}
       </div>
     </>
+  )
+}
+
+// v1.2 同比/环比行：支出升/收入降为红，反向为绿
+function CmpLine({ label, d }) {
+  if (!d || (!d.has && d.exp === null && d.inc === null)) return null
+  const cell = (name, p) => {
+    if (!d.has) return <span className="muted">{name}上期无数据</span>
+    if (p === null) return <span className="muted">{name} —</span>
+    const up = p > 0
+    // 支出：升红降绿；收入：升绿降红
+    const isExpense = name === '支出'
+    const color = p === 0 ? 'var(--ink3)' : (up === isExpense ? 'var(--expense)' : 'var(--income)')
+    return (
+      <span>
+        {name}
+        <b style={{ color, marginLeft: 3 }}>{p === 0 ? '持平' : `${up ? '↑' : '↓'} ${Math.abs(p)}%`}</b>
+      </span>
+    )
+  }
+  return (
+    <div className="cmp-line">
+      <span className="muted" style={{ width: 28, flexShrink: 0 }}>{label}</span>
+      {cell('支出', d.exp)}
+      <span style={{ width: 12 }} />
+      {cell('收入', d.inc)}
+    </div>
   )
 }
 

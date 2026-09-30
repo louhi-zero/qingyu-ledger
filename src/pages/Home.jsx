@@ -16,6 +16,8 @@ export default function Home() {
   const [sumType, setSumType] = useState('expense')
   const [filter, setFilter] = useState('all') // all|expense|income|transfer
   const [catFilter, setCatFilter] = useState(null)
+  const [tagSel, setTagSel] = useState([]) // v1.2 标签多选
+  const [tagFilterOpen, setTagFilterOpen] = useState(false)
   const [q, setQ] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [daySheet, setDaySheet] = useState(null) // 某日账单
@@ -25,21 +27,30 @@ export default function Home() {
   const income = sumBy(txs, 'income')
   const balance = Math.round((income - expense) * 100) / 100
 
+  // 全部历史标签（筛选面板用）
+  const allTags = useMemo(() => {
+    const s = new Set()
+    for (const t of state.transactions) for (const g of t.tags || []) s.add(g)
+    return [...s].sort()
+  }, [state.transactions])
+
   // 筛选 + 搜索
   const filtered = useMemo(() => {
     let list = txs
     if (filter !== 'all') list = list.filter((t) => t.type === filter)
     if (catFilter) list = list.filter((t) => t.categoryId === catFilter)
+    if (tagSel.length) list = list.filter((t) => (t.tags || []).some((g) => tagSel.includes(g)))
     if (q.trim()) {
       const kw = q.trim().toLowerCase()
       list = list.filter((t) =>
         (t.note || '').toLowerCase().includes(kw) ||
         String(t.amount).includes(kw) ||
+        (t.tags || []).some((g) => g.toLowerCase().includes(kw)) ||
         catInfo(state, t).name.includes(kw) ||
         accountName(state, t.accountId).includes(kw))
     }
     return list
-  }, [txs, filter, catFilter, q, state])
+  }, [txs, filter, catFilter, tagSel, q, state])
 
   // 按日分组（倒序）
   const groups = useMemo(() => {
@@ -116,6 +127,12 @@ export default function Home() {
                   {catInfo(state, { type: 'expense', categoryId: catFilter }).main} ✕
                 </button>
               )}
+              {allTags.length > 0 && (
+                <button
+                  className={`chip ${tagSel.length ? 'on' : ''}`}
+                  onClick={() => setTagFilterOpen(true)}
+                ># {tagSel.length ? `${tagSel.length} 个标签` : '标签'}</button>
+              )}
             </div>
 
             {groups.length === 0 ? (
@@ -141,9 +158,18 @@ export default function Home() {
                         <div key={t.id} className="txitem" onClick={() => nav.openAdd(t)}>
                           <div className="txicon" style={{ background: info.color + '1c' }}>{info.icon}</div>
                           <div className="txmain">
-                            <div className="txname">{t.type === 'transfer' ? `${accountName(state, t.accountId)} → ${accountName(state, t.toAccountId)}` : info.name}</div>
+                            <div className="txname">
+                              {t.type === 'transfer' ? `${accountName(state, t.accountId)} → ${accountName(state, t.toAccountId)}` : info.name}
+                              {t.reimburse === 'pending' && <span title="待报销" style={{ marginLeft: 4 }}>🧾</span>}
+                              {t.attachAt && <span title="有小票照片" style={{ marginLeft: 3, fontSize: 11 }}>📎</span>}
+                            </div>
                             <div className="txnote">
-                              {[t.note, t.time, t.type !== 'transfer' ? accountName(state, t.accountId) : ''].filter(Boolean).join(' · ')}
+                              {[
+                                t.note,
+                                (t.tags || []).length ? t.tags.map((g) => `#${g}`).join(' ') : '',
+                                t.time,
+                                t.type !== 'transfer' ? accountName(state, t.accountId) : '',
+                              ].filter(Boolean).join(' · ')}
                             </div>
                           </div>
                           <div className={`txamt ${t.type === 'income' ? 'in' : t.type === 'transfer' ? 'tr' : 'out'}`}>
@@ -198,6 +224,27 @@ export default function Home() {
       {/* 日历某日账单 */}
       <Sheet open={!!daySheet} onClose={() => setDaySheet(null)} title={daySheet ? `${daySheet.slice(5).replace('-', '月')}日 ${weekdayOf(daySheet)}` : ''}>
         {daySheet && <DayList date={daySheet} />}
+      </Sheet>
+
+      {/* v1.2 标签筛选 */}
+      <Sheet open={tagFilterOpen} onClose={() => setTagFilterOpen(false)} title="按标签筛选">
+        {allTags.length ? (
+          <>
+            <div className="chips">
+              {allTags.map((g) => (
+                <button
+                  key={g}
+                  className={`chip ${tagSel.includes(g) ? 'on' : ''}`}
+                  onClick={() => setTagSel((s) => (s.includes(g) ? s.filter((x) => x !== g) : [...s, g]))}
+                >#{g}</button>
+              ))}
+            </div>
+            <div className="btnrow" style={{ marginTop: 14 }}>
+              {tagSel.length > 0 && <button className="btn ghost" onClick={() => setTagSel([])}>清除筛选</button>}
+              <button className="btn" onClick={() => setTagFilterOpen(false)}>看结果</button>
+            </div>
+          </>
+        ) : <Empty icon="#️⃣" text="还没有标签\n记一笔时可以给账单加标签" />}
       </Sheet>
     </>
   )

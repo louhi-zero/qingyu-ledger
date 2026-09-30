@@ -21,6 +21,8 @@ export default function Discover() {
 
   const tools = [
     { icon: '🏦', name: '资产管家', page: 'assets' },
+    { icon: '💼', name: '报销管理', page: 'reimburse' },
+    { icon: '⚡', name: '记账模板', page: 'templates' },
     { icon: '🏠', name: '房贷计算器', page: 'loan' },
     { icon: '💱', name: '汇率换算', page: 'fx' },
     { icon: '🧾', name: '发票助手', page: 'invoice' },

@@ -89,6 +89,8 @@ export function emptyState() {
       aiStyle: 'tender', // tender 温柔鼓励 / sharp 犀利毒舌 / pro 专业财务师 / cute 俏皮可爱
       aiCustomStyle: '',
       aiIncludeNotes: true, // 分析时是否附带账单备注原文
+      // v1.2 熬夜归属：0 点后（<5 点）记一笔默认算昨天
+      nightAcross: false,
     },
     categories: cats,
     accounts,
@@ -103,6 +105,8 @@ export function emptyState() {
     feedbacks: [],
     // v1.1 AI 报告缓存：key 为 'YYYY-MM' 或 'YYYY'
     aiReports: {},
+    // v1.2 记账模板：{id,name,type,amount,categoryId,accountId,note,at}
+    templates: [],
     // v1.1 图片资产元数据（本体 Blob 在 IndexedDB，经 WebDAV 同步）
     assetsMeta: {
       avatar: { at: null, hash: null },
@@ -139,9 +143,10 @@ export function demoState() {
   const [py, pm] = prevP.split('-').map(Number)
   const rand = (a, b) => Math.round((a + Math.random() * (b - a)) * 100) / 100
   let txId = 0
-  const mk = (date, time, type, amount, categoryId, accountId, note) => ({
+  const mk = (date, time, type, amount, categoryId, accountId, note, extra = {}) => ({
     id: 'demo' + (++txId), ledgerId: s.currentLedgerId, date, time, type,
     amount, categoryId, accountId, note, createdAt: date + 'T' + time,
+    tags: [], reimburse: 'none', attachAt: null, ...extra,
   })
 
   const txs = []
@@ -180,8 +185,8 @@ export function demoState() {
     else if (r < 0.79) txs.push(mk(ds, '21:00', 'expense', rand(15, 45), find('娱乐休闲', '订阅'), wechat.id, '会员'))
   }
   const recent = addDays(today, -1)
-  txs.push(mk(recent, '13:00', 'expense', 58, find('餐饮', '午餐'), alipay.id, '和同事聚餐'))
-  txs.push(mk(today, '09:00', 'expense', 6, find('交通出行', '公交地铁'), alipay.id, ''))
+  txs.push(mk(recent, '13:00', 'expense', 58, find('餐饮', '午餐'), alipay.id, '和同事聚餐', { tags: ['聚餐', '同事'], reimburse: 'pending' }))
+  txs.push(mk(today, '09:00', 'expense', 6, find('交通出行', '公交地铁'), alipay.id, '', { tags: ['通勤'] }))
   // 转账一笔：工资卡 → 支付宝
   {
     const tr = mk(addDays(today, -3), '20:00', 'transfer', 500, null, card.id, '卡里转支付宝')
@@ -207,6 +212,11 @@ export function demoState() {
   ]
   // 打卡：最近 5 天
   s.checkins = [addDays(today, -4), addDays(today, -3), addDays(today, -2), addDays(today, -1), today]
+  // v1.2 示例记账模板
+  s.templates = [
+    { id: uid(), name: '工作日午餐', type: 'expense', amount: 22, categoryId: find('餐饮', '午餐'), accountId: alipay.id, note: '工作餐', at: new Date().toISOString() },
+    { id: uid(), name: '地铁通勤', type: 'expense', amount: 6, categoryId: find('交通出行', '公交地铁'), accountId: alipay.id, note: '', at: new Date().toISOString() },
+  ]
   // 发票抬头示例
   s.invoices = [{ id: uid(), name: '示例公司', taxNo: '91110000XXXXXXXXXX', address: '北京市朝阳区xx路1号', phone: '010-88888888', bank: 'XX银行北京分行', account: '6222 0000 0000 0000' }]
   return s

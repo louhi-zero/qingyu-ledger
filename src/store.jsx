@@ -25,6 +25,16 @@ export function migrateState(s) {
       if (!('hash' in m)) m.hash = null
     }
   }
+  // v1.2 记账模板 + 交易行级新字段（可选字段，逐行补默认即可）
+  if (!Array.isArray(s.templates)) s.templates = []
+  if (Array.isArray(s.transactions)) {
+    for (const t of s.transactions) {
+      if (!t || typeof t !== 'object') continue
+      if (!Array.isArray(t.tags)) t.tags = []
+      if (t.reimburse !== 'pending' && t.reimburse !== 'done') t.reimburse = 'none'
+      if (!('attachAt' in t)) t.attachAt = null
+    }
+  }
   return s
 }
 

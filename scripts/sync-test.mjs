@@ -126,6 +126,20 @@ assert.equal(B.local.assetsMeta.avatar.hash, 'avatar-hash-a')
 assert.deepEqual(B.local.assetsMeta.wallpaper, { at: null, hash: null })
 ok('AI 报告缓存与头像/壁纸资产元数据随同步下发到另一台设备')
 
+// v1.2：tags / reimburse / attachAt / templates 跨端同步（行内新字段随整行三向合并）
+A.local.templates = A.local.templates || []
+A.local.templates.push({ id: 'tpl1', name: '午餐模板', type: 'expense', amount: 22, categoryId: 'c1', accountId: 'a1', note: '', at: '2026-10-01T00:00:00Z' })
+const tagTxId = A.local.transactions[0].id
+Object.assign(A.local.transactions[0], { tags: ['聚餐', '同事'], reimburse: 'pending', attachAt: '2026-10-02T00:00:00Z' })
+await devSync(A, tA)
+await devSync(B, tB)
+const bTx = B.local.transactions.find((x) => x.id === tagTxId)
+assert.deepEqual(bTx.tags, ['聚餐', '同事'])
+assert.equal(bTx.reimburse, 'pending')
+assert.equal(bTx.attachAt, '2026-10-02T00:00:00Z')
+assert.equal(B.local.templates.find((t) => t.id === 'tpl1')?.name, '午餐模板')
+ok('交易行级 v1.2 字段（标签/报销/附件时间）与记账模板跨端下发一致')
+
 // 结果断言
 const ids = new Set(A.local.transactions.map((x) => x.id))
 assert.ok(ids.has('sync-a1') && ids.has('sync-a2') && ids.has('sync-b1'), '三笔新增都在')
