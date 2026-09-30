@@ -665,6 +665,20 @@ export function netWorthSeries(state, days = 30) {
   return out
 }
 
+// ---------- v1.6 底部菜单图标图片：时间戳表归一（纯函数，migrateState 与单测共用） ----------
+export const TAB_ICON_KEYS = ['home', 'charts', 'discover', 'profile']
+
+// 非法形状整体重建；合法则补齐缺省 key 并把时间戳字符串化
+export function normalizeTabIconAt(v) {
+  const out = { home: null, charts: null, discover: null, profile: null }
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const k of TAB_ICON_KEYS) {
+      if (v[k]) out[k] = String(v[k])
+    }
+  }
+  return out
+}
+
 // ---------- v1.5 收支监控：解析微信/支付宝通知文本（纯函数） ----------
 // 返回 { amount(元,2位小数), kind:'income'|'expense', source:'wechat'|'alipay', title, text } 或 null。
 // 只有「来源 + 金额 + 收支方向」三要素齐备才解析成功，避免验证码/物流等噪声误弹窗。

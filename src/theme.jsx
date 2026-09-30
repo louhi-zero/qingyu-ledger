@@ -58,12 +58,13 @@ export function ThemeProvider({ children }) {
   const [wallUrl, setWallUrl] = useState(null)
   const [palette, setPalette] = useState([])
 
-  // 玻璃开关与模糊度
+  // 玻璃开关与模糊度 + 点击反馈开关
   useEffect(() => {
     const el = document.documentElement
     el.dataset.glass = s.glassOn ? 'on' : 'off'
     el.style.setProperty('--glass-blur', `${s.glassBlur ?? 16}px`)
-  }, [s.glassOn, s.glassBlur])
+    el.dataset.tap = s.tapFeedback === false ? 'off' : 'on'
+  }, [s.glassOn, s.glassBlur, s.tapFeedback])
 
   // 壁纸：avatarPhotoAt 同理，wallpaperAt 变化时重新取 objectURL
   useEffect(() => {
@@ -142,6 +143,17 @@ export function useAiFacePhoto() {
   const { state } = useStore()
   return useAssetUrl(state.settings.aiFaceAt, 'aiface')
 }
+
+// v1.6 底部菜单图标图片（IndexedDB 'tabicon_<page>'，settings.tabIconAt 驱动刷新）
+export function useTabIconImgs() {
+  const { state } = useStore()
+  const at = state.settings.tabIconAt || {}
+  const home = useAssetUrl(at.home, 'tabicon_home')
+  const charts = useAssetUrl(at.charts, 'tabicon_charts')
+  const discover = useAssetUrl(at.discover, 'tabicon_discover')
+  const profile = useAssetUrl(at.profile, 'tabicon_profile')
+  return { home, charts, discover, profile }
+}
 export function AiFace({ className = '', style }) {
   const { state } = useStore()
   const url = useAiFacePhoto()
@@ -163,8 +175,8 @@ export function useMediaActions() {
   return useMemo(
     () => ({
       async saveAvatarPhoto(file) {
-        // v1.4.1 头像仅允许白底图片（非白底在压缩时直接抛错）
-        const blob = await fileToJpeg(file, { maxSize: 256, quality: 0.85, cover: true, whiteBg: true })
+        // v1.6 头像支持任意背景颜色图片（自动居中裁切为 256×256 方形）
+        const blob = await fileToJpeg(file, { maxSize: 256, quality: 0.85, cover: true })
         const hash = await hashBlob(blob)
         const at = new Date().toISOString()
         await replaceBlob('avatar', blob)
@@ -229,6 +241,22 @@ export function useMediaActions() {
         set((d) => {
           d.settings.aiFaceAt = null
           d.assetsMeta.aiface = { at: null, hash: null }
+        })
+      },
+      // v1.6 底部菜单图标图片：严格白底校验（四角非近白直接抛错），96×96 居中裁切
+      async saveTabIcon(page, file) {
+        const blob = await fileToJpeg(file, { maxSize: 96, quality: 0.9, cover: true, whiteBg: true })
+        const at = new Date().toISOString()
+        await replaceBlob(`tabicon_${page}`, blob)
+        set((d) => {
+          if (!d.settings.tabIconAt || typeof d.settings.tabIconAt !== 'object') d.settings.tabIconAt = {}
+          d.settings.tabIconAt[page] = at
+        })
+      },
+      async clearTabIcon(page) {
+        await replaceBlob(`tabicon_${page}`, null)
+        set((d) => {
+          if (d.settings.tabIconAt?.[page]) d.settings.tabIconAt[page] = null
         })
       },
     }),

@@ -25,8 +25,8 @@ export default function Profile() {
       await media.saveAvatarPhoto(file)
       toast('头像照片已更新')
       setAvatarOpen(false)
-    } catch (e) {
-      toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底照片' : '图片读取失败，请换一张试试', 'err')
+    } catch {
+      toast('图片读取失败，请换一张试试', 'err')
     } finally {
       setBusy(false)
     }
@@ -131,18 +131,18 @@ export default function Profile() {
         <button className="btn" style={{ marginTop: 12 }} onClick={saveName}>保存修改</button>
       </Sheet>
 
-      {/* 换头像（v1.4.1 仅白底图片，非白底拦截） */}
+      {/* 换头像（v1.6 支持任意背景颜色图片） */}
       <Sheet open={avatarOpen} onClose={() => setAvatarOpen(false)} title="换个形象">
         <div className="center-box" style={{ padding: '6px 0 12px' }}>
           <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
             <AvatarFace />
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            仅支持白底图片（如证件照），自动居中裁切；非白底将无法使用
+            支持任意背景颜色的图片，自动居中裁切为方形
           </div>
         </div>
         <button className="btn" disabled={busy} onClick={() => avatarFileRef.current?.click()}>
-          {busy ? '处理中…' : '📷 选择白底图片'}
+          {busy ? '处理中…' : '📷 选择图片'}
         </button>
         {state.settings.avatarPhotoAt && (
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={busy} onClick={async () => {
@@ -161,7 +161,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.5.0 · 全功能免费</div>
+          <div className="muted">v1.6.0 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>

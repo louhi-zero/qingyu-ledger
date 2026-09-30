@@ -100,6 +100,9 @@ export function emptyState() {
       baseCurrency: 'CNY',
       // v1.5 收支监控：Android 通知监听（微信/支付宝收支自动弹确认窗），仅原生端生效
       notifyCatch: false,
+      // v1.6 个性化：点击反馈（按压缩放 + 轻震动）；底部菜单图标图片更新时间（本体 IndexedDB 'tabicon_<page>'）
+      tapFeedback: true,
+      tabIconAt: { home: null, charts: null, discover: null, profile: null },
     },
     categories: cats,
     accounts,

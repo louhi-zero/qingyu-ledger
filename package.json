@@ -1,7 +1,7 @@
 {
   "name": "qingyu-ledger",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "test:sync": "node scripts/sync-test.mjs",
     "test:ai": "node scripts/ai-test.mjs",
+    "test:unit": "node scripts/unit-test.mjs",
+    "test:smoke": "electron scripts/smoke.mjs",
     "icon": "node scripts/make-ico.mjs",
     "assets:mobile": "node scripts/make-mobile-assets.mjs",
     "cap:sync": "vite build && cap sync",

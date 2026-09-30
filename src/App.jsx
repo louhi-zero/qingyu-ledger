@@ -30,7 +30,7 @@ import Debts from './pages/Debts.jsx'
 import Goals from './pages/Goals.jsx'
 import ScanReceipt from './pages/ScanReceipt.jsx'
 import Trash from './pages/Trash.jsx'
-import { ThemeProvider, Backdrop, useWelcomeBg } from './theme.jsx'
+import { ThemeProvider, Backdrop, useWelcomeBg, useTabIconImgs } from './theme.jsx'
 
 const NavCtx = createContext(null)
 export const useNav = () => useContext(NavCtx)
@@ -90,9 +90,9 @@ function WelcomePage({ onStart }) {
   )
 }
 
-// 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘（v1.4.1 起图标固定默认，不再自定义）
-const TabBar = memo(function TabBar({ tab, setTab, openAdd }) {
-  const icons = DEFAULT_TAB_ICONS
+// 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘
+// v1.6 图标三级回落：自定义图片（白底校验）> 自定义 emoji > 默认图标
+const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {}, emojiIcons = {} }) {
   return (
     <nav className="tabbar">
       {Object.entries(TAB_PAGES).map(([key, cfg]) =>
@@ -102,7 +102,11 @@ const TabBar = memo(function TabBar({ tab, setTab, openAdd }) {
           </button>
         ) : (
           <button key={key} className={`tab ${tab === key ? 'on' : ''}`} onClick={() => setTab(key)}>
-            <span className="tico">{icons[key]}</span>
+            <span className="tico">
+              {tabImgs[key]
+                ? <img src={tabImgs[key]} alt="" decoding="async" draggable={false} />
+                : (emojiIcons[key] || DEFAULT_TAB_ICONS[key])}
+            </span>
             <span>{cfg.title}</span>
           </button>
         ),
@@ -136,6 +140,22 @@ function Shell() {
   const closeAdd = () => { setAddOpen(false); setEditTx(null) }
 
   const nav = { push, pop, openAdd, tab, setTab }
+
+  // v1.6 点击反馈：全 App 按压轻震动 8ms（设置-外观 可关；浏览器不支持时静默）
+  const tapFeedback = state.settings.tapFeedback !== false
+  useEffect(() => {
+    if (!tapFeedback) return undefined
+    const h = (e) => {
+      if (e.target?.closest?.('button, .cell, .txitem, .chip') && navigator.vibrate) {
+        try { navigator.vibrate(8) } catch { /* ignore */ }
+      }
+    }
+    document.addEventListener('click', h, true)
+    return () => document.removeEventListener('click', h, true)
+  }, [tapFeedback])
+
+  // v1.6 底部菜单自定义图片图标（IndexedDB 'tabicon_<page>'）
+  const tabImgs = useTabIconImgs()
 
   // v1.5 收支监控：Android 原生通知监听 → 解析 → 弹确认窗（Web/桌面静默禁用）
   const [caught, setCaught] = useState(null)
@@ -218,7 +238,12 @@ function Shell() {
         </div>
 
         {/* 底部导航：仅在根级页面显示 */}
-        {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} />}
+        {!stack.length && (
+          <TabBar
+            tab={tab} setTab={setTab} openAdd={openAdd}
+            tabImgs={tabImgs} emojiIcons={state.settings.tabIcons || {}}
+          />
+        )}
 
         {/* 记一笔 / 编辑账单 */}
         <AddTx

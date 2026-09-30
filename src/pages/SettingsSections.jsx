@@ -7,7 +7,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
-import { AvatarFace, AiFace, useWelcomeBg, useMediaActions } from '../theme.jsx'
+import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs } from '../theme.jsx'
+import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { getNotifyCatch, isNotifyListening, openNotifySettings } from '../notifyCatch.js'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES } from '../utils.js'
 
@@ -54,6 +55,11 @@ function useSettingsCtx() {
   const [fxOpen, setFxOpen] = useState(false)
   const [name, setName] = useState('')
   const [busyImg, setBusyImg] = useState(false)
+  // v1.6 底部菜单图标自定义
+  const [tabIconOpen, setTabIconOpen] = useState(false)
+  const [tabIconPage, setTabIconPage] = useState('home')
+  const [tabIconTab, setTabIconTab] = useState('emoji')
+  const tabIconFileRef = useRef(null)
   const [pending, setPending] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const restoreRef = useRef(null)
@@ -118,6 +124,7 @@ function useSettingsCtx() {
     fxOpen, setFxOpen, name, setName, busyImg, pending, setPending,
     confirmClear, setConfirmClear, restoreRef, avatarFileRef,
     wallpaperRef, welcomeFileRef, aiFaceFileRef, openName, pickImage, readRestore,
+    tabIconOpen, setTabIconOpen, tabIconPage, setTabIconPage, tabIconTab, setTabIconTab, tabIconFileRef,
   }
 }
 
@@ -214,6 +221,25 @@ function AppearanceSection({ ctx }) {
             <div className="cdesc">{s.welcomeBgAt ? '已设置，点击重新选择' : '上传一张图，首次打开更有专属感'}</div>
           </div>
           <div className="cright"><span className="arrow">›</span></div>
+        </div>
+        <div className="cell" onClick={() => ctx.setTabIconOpen(true)}>
+          <div className="cico">🧩</div>
+          <div className="cmain">
+            <div className="ctitle">底部菜单图标</div>
+            <div className="cdesc">表情或白底图片自定义四个页签图标</div>
+          </div>
+          <div className="cright"><span className="arrow">›</span></div>
+        </div>
+      </div>
+      <div className="group">
+        <div className="gtitle">点击反馈</div>
+        <div className="cell" onClick={() => set((d) => { d.settings.tapFeedback = d.settings.tapFeedback === false })}>
+          <div className="cico">📳</div>
+          <div className="cmain">
+            <div className="ctitle">按压缩放与轻震动</div>
+            <div className="cdesc">点按时的缩放反馈与 8ms 触觉震动（设备支持时）</div>
+          </div>
+          <div className="cright"><Switch on={s.tapFeedback !== false} onChange={() => set((d) => { d.settings.tapFeedback = d.settings.tapFeedback === false })} /></div>
         </div>
       </div>
       <input
@@ -538,9 +564,27 @@ function DataSection({ ctx, nav }) {
 }
 
 /* ---------- 各二级页共用弹层 ---------- */
+const TAB_ICON_PAGES = [['home', '明细'], ['charts', '图表'], ['discover', '发现'], ['profile', '我的']]
+
 function SectionSheets({ ctx, section }) {
   const { state, set, toast, media } = ctx
   const s = state.settings
+  const tabImgs = useTabIconImgs()
+  const [busyTab, setBusyTab] = useState(false)
+
+  // v1.6 底部图标上传：严格白底校验（非白底在压缩时抛错）
+  const upTabIcon = async (file) => {
+    if (!file) return
+    setBusyTab(true)
+    try {
+      await media.saveTabIcon(ctx.tabIconPage, file)
+      toast('底部图标已更新')
+    } catch (e) {
+      toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底图片' : '图片读取失败，请换一张试试', 'err')
+    } finally {
+      setBusyTab(false)
+    }
+  }
   return (
     <>
       {/* 改名 */}
@@ -560,18 +604,18 @@ function SectionSheets({ ctx, section }) {
         </div>
       </Sheet>
 
-      {/* 头像（仅白底图片，非白底拦截） */}
+      {/* 头像（v1.6 支持任意背景颜色图片） */}
       <Sheet open={ctx.avatarOpen} onClose={() => ctx.setAvatarOpen(false)} title="选择头像">
         <div className="center-box" style={{ padding: '6px 0 12px' }}>
           <div className="avatar" style={{ width: 72, height: 72, fontSize: 34 }}>
             <AvatarFace />
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            仅支持白底图片（如证件照），自动居中裁切；非白底将无法使用
+            支持任意背景颜色的图片，自动居中裁切为 256×256 方形，随云同步
           </div>
         </div>
         <button className="btn" disabled={ctx.busyImg} onClick={() => ctx.avatarFileRef.current?.click()}>
-          {ctx.busyImg ? '处理中…' : '📷 选择白底图片'}
+          {ctx.busyImg ? '处理中…' : '📷 选择图片'}
         </button>
         {s.avatarPhotoAt && (
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={ctx.busyImg} onClick={async () => {
@@ -678,6 +722,69 @@ function SectionSheets({ ctx, section }) {
           })
           toast('已恢复默认参考汇率')
         }}>恢复默认参考汇率</button>
+      </Sheet>
+
+      {/* v1.6 底部菜单图标：表情 / 白底图片，按页签分别设置 */}
+      <Sheet open={ctx.tabIconOpen} onClose={() => ctx.setTabIconOpen(false)} title="底部菜单图标">
+        <div className="tabicon-grid">
+          {TAB_ICON_PAGES.map(([key, label]) => (
+            <button
+              key={key}
+              className={`tabicon-item ${ctx.tabIconPage === key ? 'on' : ''}`}
+              onClick={() => ctx.setTabIconPage(key)}
+              type="button"
+            >
+              <span className="tico-cell" style={{ width: 42, height: 42, fontSize: 20 }}>
+                {tabImgs[key]
+                  ? <img className="tabicon-img" src={tabImgs[key]} alt="" decoding="async" draggable={false} />
+                  : (s.tabIcons?.[key] || DEFAULT_TAB_ICONS[key])}
+              </span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ height: 12 }} />
+        <Seg
+          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 白底图片', value: 'photo' }]}
+          value={ctx.tabIconTab}
+          onChange={ctx.setTabIconTab}
+        />
+        <div style={{ height: 12 }} />
+        {ctx.tabIconTab === 'emoji' ? (
+          <EmojiPicker
+            value={s.tabIcons?.[ctx.tabIconPage] || DEFAULT_TAB_ICONS[ctx.tabIconPage]}
+            onChange={(e) => {
+              set((d) => {
+                if (!d.settings.tabIcons || typeof d.settings.tabIcons !== 'object') d.settings.tabIcons = {}
+                d.settings.tabIcons[ctx.tabIconPage] = e
+              })
+              media.clearTabIcon(ctx.tabIconPage).catch(() => {})
+              toast('图标已更新')
+            }}
+          />
+        ) : (
+          <div>
+            <div className="center-box" style={{ padding: '6px 0 12px' }}>
+              <div className="muted" style={{ fontSize: 12, lineHeight: 1.7 }}>
+                仅支持白色背景图片（菜单栏以白色为底展示），自动居中裁切为 96×96；<br />
+                非白底图片会被拦截，无法使用
+              </div>
+            </div>
+            <button className="btn" disabled={busyTab} onClick={() => ctx.tabIconFileRef.current?.click()}>
+              {busyTab ? '处理中…' : '📷 选择白底图片'}
+            </button>
+            {s.tabIconAt?.[ctx.tabIconPage] && (
+              <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyTab} onClick={async () => {
+                await media.clearTabIcon(ctx.tabIconPage)
+                toast('已恢复该页签默认图标')
+              }}>恢复默认图标</button>
+            )}
+            <input
+              ref={ctx.tabIconFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) upTabIcon(f); e.target.value = '' }}
+            />
+          </div>
+        )}
       </Sheet>
     </>
   )

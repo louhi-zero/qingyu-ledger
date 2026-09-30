@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { emptyState, demoState } from './seed.js'
-import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth } from './utils.js'
+import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
 
@@ -29,7 +29,8 @@ export function migrateState(s) {
   }
   // v1.3 底部图标映射表需是普通对象
   if (!s.settings.tabIcons || typeof s.settings.tabIcons !== 'object' || Array.isArray(s.settings.tabIcons)) s.settings.tabIcons = {}
-  // v1.4.1 底部菜单图标自定义已移除，历史 tabIcons 数据保留但不再使用
+  // v1.6 底部菜单图标自定义恢复：图片时间戳表归一（本体在 IndexedDB 'tabicon_<page>'）
+  s.settings.tabIconAt = normalizeTabIconAt(s.settings.tabIconAt)
   // v1.2 记账模板 + 交易行级新字段（可选字段，逐行补默认即可）
   if (!Array.isArray(s.templates)) s.templates = []
   if (Array.isArray(s.transactions)) {
