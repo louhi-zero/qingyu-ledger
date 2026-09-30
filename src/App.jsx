@@ -91,8 +91,8 @@ function WelcomePage({ onStart }) {
 }
 
 // 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘
-// v1.6 图标三级回落：自定义图片（白底校验）> 自定义 emoji > 默认图标
-const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {}, emojiIcons = {} }) {
+// v1.6.1 图标回落：自定义白底图片 > 默认图标（emoji 自定义入口已移除，历史 tabIcons 数据仅保留兼容）
+const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {} }) {
   return (
     <nav className="tabbar">
       {Object.entries(TAB_PAGES).map(([key, cfg]) =>
@@ -105,7 +105,7 @@ const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {}, emojiI
             <span className="tico">
               {tabImgs[key]
                 ? <img src={tabImgs[key]} alt="" decoding="async" draggable={false} />
-                : (emojiIcons[key] || DEFAULT_TAB_ICONS[key])}
+                : DEFAULT_TAB_ICONS[key]}
             </span>
             <span>{cfg.title}</span>
           </button>
@@ -238,12 +238,7 @@ function Shell() {
         </div>
 
         {/* 底部导航：仅在根级页面显示 */}
-        {!stack.length && (
-          <TabBar
-            tab={tab} setTab={setTab} openAdd={openAdd}
-            tabImgs={tabImgs} emojiIcons={state.settings.tabIcons || {}}
-          />
-        )}
+        {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} tabImgs={tabImgs} />}
 
         {/* 记一笔 / 编辑账单 */}
         <AddTx

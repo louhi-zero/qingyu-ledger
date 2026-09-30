@@ -112,12 +112,11 @@ app.whenReady().then(async () => {
     await sleep(200)
     assert('点击反馈开：data-tap=on', await run(`document.documentElement.dataset.tap === 'on'`))
 
-    // 5. 底部菜单图标：非白底拦截 → 白底成功
+    // 5. 底部菜单图标：非白底拦截 → 白底成功（v1.6.1 仅图片方式，无表情入口）
     await run(`(${clickText})('.cell', '底部菜单图标')`)
     await sleep(400)
     assert('图标 Sheet：四个页签选择器渲染', await run(`document.querySelectorAll('.tabicon-item').length === 4`))
-    await run(`(${clickText})('.seg button', '白底图片')`)
-    await sleep(300)
+    assert('图标 Sheet：无表情自定义入口（无 .seg 切换）', await run(`document.querySelector('.sheet .seg') === null`))
     await run(`(${INJECT})('nonwhite')`)
     await sleep(1200)
     const t1 = await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.tabIconAt?.home || null })()`)
@@ -136,9 +135,10 @@ app.whenReady().then(async () => {
     await sleep(400)
     const headOn = await run(`(() => {
       const cs = getComputedStyle(document.querySelector('.me-head'))
-      return { bg: cs.backgroundColor, blur: cs.backdropFilter || cs.webkitBackdropFilter }
+      return { img: cs.backgroundImage, border: cs.borderTopColor, blur: cs.backdropFilter || cs.webkitBackdropFilter }
     })()`)
-    assert('玻璃开：头部为白色磨砂（rgba(255,255,255,0.68)）', headOn.bg === 'rgba(255, 255, 255, 0.68)')
+    assert('玻璃开：头部为纯白液态玻璃（渐变白 34%→18%）', headOn.img.includes('linear-gradient') && headOn.img.includes('rgba(255, 255, 255, 0.34)') && headOn.img.includes('rgba(255, 255, 255, 0.18)'))
+    assert('玻璃开：白色半透明描边', headOn.border === 'rgba(255, 255, 255, 0.45)')
     assert('玻璃开：头部启用 backdrop 模糊', typeof headOn.blur === 'string' && headOn.blur.includes('blur'))
     assert('TabBar 首个页签渲染自定义图片图标', await run(`!!document.querySelector('.tabbar .tab .tico img')`))
 

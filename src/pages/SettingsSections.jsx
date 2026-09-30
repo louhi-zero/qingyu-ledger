@@ -55,10 +55,9 @@ function useSettingsCtx() {
   const [fxOpen, setFxOpen] = useState(false)
   const [name, setName] = useState('')
   const [busyImg, setBusyImg] = useState(false)
-  // v1.6 底部菜单图标自定义
+  // v1.6 底部菜单图标自定义（v1.6.1 移除表情方式，仅保留白底图片上传）
   const [tabIconOpen, setTabIconOpen] = useState(false)
   const [tabIconPage, setTabIconPage] = useState('home')
-  const [tabIconTab, setTabIconTab] = useState('emoji')
   const tabIconFileRef = useRef(null)
   const [pending, setPending] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -124,7 +123,7 @@ function useSettingsCtx() {
     fxOpen, setFxOpen, name, setName, busyImg, pending, setPending,
     confirmClear, setConfirmClear, restoreRef, avatarFileRef,
     wallpaperRef, welcomeFileRef, aiFaceFileRef, openName, pickImage, readRestore,
-    tabIconOpen, setTabIconOpen, tabIconPage, setTabIconPage, tabIconTab, setTabIconTab, tabIconFileRef,
+    tabIconOpen, setTabIconOpen, tabIconPage, setTabIconPage, tabIconFileRef,
   }
 }
 
@@ -226,7 +225,7 @@ function AppearanceSection({ ctx }) {
           <div className="cico">🧩</div>
           <div className="cmain">
             <div className="ctitle">底部菜单图标</div>
-            <div className="cdesc">表情或白底图片自定义四个页签图标</div>
+            <div className="cdesc">上传白底图片自定义四个页签图标，自动居中裁切</div>
           </div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
@@ -724,7 +723,7 @@ function SectionSheets({ ctx, section }) {
         }}>恢复默认参考汇率</button>
       </Sheet>
 
-      {/* v1.6 底部菜单图标：表情 / 白底图片，按页签分别设置 */}
+      {/* v1.6 底部菜单图标：白底图片上传（v1.6.1 移除表情自定义，仅保留图片） */}
       <Sheet open={ctx.tabIconOpen} onClose={() => ctx.setTabIconOpen(false)} title="底部菜单图标">
         <div className="tabicon-grid">
           {TAB_ICON_PAGES.map(([key, label]) => (
@@ -737,54 +736,32 @@ function SectionSheets({ ctx, section }) {
               <span className="tico-cell" style={{ width: 42, height: 42, fontSize: 20 }}>
                 {tabImgs[key]
                   ? <img className="tabicon-img" src={tabImgs[key]} alt="" decoding="async" draggable={false} />
-                  : (s.tabIcons?.[key] || DEFAULT_TAB_ICONS[key])}
+                  : DEFAULT_TAB_ICONS[key]}
               </span>
               <span>{label}</span>
             </button>
           ))}
         </div>
-        <div style={{ height: 12 }} />
-        <Seg
-          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 白底图片', value: 'photo' }]}
-          value={ctx.tabIconTab}
-          onChange={ctx.setTabIconTab}
-        />
-        <div style={{ height: 12 }} />
-        {ctx.tabIconTab === 'emoji' ? (
-          <EmojiPicker
-            value={s.tabIcons?.[ctx.tabIconPage] || DEFAULT_TAB_ICONS[ctx.tabIconPage]}
-            onChange={(e) => {
-              set((d) => {
-                if (!d.settings.tabIcons || typeof d.settings.tabIcons !== 'object') d.settings.tabIcons = {}
-                d.settings.tabIcons[ctx.tabIconPage] = e
-              })
-              media.clearTabIcon(ctx.tabIconPage).catch(() => {})
-              toast('图标已更新')
-            }}
-          />
-        ) : (
-          <div>
-            <div className="center-box" style={{ padding: '6px 0 12px' }}>
-              <div className="muted" style={{ fontSize: 12, lineHeight: 1.7 }}>
-                仅支持白色背景图片（菜单栏以白色为底展示），自动居中裁切为 96×96；<br />
-                非白底图片会被拦截，无法使用
-              </div>
-            </div>
-            <button className="btn" disabled={busyTab} onClick={() => ctx.tabIconFileRef.current?.click()}>
-              {busyTab ? '处理中…' : '📷 选择白底图片'}
-            </button>
-            {s.tabIconAt?.[ctx.tabIconPage] && (
-              <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyTab} onClick={async () => {
-                await media.clearTabIcon(ctx.tabIconPage)
-                toast('已恢复该页签默认图标')
-              }}>恢复默认图标</button>
-            )}
-            <input
-              ref={ctx.tabIconFileRef} type="file" accept="image/*" style={{ display: 'none' }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) upTabIcon(f); e.target.value = '' }}
-            />
+        <div style={{ height: 14 }} />
+        <div className="center-box" style={{ padding: '0 0 12px' }}>
+          <div className="muted" style={{ fontSize: 12, lineHeight: 1.7 }}>
+            先点选上方页签，再上传白色背景图片：自动居中裁切为 96×96 并实时应用到菜单栏。<br />
+            仅支持白底图片，非白底会被拦截；点击页签可随时重新上传或恢复默认
           </div>
+        </div>
+        <button className="btn" disabled={busyTab} onClick={() => ctx.tabIconFileRef.current?.click()}>
+          {busyTab ? '处理中…' : `📷 为「${(TAB_ICON_PAGES.find(([k]) => k === ctx.tabIconPage) || [])[1] || ''}」上传白底图片`}
+        </button>
+        {s.tabIconAt?.[ctx.tabIconPage] && (
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyTab} onClick={async () => {
+            await media.clearTabIcon(ctx.tabIconPage)
+            toast('已恢复该页签默认图标')
+          }}>恢复默认图标</button>
         )}
+        <input
+          ref={ctx.tabIconFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) upTabIcon(f); e.target.value = '' }}
+        />
       </Sheet>
     </>
   )

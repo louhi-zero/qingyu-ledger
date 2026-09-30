@@ -7,7 +7,7 @@ import { useNav } from '../App.jsx'
 import { TopBar } from '../ui.jsx'
 import { AvatarFace } from '../theme.jsx'
 
-const APP_VERSION = '1.6.0'
+const APP_VERSION = '1.6.1'
 
 export default function Settings({ nav }) {
   const { state } = useStore()
