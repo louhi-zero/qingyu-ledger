@@ -91,11 +91,11 @@ export default function Home() {
           </div>
           <div className="hm-amount">
             <span className="cur">¥</span>
-            <Amount value={sumType === 'expense' ? expense : income} sign={false} className={state.settings.hideAmount ? '' : ''} />
+            <Amount value={sumType === 'expense' ? expense : income} sign={false} prefix="" className={state.settings.hideAmount ? '' : ''} />
           </div>
           <div className="hm-meta">
-            <span>{sumType === 'expense' ? '支出' : '收入'} {filtered.length} 笔内 {txs.length} 笔</span>
-            <span>结余 ¥<Amount value={balance} /></span>
+            <span>{sumType === 'expense' ? '支出' : '收入'} {filtered.length} 笔{filtered.length !== txs.length ? `（共 ${txs.length} 笔）` : ''}</span>
+            <span>结余 <Amount value={balance} /></span>
           </div>
         </div>
 

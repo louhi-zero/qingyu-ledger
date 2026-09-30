@@ -388,7 +388,8 @@ export default function AddTx({ open, editTx, onClose }) {
                 if (k === '·') return <button key={k} className="fn" onClick={() => pressKey('.')}>·</button>
                 if (k === '✓') return <button key={k} className="ok" onClick={() => save(false)}>完成</button>
                 if (k === '⌫') return <button key={k} className="fn" onClick={() => pressKey('⌫')}>⌫</button>
-                if (k === '+' || k === '-') return <button key={k} className="fn" disabled style={{ opacity: .3 }}>{k}</button>
+                // +/- 为键盘布局占位（常见支付键盘样式），不可点、不可聚焦、不可见内容
+                if (k === '+' || k === '-') return <div key={k} className="kp-blank" aria-hidden="true" />
                 return <button key={k} onClick={() => pressKey(k)}>{k}</button>
               })}
             </div>

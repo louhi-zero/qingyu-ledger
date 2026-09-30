@@ -288,14 +288,15 @@ textarea.input { resize: none; min-height: 90px; }
 .btnrow { display: flex; gap: 10px; }
 .btnrow .btn { flex: 1; }
 
-/* ---------- 开关 ---------- */
+/* ---------- 开关（v1.6.4 滑块提速 .14s，跟手即动） ---------- */
 .switch {
   position: relative; width: 46px; height: 27px; border-radius: 20px; background: #d7dae3;
-  border: none; cursor: pointer; transition: background .18s; flex-shrink: 0;
+  border: none; cursor: pointer; transition: background .14s ease-out; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 .switch::after {
   content: ""; position: absolute; left: 3px; top: 3px; width: 21px; height: 21px;
-  background: #fff; border-radius: 50%; transition: left .18s; box-shadow: 0 2px 5px rgba(0,0,0,.18);
+  background: #fff; border-radius: 50%; transition: left .14s cubic-bezier(.3, 0, .25, 1); box-shadow: 0 2px 5px rgba(0,0,0,.18);
 }
 .switch.on { background: var(--brand); }
 .switch.on::after { left: 22px; }
@@ -587,13 +588,13 @@ table.plain th { color: var(--ink3); font-weight: 600; }
   --g-seg: rgba(0, 0, 0, .22);
 }
 
-/* 背景层：壁纸 + 遮罩 + 晕光（透明度渐显；v1.6.2 提速到 .28s 即时响应） */
+/* 背景层：壁纸 + 遮罩 + 晕光（透明度渐显；v1.6.4 提速到 .2s） */
 .backdrop {
   position: absolute; inset: 0; z-index: 0; overflow: hidden;
   opacity: 0; visibility: hidden; pointer-events: none;
-  transition: opacity .28s ease, visibility 0s linear .28s;
+  transition: opacity .2s ease, visibility 0s linear .2s;
 }
-:root[data-glass="on"] .backdrop { opacity: 1; visibility: visible; transition: opacity .28s ease; }
+:root[data-glass="on"] .backdrop { opacity: 1; visibility: visible; transition: opacity .2s ease; }
 :root[data-glass="on"] .app { position: relative; z-index: 1; }
 .bd-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .bd-veil { position: absolute; inset: 0; background: rgba(243, 245, 250, .72); }
@@ -617,17 +618,18 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 /* 玻璃关闭时暂停晕光动画，省电 */
 :root:not([data-glass="on"]) .bd-glow { animation-play-state: paused; }
 
-/* 玻璃开关平滑过渡（v1.6.2 提速：.24s 快起曲线，开关即时响应不拖沓）。
+/* 玻璃开关平滑过渡（v1.6.4 再次提速）。
+   关键：backdrop-filter 不参与过渡——模糊每帧重新光栅化是低端机最大卡顿源，
+   改为「模糊瞬时到位 + 底色/描边/阴影 .16s 快起」，肉眼感觉材质立刻出现。
    :active 按压反馈单独提速至 .12s */
 .card, .group, .txlist, .topbar, .tabbar, .sheet, .quick, .searchbar,
 .chip, .ymnav button, .iconbtn, .topbar .back, .input, .selectline,
 .btn.ghost, .sheet-head .sx, .tag, .fx-rate, .seg, .me-head, .home-head,
 .cell, .txitem {
   transition:
-    background-color .24s cubic-bezier(.3, 0, .25, 1),
-    border-color .24s cubic-bezier(.3, 0, .25, 1),
-    box-shadow .24s cubic-bezier(.3, 0, .25, 1),
-    backdrop-filter .24s cubic-bezier(.3, 0, .25, 1),
+    background-color .16s cubic-bezier(.25, 0, .2, 1),
+    border-color .16s cubic-bezier(.25, 0, .2, 1),
+    box-shadow .16s cubic-bezier(.25, 0, .2, 1),
     transform .15s ease;
 }
 .cell:active, .txitem:active, .chip:active, .iconbtn:active, .btn:active { transition-duration: .12s; }

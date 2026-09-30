@@ -373,27 +373,27 @@ function NotifySection({ ctx }) {
     return () => { alive = false }
   }, [s.notifyCatch])
 
+  // 每日提醒：开关与行内点击共用，行为保持一致（含权限申请与提示）
+  const toggleRemind = () => {
+    const next = !s.remindEnabled
+    set((d) => { d.settings.remindEnabled = next })
+    if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+    toast(next ? '已开启每日提醒' : '已关闭提醒')
+  }
+
   return (
     <>
       <div className="group">
         <div className="gtitle">记账提醒</div>
-        <div className="cell" onClick={() => {
-          const next = !s.remindEnabled
-          set((d) => { d.settings.remindEnabled = next })
-          if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => {})
-          }
-          toast(next ? '已开启每日提醒' : '已关闭提醒')
-        }}>
+        <div className="cell" onClick={() => toggleRemind()}>
           <div className="cico">⏰</div>
           <div className="cmain">
             <div className="ctitle">每日记账提醒</div>
             <div className="cdesc">App 内走系统定时通知，浏览器/桌面版为页面通知</div>
           </div>
-          <div className="cright"><Switch on={s.remindEnabled} onChange={() => {
-            const next = !s.remindEnabled
-            set((d) => { d.settings.remindEnabled = next })
-          }} /></div>
+          <div className="cright"><Switch on={s.remindEnabled} onChange={() => toggleRemind()} /></div>
         </div>
         {s.remindEnabled && (
           <div className="cell">

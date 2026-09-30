@@ -88,9 +88,10 @@ app.whenReady().then(async () => {
     })()`)
     assert('玻璃关：头部为白卡（rgb(255,255,255)）', headOff.bg === 'rgb(255, 255, 255)')
     assert('玻璃关：头部文字为深色墨色', headOff.color === 'rgb(31, 36, 48)')
-    // v1.6.2：根级页顶部预留状态栏安全区 + 玻璃过渡提速
+    // v1.6.4：根级页顶部预留状态栏安全区 + 玻璃过渡再次提速（0.24s→0.16s，backdrop-filter 不参与过渡）
     assert('我的页顶部预留安全区（paddingTop=12px 基础间距）', await run(`getComputedStyle(document.querySelector('.page-body')).paddingTop === '12px'`))
-    assert('玻璃材质过渡提速至 0.24s', await run(`getComputedStyle(document.querySelector('.group')).transitionDuration.includes('0.24s')`))
+    assert('玻璃材质过渡提速至 0.16s', await run(`getComputedStyle(document.querySelector('.group')).transitionDuration.includes('0.16s')`))
+    assert('backdrop-filter 不参与过渡（避免逐帧重新光栅化卡顿）', await run(`!getComputedStyle(document.querySelector('.group')).transitionProperty.includes('backdrop-filter')`))
 
     // 2. 头像上传非白底（红底）图片 → 成功（轮询等落盘）
     await run(`document.querySelector('.me-head .avatar').click()`)
@@ -109,6 +110,15 @@ app.whenReady().then(async () => {
     await run(`(${clickText})('.cell', '液态玻璃效果')`)
     await sleep(300)
     assert('玻璃开：data-glass=on', await run(`document.documentElement.dataset.glass === 'on'`))
+
+    // v1.6.4 P0 回归：直接点开关滑块（非行内其他区域）必须只切换一次。
+    // 旧缺陷：Switch 的 onClick 冒泡到外层 .cell 的 onClick，一次点击切两次=无反应
+    await run(`document.querySelector('.cell button.switch').click()`)
+    await sleep(200)
+    assert('直接点开关：玻璃被关闭（无双重切换抵消）', await run(`document.documentElement.dataset.glass === 'off'`))
+    await run(`document.querySelector('.cell button.switch').click()`)
+    await sleep(200)
+    assert('再次点开关：玻璃重新开启', await run(`document.documentElement.dataset.glass === 'on'`))
     // 关掉点击反馈 → data-tap=off；再开回来
     await run(`(${clickText})('.cell', '按压缩放与轻震动')`)
     await sleep(200)

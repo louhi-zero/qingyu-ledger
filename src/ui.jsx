@@ -100,8 +100,16 @@ export function Empty({ icon = '🍃', text, children }) {
 
 // 开关
 export function Switch({ on, onChange }) {
+  // 阻止冒泡：开关常嵌在带 onClick 的 .cell 内，
+  // 不拦截会冒泡触发外层切换，造成「点一次=切两次=无反应」
   return (
-    <button className={`switch ${on ? 'on' : ''}`} onClick={() => onChange(!on)} aria-label="开关" />
+    <button
+      type="button"
+      className={`switch ${on ? 'on' : ''}`}
+      onClick={(e) => { e.stopPropagation(); onChange(!on) }}
+      aria-pressed={on}
+      aria-label="开关"
+    />
   )
 }
 
