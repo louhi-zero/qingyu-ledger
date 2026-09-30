@@ -142,13 +142,13 @@ function Shell() {
   const nav = { push, pop, openAdd, tab, setTab }
 
   // v1.6 点击反馈：全 App 按压轻震动 8ms（设置-外观 可关；浏览器不支持时静默）
+  // v1.6.3 修复：Android WebView 的 navigator.vibrate 需应用持有 VIBRATE 权限（已补声明），否则静默返回 false
   const tapFeedback = state.settings.tapFeedback !== false
   useEffect(() => {
     if (!tapFeedback) return undefined
     const h = (e) => {
-      if (e.target?.closest?.('button, .cell, .txitem, .chip') && navigator.vibrate) {
-        try { navigator.vibrate(8) } catch { /* ignore */ }
-      }
+      if (!e.target?.closest?.('button, .cell, .txitem, .chip') || !navigator.vibrate) return
+      try { navigator.vibrate(8) } catch { /* ignore */ }
     }
     document.addEventListener('click', h, true)
     return () => document.removeEventListener('click', h, true)

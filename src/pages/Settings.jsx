@@ -1,4 +1,4 @@
-﻿﻿﻿/* v1.5 设置主页：只留分组入口，点进二级子页（SettingsSections）后再做具体修改。
+﻿﻿﻿﻿/* v1.5 设置主页：只留分组入口，点进二级子页（SettingsSections）后再做具体修改。
  * 各分组：个人资料 / 外观与个性化 / AI 助手 / 记账偏好 / 提醒与收支监控 / 数据与安全
  */
 import React from 'react'
@@ -7,7 +7,7 @@ import { useNav } from '../App.jsx'
 import { TopBar } from '../ui.jsx'
 import { AvatarFace } from '../theme.jsx'
 
-const APP_VERSION = '1.6.2'
+const APP_VERSION = '1.6.3'
 
 export default function Settings({ nav }) {
   const { state } = useStore()

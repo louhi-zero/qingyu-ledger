@@ -43,4 +43,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- v1.6.3 点击反馈：WebView navigator.vibrate() 需要应用持有 VIBRATE 权限，缺失时静默失效 -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

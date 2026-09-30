@@ -7,6 +7,7 @@
  */
 import { isWhiteBgPixels, parseMoneyNotify, normalizeTabIconAt } from '../src/utils.js'
 import { emptyState } from '../src/seed.js'
+import { readFileSync } from 'node:fs'
 
 let passed = 0
 let failed = 0
@@ -84,6 +85,12 @@ assert('tapFeedback 默认开启', es.settings.tapFeedback === true)
 assert('tabIconAt 四 key 形状正确', JSON.stringify(normalizeTabIconAt(es.settings.tabIconAt)) === JSON.stringify({ home: null, charts: null, discover: null, profile: null }))
 assert('notifyCatch 默认关闭', es.settings.notifyCatch === false)
 assert('glassOn 默认关闭', es.settings.glassOn === false)
+
+// ---------- 5. Android 权限声明 ----------
+console.log('AndroidManifest 权限：')
+const manifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf-8')
+assert('声明 VIBRATE 权限（navigator.vibrate 生效前提）', manifest.includes('android.permission.VIBRATE'))
+assert('声明 INTERNET 权限', manifest.includes('android.permission.INTERNET'))
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)
