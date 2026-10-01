@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.6.4",
   "license": "GPL-3.0-or-later",
+  "author": "louhi-zero",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
