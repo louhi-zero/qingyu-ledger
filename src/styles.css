@@ -427,11 +427,11 @@ textarea.input { resize: none; min-height: 90px; }
 .stat3 .s3 .v { font-size: 15px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
 
 /* ---------- 我的页（v1.6 头部改液态玻璃白色质感，替代原品牌蓝渐变） ---------- */
+/* v1.6.6 重构：头部改为独立圆角卡片（与下方卡片堆叠一致，不再贴顶全宽） */
 .me-head {
-  background: var(--card); padding: 24px 18px 20px; color: var(--ink); position: relative; overflow: hidden;
-  margin: -12px -14px 12px; border-radius: 0 0 30px 30px;
+  background: var(--card); padding: 24px 18px 18px; color: var(--ink); position: relative; overflow: hidden;
+  margin: 0 0 12px; border-radius: 26px;
   border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
-  border-top: none;
   box-shadow: 0 10px 26px -18px rgba(31, 36, 48, .35);
 }
 .me-head::before {
@@ -457,36 +457,56 @@ textarea.input { resize: none; min-height: 90px; }
   100% { transform: translate3d(6%, 10%, 0) scale(1.14) }
 }
 @media (prefers-reduced-motion: reduce) { .mh-glow { animation: none; } }
+/* v1.6.6 头像带渐变光环 + 右下相机徽标 */
+.avatar-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
 .avatar {
-  width: 64px; height: 64px; border-radius: 22px; background: var(--card2);
-  display: flex; align-items: center; justify-content: center; font-size: 33px;
-  border: 2px solid color-mix(in srgb, var(--ink) 10%, transparent); cursor: pointer;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 5%, transparent), 0 8px 20px -8px rgba(31, 36, 48, .3);
+  width: 68px; height: 68px; border-radius: 24px; background: var(--card2);
+  display: flex; align-items: center; justify-content: center; font-size: 35px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--brand) 55%, transparent), 0 10px 24px -10px rgba(76, 125, 255, .55);
   transition: transform .18s ease;
 }
 :root[data-tap="on"] .avatar:active { transform: scale(.94); }
+.cam {
+  position: absolute; right: -6px; bottom: -4px; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--grad); color: #fff; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; box-shadow: 0 3px 8px -2px rgba(76, 125, 255, .5);
+}
 .me-row { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
-.me-name { display: flex; align-items: center; gap: 6px; font-size: 19px; font-weight: 800; cursor: pointer; min-width: 0; }
+.me-name { display: flex; align-items: center; gap: 6px; font-size: 21px; font-weight: 800; cursor: pointer; min-width: 0; }
 .me-name-txt { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-edit { font-size: 12px; opacity: .8; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 8px; padding: 2px 5px; }
-.me-sub { font-size: 12px; color: var(--ink2); margin-top: 3px; }
-.me-stats { display: flex; gap: 8px; margin-top: 18px; position: relative; z-index: 1; }
-.me-stats .ms {
-  flex: 1; background: var(--card2); border-radius: 14px; padding: 11px 6px 10px; text-align: center;
-  border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+.me-badge {
+  display: inline-flex; align-items: center; margin-top: 7px;
+  font-size: 11px; font-weight: 600; padding: 3.5px 10px; border-radius: 999px;
+  background: var(--brand-weak); color: var(--brand);
+}
+/* v1.6.6 统计带：单容器三列，细分隔线（iOS 数据带风格），数字在上 */
+.me-stats {
+  display: flex; margin-top: 18px; position: relative; z-index: 1;
+  background: var(--card2); border-radius: 18px; padding: 12px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5);
 }
-.me-stats .ms .k { font-size: 11px; color: var(--ink2); }
-.me-stats .ms .v { font-size: 18px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
-.me-stats .ms .v i { font-style: normal; font-size: 11px; font-weight: 600; opacity: .75; margin-left: 2px; }
+.me-stats .ms {
+  flex: 1; text-align: center; padding: 0 6px;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.me-stats .ms:last-child { border-right: none; }
+.me-stats .ms .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.me-stats .ms .v i { font-style: normal; font-size: 11px; font-weight: 600; opacity: .7; margin-left: 2px; }
+.me-stats .ms .k { font-size: 11px; color: var(--ink2); margin-top: 3px; }
 .punch {
   border: none; background: linear-gradient(135deg, #5b8cff, #7a6bff); color: #fff; font-weight: 700;
-  border-radius: 20px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+  border-radius: 20px; padding: 9px 16px; font-size: 13px; cursor: pointer; flex-shrink: 0;
   box-shadow: 0 4px 14px -4px rgba(91, 140, 255, .55); transition: transform .15s ease, box-shadow .15s ease;
 }
 :root[data-tap="on"] .punch:active { transform: scale(.94); }
-.punch:disabled { opacity: .8; }
-.punch.done { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); box-shadow: none; }
+.punch:disabled { opacity: .85; }
+.punch.done { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); box-shadow: none; }
+/* v1.6.6 版本脚注 */
+.ver-foot { text-align: center; font-size: 11px; color: var(--ink3); padding: 10px 0 4px; letter-spacing: .4px; }
 
 /* 彩色 cell 图标（浅色底，dark 模式降亮度） */
 .cico.c-amber { background: #fff3dd; }
@@ -761,13 +781,14 @@ table.plain th { color: var(--ink3); font-weight: 600; }
     inset 0 0 0 .5px rgba(255, 255, 255, .22),
     0 8px 32px rgba(31, 36, 48, .14);
 }
-:root[data-glass="on"] .me-stats .ms {
+:root[data-glass="on"] .me-stats {
   background: rgba(255, 255, 255, .2);
   border-color: rgba(255, 255, 255, .38);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+:root[data-glass="on"] .me-stats .ms { border-right-color: rgba(255, 255, 255, .3); }
 :root[data-glass="on"] .me-head .avatar {
   border-color: rgba(255, 255, 255, .55);
 }
@@ -779,11 +800,12 @@ table.plain th { color: var(--ink3); font-weight: 600; }
     inset 0 1px 0 rgba(255, 255, 255, .12),
     0 8px 32px rgba(0, 0, 0, .5);
 }
-:root[data-theme="dark"][data-glass="on"] .me-stats .ms {
+:root[data-theme="dark"][data-glass="on"] .me-stats {
   background: rgba(255, 255, 255, .07);
   border-color: rgba(255, 255, 255, .1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
 }
+:root[data-theme="dark"][data-glass="on"] .me-stats .ms { border-right-color: rgba(255, 255, 255, .1); }
 :root[data-theme="dark"][data-glass="on"] .me-head .avatar {
   border-color: rgba(255, 255, 255, .2);
 }

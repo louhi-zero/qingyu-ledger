@@ -93,11 +93,11 @@ app.whenReady().then(async () => {
     assert('玻璃材质过渡提速至 0.16s', await run(`getComputedStyle(document.querySelector('.group')).transitionDuration.includes('0.16s')`))
     assert('backdrop-filter 不参与过渡（避免逐帧重新光栅化卡顿）', await run(`!getComputedStyle(document.querySelector('.group')).transitionProperty.includes('backdrop-filter')`))
 
-    // 2. 头像上传非白底（红底）图片 → 成功（轮询等落盘）
-    await run(`document.querySelector('.me-head .avatar').click()`)
+    // 2. 头像上传非白底（红底）图片 → 成功（轮询等落盘；IndexedDB 写入在隐藏窗口下可能 >6s）
+    await run(`document.querySelector('.me-head .avatar-wrap').click()`)
     await sleep(400)
     await run(`(${INJECT})('nonwhite')`)
-    const av = await pollTrue(run, `(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.avatarPhotoAt || null })()`)
+    const av = await pollTrue(run, `(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.avatarPhotoAt || null })()`, 15000)
     assert('头像：红底图片上传成功（avatarPhotoAt 已写入）', av)
 
     // 3. 进设置 → 外观与个性化
@@ -175,8 +175,7 @@ app.whenReady().then(async () => {
     const t1 = await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.tabIconAt?.home || null })()`)
     assert('图标：红底图片被拦截（home 未写入）', t1 === null)
     await run(`(${INJECT})('white')`)
-    await sleep(1200)
-    const t2 = await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.tabIconAt?.home || null })()`)
+    const t2 = await pollTrue(run, `(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.settings.tabIconAt?.home || null })()`, 15000)
     assert('图标：白底图片上传成功（home 已写入）', !!t2)
     await run(`document.querySelector('.sheet-head .sx')?.click()`)
     await sleep(300)

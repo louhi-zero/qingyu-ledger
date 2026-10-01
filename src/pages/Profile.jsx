@@ -67,22 +67,25 @@ export default function Profile() {
             ))}
           </div>
           <div className="me-row">
-            <div className="avatar" onClick={() => setAvatarOpen(true)}><AvatarFace /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="avatar-wrap" onClick={() => setAvatarOpen(true)}>
+              <div className="avatar"><AvatarFace /></div>
+              <span className="cam" aria-hidden="true">📷</span>
+            </div>
+            <div className="me-id" style={{ flex: 1, minWidth: 0 }}>
               <div className="me-name" onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
                 <span className="me-name-txt">{state.settings.nickname}</span>
                 <span className="me-edit">✏️</span>
               </div>
-              <div className="me-sub">点头像换形象 · 点昵称改名</div>
+              <span className="me-badge">🔥 已坚持 {days} 天</span>
             </div>
             <button className={`punch ${checkedToday ? 'done' : ''}`} onClick={punch} disabled={checkedToday}>
               {checkedToday ? `🔥 连击 ${streak} 天` : '📋 打卡'}
             </button>
           </div>
           <div className="me-stats">
-            <div className="ms"><div className="k">记账天数</div><div className="v">{days}<i>天</i></div></div>
-            <div className="ms"><div className="k">记账笔数</div><div className="v">{totalTx}<i>笔</i></div></div>
-            <div className="ms"><div className="k">连续打卡</div><div className="v">{streak}<i>天</i></div></div>
+            <div className="ms"><div className="v">{days}<i>天</i></div><div className="k">记账天数</div></div>
+            <div className="ms"><div className="v">{totalTx}<i>笔</i></div><div className="k">记账笔数</div></div>
+            <div className="ms"><div className="v">{streak}<i>天</i></div><div className="k">连续打卡</div></div>
           </div>
         </div>
 
@@ -109,20 +112,22 @@ export default function Profile() {
           <div className="gtitle">通用</div>
           <div className="cell" onClick={() => nav.push({ page: 'settings' })}>
             <div className="cico c-violet">⚙️</div>
-            <div className="cmain"><div className="ctitle">设置</div></div>
+            <div className="cmain"><div className="ctitle">设置</div><div className="cdesc">外观 · 记账偏好 · 数据与安全</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setFbOpen(true)}>
             <div className="cico c-green">💬</div>
-            <div className="cmain"><div className="ctitle">意见反馈</div></div>
+            <div className="cmain"><div className="ctitle">意见反馈</div><div className="cdesc">说说你的建议或遇到的问题</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setAboutOpen(true)}>
             <div className="cico c-rose">ℹ️</div>
-            <div className="cmain"><div className="ctitle">关于轻语记账</div></div>
+            <div className="cmain"><div className="ctitle">关于轻语记账</div><div className="cdesc">版本信息与产品理念</div></div>
             <div className="cright arrow">›</div>
           </div>
         </div>
+
+        <div className="ver-foot">轻语记账 v1.6.6 · GPL-3.0 · 全功能免费</div>
       </div>
 
       {/* 改名 */}
@@ -161,7 +166,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.6.5 · 全功能免费</div>
+          <div className="muted">v1.6.6 · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
