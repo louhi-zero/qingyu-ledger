@@ -1,12 +1,16 @@
 name: Android APK
 
-# 手动触发或推送 v* 标签时，在云端构建可侧载的 debug APK；
+# 手动触发或推送 v* 标签时，在云端构建可侧载的 APK；
 # 配置签名 Secrets 后额外产出可安装的 release APK（见末尾说明）。
+# 推送 v* 标签时自动创建 GitHub Release 并附上重命名后的 APK。
 on:
   workflow_dispatch:
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -88,6 +92,28 @@ jobs:
           name: qingyu-${{ github.ref_name }}-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      - name: 发布 GitHub Release（仅 tag 推送触发时）
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p rel
+          # 有签名 release APK 用之，否则回退 debug APK
+          APK_SRC=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -n1 || true)
+          [ -z "$APK_SRC" ] && APK_SRC=$(ls android/app/build/outputs/apk/debug/*.apk | head -n1)
+          echo "选用 APK: $APK_SRC"
+          cp "$APK_SRC" "rel/qingyu-${TAG}-android.apk"
+          # Release 已存在（如重跑流水线）则只更新资产，否则创建并自动生成变更说明
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "rel/qingyu-${TAG}-android.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "rel/qingyu-${TAG}-android.apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "轻语记账 $TAG" \
+              --generate-notes
+          fi
 
 # ── release 签名 Secrets（可选，仓库 Settings → Secrets and variables → Actions）──
 # ANDROID_KEYSTORE          base64 编码的 .jks（本地：base64 -w0 qingyu-release.jks）
