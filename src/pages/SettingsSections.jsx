@@ -15,6 +15,57 @@ import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNoti
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
 
+/* v1.7.1 震动反馈四档（时长与 App.jsx 全局监听保持一致：0/6/10/20ms） */
+const VIB_MS = [0, 6, 10, 20]
+const VIBRATE_LEVELS = [
+  { v: 0, label: '关闭', desc: '不产生任何震动', bars: 0 },
+  { v: 1, label: '轻柔', desc: '笔尖轻点，安静低调', bars: 1 },
+  { v: 2, label: '标准', desc: '清晰不突兀，推荐', bars: 3 },
+  { v: 3, label: '明快', desc: '短促有力，反馈明确', bars: 4 },
+]
+function playVibrate(level) {
+  if (level > 0 && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+    try { navigator.vibrate(VIB_MS[level]) } catch { /* 桌面/部分浏览器不支持，静默 */ }
+  }
+}
+/* 震动反馈强度卡片：波形柱可视化 + 档位说明，点按即预览，另有手动试震按钮 */
+function VibrateCard({ level, onChange }) {
+  return (
+    <div className="vib-card">
+      <div className="vib-head">
+        <span className="vib-ico">📳</span>
+        <span className="vib-headtxt">
+          <b>震动反馈强度</b>
+          <i>手指落下即震；滑动滚动时自动撤震，不会烦人</i>
+        </span>
+      </div>
+      <div className="vib-opts">
+        {VIBRATE_LEVELS.map((lv) => (
+          <button
+            key={lv.v} type="button"
+            className={'vib-opt' + (level === lv.v ? ' on' : '')}
+            aria-pressed={level === lv.v}
+            onClick={() => { onChange(lv.v); playVibrate(lv.v) }}
+          >
+            <span className="vib-bars" aria-hidden="true">
+              {[0, 1, 2, 3].map((i) => <i key={i} className={i < lv.bars ? 'lit' : ''} />)}
+            </span>
+            <span className="vib-meta">
+              <b>{lv.label}{lv.v > 0 && <em>{VIB_MS[lv.v]}ms</em>}</b>
+              <i>{lv.desc}</i>
+            </span>
+            <span className="vib-check" aria-hidden="true">{level === lv.v ? '✓' : ''}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button" className="vib-test" disabled={level === 0}
+        onClick={() => playVibrate(level)}
+      >{level === 0 ? '当前为关闭状态' : '▶ 感受一下这个档位'}</button>
+    </div>
+  )
+}
+
 const TITLES = {
   profile: '个人资料',
   appearance: '外观与个性化',
@@ -279,26 +330,10 @@ function AppearanceSection({ ctx }) {
           </div>
           <div className="cright"><Switch on={s.tapScale !== false} onChange={() => set((d) => { d.settings.tapScale = d.settings.tapScale === false })} /></div>
         </div>
-        <div className="cell vibrate-cell">
-          <div className="cico">📳</div>
-          <div className="cmain">
-            <div className="ctitle">震动反馈强度</div>
-            <div className="cdesc">手指落下即震；滑动滚动自动撤震，不会烦人</div>
-          </div>
-          <div className="cright">
-            <Seg
-              options={[{ label: '关', value: 0 }, { label: '轻柔', value: 1 }, { label: '标准', value: 2 }, { label: '明快', value: 3 }]}
-              value={s.vibrateLevel ?? 2}
-              onChange={(v) => {
-                set((d) => { d.settings.vibrateLevel = v })
-                // 选择即预览（除关闭外），让用户当场感受档位差异
-                if (v > 0 && typeof navigator !== 'undefined' && navigator.vibrate) {
-                  try { navigator.vibrate([0, 6, 10, 20][v]) } catch { /* ignore */ }
-                }
-              }}
-            />
-          </div>
-        </div>
+        <VibrateCard
+          level={s.vibrateLevel ?? 2}
+          onChange={(v) => set((d) => { d.settings.vibrateLevel = v })}
+        />
       </div>
       <input
         ref={ctx.wallpaperRef} type="file" accept="image/*" style={{ display: 'none' }}

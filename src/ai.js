@@ -88,6 +88,8 @@ export const STRUCT_PROMPT = [
 
 // ---------- 平台 ----------
 export function platformKind() {
+  // __qyForceWeb：冒烟测试钩子，强制走浏览器 fetch 路径便于 mock（同类先例 __qyUpdateBridge）
+  if (typeof window !== 'undefined' && window.__qyForceWeb) return 'browser'
   if (typeof window !== 'undefined' && window.qyHttp && window.qyHttp.requestStream) return 'electron'
   if (typeof window !== 'undefined' && window.Capacitor) return 'capacitor'
   return 'browser'
@@ -135,8 +137,8 @@ async function postSSE(cfg, body, { signal } = {}, onChunk) {
   return { status: res.status, ok: res.ok, text }
 }
 
-// 一次性 POST（结构化 JSON 调用；非流式响应也可复用 SSE 通道）
-async function postText(cfg, body, { signal } = {}) {
+// 一次性 POST（结构化 JSON 调用、风格卡生成共用；非流式响应也可复用 SSE 通道）
+export async function postText(cfg, body, { signal } = {}) {
   const url = endpoint(cfg, '/chat/completions')
   if (platformKind() === 'electron') {
     const parts = []
@@ -385,11 +387,44 @@ export function buildStatsPayload(state, scope, includeNotes = true) {
 }
 
 // ---------- Prompt 组装 ----------
+// v1.8.0 当前生效风格提示词：preset 四预设 | custom 参数组合 | char 角色风格卡（读本机缓存）
+// 注意：这里内联读角色卡缓存（不 import stylecard.js），避免 ai.js ↔ stylecard.js 循环依赖
+function activeStylePrompt(settings) {
+  const mode = settings.aiStyle
+  if (mode === 'custom') {
+    // 自定义参数组合提示词（与 stylecard.js composeStylePrompt 同规则，但 ai.js 不依赖它）
+    return composeAttrsPrompt(settings.aiStyleAttrs)
+  }
+  if (mode === 'char') {
+    try {
+      const all = JSON.parse(localStorage.getItem('qingyu_style_cards_v1') || '{}')
+      const key = String(settings.aiCharName || '').trim().toLowerCase().replace(/[\s·・.。,，'’"“”-]/g, '')
+      const card = all[key]
+      if (card && typeof card.prompt === 'string' && card.prompt.length >= 40) {
+        return `${card.prompt}\n保持角色口吻的同时，仍须遵守上述财务助手的所有规则与数据边界。`
+      }
+    } catch { /* 缓存损坏 → 回落预设 */ }
+    return styleOf('tender').prompt // 角色卡缓存丢失时的优雅回落
+  }
+  return styleOf(mode).prompt
+}
+// 自定义参数 → 提示词（本地组合，不走 AI；与 STYLE_ATTRS 表保持同步）
+const ATTRS_TABLE = {
+  tone: { gentle: '语气温柔友善、有共情感', humor: '语气轻松幽默、可以适度玩梗调侃', sharp: '语气犀利直接、一针见血', calm: '语气沉稳克制、像可靠的顾问', energetic: '语气元气满满、多用 emoji 和短句' },
+  formality: { casual: '用大白话，像朋友聊天', balanced: '口语为主、必要时用专业词并解释', formal: '措辞正式规范、像书面报告' },
+  length: { short: '篇幅精简，只讲最重要的结论', std: '篇幅适中，结论与建议并重', detail: '篇幅详尽，展开讲清来龙去脉' },
+  structure: { para: '分成几个自然小段', list: '多用要点列表，一条一个信息', mix: '先小段定调，再用要点列建议' },
+}
+function composeAttrsPrompt(attrs) {
+  const a = attrs && typeof attrs === 'object' ? attrs : {}
+  const pick = (k) => ATTRS_TABLE[k][a[k]] || ATTRS_TABLE[k][Object.keys(ATTRS_TABLE[k])[0]]
+  return `请按以下回复风格输出：${pick('tone')}；${pick('formality')}；${pick('length')}；${pick('structure')}。`
+}
+
 export function buildMessages(state, scope) {
-  const st = styleOf(state.settings.aiStyle)
   const custom = (state.settings.aiCustomStyle || '').trim()
   const payload = buildStatsPayload(state, scope, state.settings.aiIncludeNotes !== false)
-  const system = [SYS_BASE, st.prompt, custom ? `额外风格要求：${custom}` : '']
+  const system = [SYS_BASE, activeStylePrompt(state.settings), custom ? `额外风格要求：${custom}` : '']
     .filter(Boolean).join('\n')
   const task = scope.kind === 'year' ? NARR_TASK_YEAR : NARR_TASK_MONTH
   const user = `以下是「${payload.scope.ledgerName}」${payload.scope.label}的账单统计（单位：元）：\n`

@@ -6,6 +6,7 @@ import { AiFace } from '../theme.jsx'
 import {
   loadAiCfg, streamNarrative, fetchStructured, humanizeError,
 } from '../ai.js'
+import { activeStyleInfo } from '../stylecard.js'
 import {
   currentPeriod, periodAdd, periodLabel, todayStr, pad2,
 } from '../utils.js'
@@ -27,6 +28,7 @@ export default function AiInsight({ params = {} }) {
   const [err, setErr] = useState('')
   const abortRef = useRef(null)
   const hasKey = !!loadAiCfg().key
+  const styleInfo = activeStyleInfo(state)
 
   // 切周期：载入该周期缓存
   useEffect(() => {
@@ -136,6 +138,21 @@ export default function AiInsight({ params = {} }) {
           <div className="ym">{label}</div>
           <button onClick={() => shift(1)}>›</button>
         </div>
+
+        {/* v1.8.0 当前生效风格徽标：分析前即可预知 AI 口吻，点击直达风格设置 */}
+        {hasKey && (
+          <button
+            type="button" className="ai-style-pill"
+            onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}
+          >
+            <span className="asp-emoji">{styleInfo.emoji}</span>
+            <span className="asp-main">
+              <b>{styleInfo.name}</b>
+              <i>{styleInfo.desc || '点击设置回复风格'}</i>
+            </span>
+            <span className="asp-go">更换 ›</span>
+          </button>
+        )}
 
         {!hasKey && status === 'idle' && (
           <div className="card">

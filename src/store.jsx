@@ -1,8 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { emptyState, demoState } from './seed.js'
 import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
+import { stableJson } from './sync.js'
+import { collectProfile, syncProfileArchive } from './userarchive.js'
+import { runAutoSync } from './autosync.js'
 
 const KEY = 'qingyu_state_v3'
 const StoreCtx = createContext(null)
@@ -35,8 +38,13 @@ export function migrateState(s) {
   s.settings.discIconAt = normalizeDiscIconAt(s.settings.discIconAt)
   // v1.6.9 账本图标时间戳表归一（本体在 IndexedDB 'bookicon_<ledgerId>'，key 为账本 id，无固定键名）
   if (!s.settings.bookIconAt || typeof s.settings.bookIconAt !== 'object' || Array.isArray(s.settings.bookIconAt)) s.settings.bookIconAt = {}
-  // v1.7.0 应用内更新：自动下载开关缺省开启（安装仍由系统弹窗要求用户确认）
-  if (typeof s.settings.updateAutoDl !== 'boolean') s.settings.updateAutoDl = true
+  // v1.7.1 应用内更新：自动下载开关缺省关闭——发现新版先可视化询问，静默仅限下载不安装
+  if (typeof s.settings.updateAutoDl !== 'boolean') s.settings.updateAutoDl = false
+  // v1.8.0 AI 风格：自定义参数表与角色名归一（角色卡本体只存本机 localStorage）
+  if (!s.settings.aiStyleAttrs || typeof s.settings.aiStyleAttrs !== 'object' || Array.isArray(s.settings.aiStyleAttrs)) {
+    s.settings.aiStyleAttrs = { tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' }
+  }
+  if (typeof s.settings.aiCharName !== 'string') s.settings.aiCharName = ''
   // v1.6.8 点击反馈拆分迁移：老版本只有 tapFeedback（缩放+震动合一开关）
   if (!('tapScale' in s.settings)) s.settings.tapScale = s.settings.tapFeedback !== false
   if (!('vibrateLevel' in s.settings)) {
@@ -229,6 +237,20 @@ export function AppProvider({ children }) {
     syncDailyReminder(state.settings.remindEnabled, state.settings.remindTime)
   }, [state.settings.remindEnabled, state.settings.remindTime])
 
+  // v1.9.0 用户资料云存档：昵称/头像等资料变化（含冷启动自愈/首次建档）→ 防抖打包上传。
+  // 签名不变不触发；未配置 WebDAV 时内部静默跳过。失败策略：资料变化触发弹 err，冷启动自愈静默记档。
+  const profileSig = stableJson(collectProfile(state.settings))
+  const firstProfileRun = useRef(true)
+  useEffect(() => {
+    const isFirst = firstProfileRun.current
+    firstProfileRun.current = false
+    const t = setTimeout(() => {
+      syncProfileArchive(state, { toast, silent: isFirst })
+    }, isFirst ? 6000 : 2500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileSig])
+
   const actions = {
     set,
     toast,
@@ -253,6 +275,37 @@ export function AppProvider({ children }) {
       return true
     },
   }
+
+  // v1.10.0 账单自动同步：冷启动自动导入 + 数据变化防抖双向同步（未配置 WebDAV 时内部静默跳过）。
+  // 签名用 useMemo 包裹，避免 toast 等无关渲染重复序列化全量 state；
+  // restoreState 写回内容一致则签名不变，订阅不会空转（防循环收敛）。
+  const dataSig = useMemo(() => stableJson(state), [state])
+  const firstDataRun = useRef(true)
+  const autoBusy = useRef(false)
+  const autoRedo = useRef(false)
+  const runAuto = useCallback(async (silent) => {
+    // 防重入：同步期间又有新变化只记补跑标志，当前轮结束后稍后补跑一轮保证最终一致
+    if (autoBusy.current) { autoRedo.current = true; return }
+    autoBusy.current = true
+    try {
+      await runAutoSync({ state, restoreState: actions.restoreState, toast, silent })
+    } finally {
+      autoBusy.current = false
+    }
+    if (autoRedo.current) {
+      autoRedo.current = false
+      setTimeout(() => { runAuto(true) }, 1500)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, toast])
+
+  useEffect(() => {
+    const isFirst = firstDataRun.current
+    firstDataRun.current = false
+    const t = setTimeout(() => runAuto(isFirst), isFirst ? 8000 : 3000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataSig])
 
   return (
     <StoreCtx.Provider value={{ state, ...actions, toasts }}>

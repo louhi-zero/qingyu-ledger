@@ -1,9 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Seg } from '../ui.jsx'
 import {
   loadAiCfg, saveAiCfg, AI_STYLES, testConnection, platformKind,
 } from '../ai.js'
+import {
+  STYLE_ATTRS, styleAttrsDesc, composeStylePrompt, generateStyleCard,
+  getCachedCard, removeCachedCard, cachedCardNames,
+} from '../stylecard.js'
+import { styleKeyOf } from '../utils.js'
 
 export default function AiSettings({ nav }) {
   const { state, set, toast } = useStore()
@@ -13,6 +18,7 @@ export default function AiSettings({ nav }) {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const plat = platformKind()
+  const mode = s.aiStyle === 'custom' ? 'custom' : s.aiStyle === 'char' ? 'char' : 'preset'
 
   const persist = (patch) => {
     const next = { ...cfg, ...patch }
@@ -101,27 +107,7 @@ export default function AiSettings({ nav }) {
         </div>
 
         {/* 风格 */}
-        <div className="group">
-          <div className="gtitle">回复风格</div>
-          <div style={{ padding: 14 }}>
-            <Seg
-              options={AI_STYLES.map((x) => ({ label: `${x.emoji} ${x.name}`, value: x.id }))}
-              value={s.aiStyle}
-              onChange={(v) => { set((d) => { d.settings.aiStyle = v }); toast('风格已切换') }}
-            />
-            <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.7, margin: '10px 0 4px' }}>
-              {AI_STYLES.find((x) => x.id === s.aiStyle)?.prompt}
-            </div>
-            <div className="field" style={{ marginTop: 12 }}>
-              <label>自定义补充指令（可选）</label>
-              <textarea
-                className="input" maxLength={120} placeholder="例如：多用东北话 / 多关注咖啡开销 / 称呼我为老板"
-                value={s.aiCustomStyle}
-                onChange={(e) => set((d) => { d.settings.aiCustomStyle = e.target.value })}
-              />
-            </div>
-          </div>
-        </div>
+        <StyleSection cfg={cfg} s={s} set={set} toast={toast} />
 
         {/* 隐私 */}
         <div className="group">
@@ -151,5 +137,246 @@ export default function AiSettings({ nav }) {
         </button>
       </div>
     </>
+  )
+}
+
+/* ============ v1.8.0 回复风格：预设 / 自定义参数 / 角色扮演 ============ */
+function StyleSection({ cfg, s, set, toast }) {
+  const mode = s.aiStyle === 'custom' ? 'custom' : s.aiStyle === 'char' ? 'char' : 'preset'
+  return (
+    <div className="group">
+      <div className="gtitle">回复风格</div>
+      <div style={{ padding: 14 }}>
+        <Seg
+          options={[
+            { label: '🎭 预设', value: 'preset' },
+            { label: '🎛️ 自定义', value: 'custom' },
+            { label: '✨ 角色扮演', value: 'char' },
+          ]}
+          value={mode}
+          onChange={(v) => {
+            set((d) => {
+              if (v === 'preset') d.settings.aiStyle = d.settings.aiStyle === 'custom' || d.settings.aiStyle === 'char'
+                ? 'tender' : d.settings.aiStyle
+              else d.settings.aiStyle = v
+            })
+          }}
+        />
+
+        {mode === 'preset' && (
+          <div className="style-cards">
+            {AI_STYLES.map((x) => (
+              <button
+                key={x.id} type="button"
+                className={'style-card' + (s.aiStyle === x.id ? ' on' : '')}
+                onClick={() => { set((d) => { d.settings.aiStyle = x.id }); toast(`已切换：${x.name}`) }}
+              >
+                <span className="stc-emoji">{x.emoji}</span>
+                <span className="stc-name">{x.name}</span>
+                <span className="stc-desc">{x.prompt}</span>
+                {s.aiStyle === x.id && <span className="stc-check">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {mode === 'custom' && <CustomStylePanel s={s} set={set} />}
+
+        {mode === 'char' && <CharStylePanel cfg={cfg} s={s} set={set} toast={toast} />}
+
+        <div className="field" style={{ marginTop: 14 }}>
+          <label>补充指令（所有风格通用，可选）</label>
+          <textarea
+            className="input" maxLength={120} placeholder="例如：多用东北话 / 多关注咖啡开销 / 称呼我为老板"
+            value={s.aiCustomStyle}
+            onChange={(e) => set((d) => { d.settings.aiCustomStyle = e.target.value })}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- 自定义参数面板：四维选择 + 实时风格卡预览 ---------- */
+function CustomStylePanel({ s, set }) {
+  const attrs = s.aiStyleAttrs || {}
+  const setAttr = (k, v) => set((d) => { d.settings.aiStyleAttrs = { ...d.settings.aiStyleAttrs, [k]: v } })
+  const rows = [
+    ['tone', '语气'], ['formality', '正式度'], ['length', '篇幅'], ['structure', '结构'],
+  ]
+  return (
+    <div className="attrs-panel">
+      {rows.map(([k, label]) => (
+        <div className="attrs-row" key={k}>
+          <div className="attrs-label">{label}</div>
+          <Seg
+            options={STYLE_ATTRS[k].map((x) => ({ label: x.label, value: x.id }))}
+            value={attrs[k]}
+            onChange={(v) => setAttr(k, v)}
+          />
+        </div>
+      ))}
+      {/* 实时风格卡预览：所选参数即时可见 */}
+      <div className="sc-view sc-preview">
+        <div className="sc-head">
+          <span className="sc-ava">🎛️</span>
+          <div className="sc-tt">
+            <b>自定义风格<em className="sc-using">预览</em></b>
+            <i>{styleAttrsDesc(attrs)}</i>
+          </div>
+        </div>
+        <div className="sc-tone">{composeStylePrompt(attrs)}</div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- 角色扮演面板：两阶段生成（联网检索 → AI 合成）+ 缓存 ---------- */
+function CharStylePanel({ cfg, s, set, toast }) {
+  const [name, setName] = useState(s.aiStyle === 'char' ? s.aiCharName : '')
+  const [phase, setPhase] = useState('') // '' | 'search' | 'generate'
+  const [card, setCard] = useState(() => (s.aiStyle === 'char' ? getCachedCard(s.aiCharName) : null))
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const key = styleKeyOf(name)
+  const using = s.aiStyle === 'char' && !!key && styleKeyOf(s.aiCharName) === key
+
+  // 输入的名字已有缓存卡时，即时展示（无需生成）
+  useEffect(() => {
+    if (!key || phase) return
+    const c = getCachedCard(name)
+    if (c && styleKeyOf(c.name) !== styleKeyOf(card?.name || '')) {
+      setCard(c)
+      setNote('已命中本机缓存，直接可用')
+      setErr('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, phase])
+
+  const generate = async () => {
+    if (!name.trim()) { toast('请先输入角色或人物名', 'err'); return }
+    if (!cfg.key) { toast('请先在上方配置 API Key', 'err'); return }
+    setErr(''); setCard(null); setNote('')
+    setPhase('search')
+    try {
+      const r = await generateStyleCard(cfg, name, {
+        onPhase: (p) => {
+          if (p === 'search') setPhase('search')
+          else if (p === 'generate') setPhase('generate')
+        },
+      })
+      setPhase('')
+      setCard(r.card)
+      setNote(r.cached
+        ? '已命中本机缓存，未重新检索'
+        : (r.materialChars ? `阶段1 检索：维基百科「${r.wikiTitle}」${r.materialChars} 字资料` : '阶段1 未检索到维基资料，已用模型知识生成'))
+    } catch (e) {
+      setPhase('')
+      setErr(e?.message || '生成失败，请重试')
+    }
+  }
+
+  const apply = () => {
+    if (!card) return
+    set((d) => { d.settings.aiStyle = 'char'; d.settings.aiCharName = card.name })
+    toast(`已应用「${card.name}」风格`)
+  }
+  const regen = async () => {
+    if (!card) return
+    removeCachedCard(card.name)
+    setName(card.name)
+    await generate()
+  }
+  const del = () => {
+    if (!card) return
+    removeCachedCard(card.name)
+    if (using) set((d) => { d.settings.aiStyle = 'tender'; d.settings.aiCharName = '' })
+    setCard(null); setNote('')
+    toast('已删除该风格卡缓存')
+  }
+
+  const cachedNames = cachedCardNames()
+  return (
+    <div className="char-panel">
+      <div className="char-input-row">
+        <input
+          className="input" placeholder="输入角色或人物名，如：芙宁娜"
+          value={name} maxLength={24}
+          onChange={(e) => { setName(e.target.value); setNote(''); setErr('') }}
+        />
+        <button className="btn char-gen-btn" disabled={!!phase || !name.trim()} onClick={generate}>
+          {phase === 'search' ? '检索中…' : phase === 'generate' ? '生成中…' : '✨ 生成风格卡'}
+        </button>
+      </div>
+      <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, margin: '8px 0 2px' }}>
+        两阶段生成：先联网检索维基百科资料，再由 AI 合成风格卡；同名角色只生成一次，之后直接用缓存。
+      </div>
+
+      {phase && (
+        <div className="char-progress">
+          <span className="char-spin" />
+          <div className="cp-steps">
+            <i className={phase === 'search' ? 'on' : 'done'}>① 联网检索角色资料</i>
+            <i className={phase === 'generate' ? 'on' : ''}>② AI 合成风格卡</i>
+          </div>
+        </div>
+      )}
+
+      {err && <div className="ai-warn" style={{ marginTop: 10 }}>✕ {err}</div>}
+
+      {card && <StyleCardView card={card} using={using} note={note} onApply={apply} onRegen={regen} onDelete={del} />}
+
+      {cachedNames.length > 0 && !card && !phase && (
+        <div className="char-cached">
+          <label>本机已缓存</label>
+          <div className="sc-chips">
+            {cachedNames.map((n) => (
+              <button key={n} type="button" onClick={() => { setName(n); setNote('') }}>{n}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ---------- 风格卡视觉组件（角色卡与自定义预览共用） ---------- */
+export function StyleCardView({ card, using, note, onApply, onRegen, onDelete }) {
+  return (
+    <div className="sc-view">
+      <div className="sc-head">
+        <span className="sc-ava">{card.emoji || '🎭'}</span>
+        <div className="sc-tt">
+          <b>{card.name}{using && <em className="sc-using">使用中</em>}</b>
+          <i>{card.title}{card.source ? ` · ${card.source}` : ''}</i>
+        </div>
+      </div>
+      {card.traits?.length > 0 && (
+        <div className="sc-sec"><label>性格特质</label>
+          <div className="sc-chips">{card.traits.map((t, i) => <span key={i}>{t}</span>)}</div>
+        </div>
+      )}
+      {card.speech?.length > 0 && (
+        <div className="sc-sec"><label>语言习惯</label>
+          {card.speech.map((t, i) => <div className="sc-line" key={i}>「{t}」</div>)}
+        </div>
+      )}
+      {card.vocab?.length > 0 && (
+        <div className="sc-sec"><label>口头禅</label>
+          <div className="sc-chips">{card.vocab.map((t, i) => <span key={i}>{t}</span>)}</div>
+        </div>
+      )}
+      {card.tone && <div className="sc-sec"><label>语气规范</label><div className="sc-line">{card.tone}</div></div>}
+      {card.usage && <div className="sc-sec"><label>适用场景</label><div className="sc-line">{card.usage}</div></div>}
+      <div className="sc-sec"><label>风格指令（拼入系统提示词）</label><div className="sc-prompt">{card.prompt}</div></div>
+      {note && <div className="sc-note">⚡ {note}</div>}
+      {onApply && (
+        <div className="sc-acts">
+          <button className="btn" disabled={using} onClick={onApply}>{using ? '当前使用中' : '应用此风格'}</button>
+          <button className="btn ghost" onClick={onRegen}>重新生成</button>
+          <button className="sc-del" onClick={onDelete}>删除缓存</button>
+        </div>
+      )}
+    </div>
   )
 }

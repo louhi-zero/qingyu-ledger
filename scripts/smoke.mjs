@@ -8,6 +8,7 @@
  */
 import { app, BrowserWindow } from 'electron'
 import fs from 'fs'
+import http from 'node:http'
 import os from 'os'
 import path from 'path'
 
@@ -36,6 +37,59 @@ app.whenReady().then(async () => {
   }
   let failed = false
   try {
+    // v1.9.0/v1.10.0 本地假 WebDAV：通用 Map 文件存储（GET/PUT/HEAD/MKCOL/OPTIONS + ETag 乐观锁）。
+    // qingyu-profile.json 单独计数（profilePuts/profileBody/putLog 兼容 v1.9.0 断言），backup.json 计入 backupPuts；
+    // 主进程可直接读写 files Map（v1.10.0 场景 G1 预置云端种子）。渲染进程经真实 fetch 打到此处，验证端到端同步链路
+    const files = new Map() // 文件名 → { text, etag }
+    let etagN = 0
+    let profilePuts = 0
+    let profileBody = ''
+    let backupPuts = 0
+    const putLog = []
+    const nextEtag = () => 'w' + (++etagN)
+    const stub = http.createServer((req, res) => {
+      const p = decodeURIComponent(new URL(req.url, 'http://x').pathname)
+      const name = p.split('/').filter(Boolean).pop() || ''
+      const send = (code, body = '', etag = null) => {
+        const h = { 'Access-Control-Allow-Origin': '*' }
+        if (etag) h.ETag = etag
+        res.writeHead(code, h); res.end(body)
+      }
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, PUT, HEAD, MKCOL, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Max-Age': '86400',
+        })
+        return res.end()
+      }
+      if (req.method === 'MKCOL') return send(201)
+      if (req.method === 'HEAD') { const f = files.get(name); return f ? send(200, '', f.etag) : send(404) }
+      if (req.method === 'GET') { const f = files.get(name); return f ? send(200, f.text, f.etag) : send(404) }
+      if (req.method === 'PUT') {
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          const f = files.get(name)
+          const ifMatch = req.headers['if-match']
+          if (ifMatch && f && f.etag !== ifMatch) return send(412)
+          const etag = nextEtag()
+          files.set(name, { text: body, etag })
+          if (name === 'qingyu-profile.json') {
+            profilePuts++; profileBody = body
+            try { putLog.push(JSON.parse(body).data.nickname) } catch { putLog.push('BAD') }
+          }
+          if (name === 'backup.json') backupPuts++
+          send(201, '', etag)
+        })
+        return
+      }
+      send(404)
+    })
+    await new Promise((r) => stub.listen(0, '127.0.0.1', r))
+    const stubUrl = `http://127.0.0.1:${stub.address().port}/dav/qingyu/backup.json`
+
     const win = new BrowserWindow({
       width: 430, height: 900, show: false,
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false },
@@ -47,13 +101,14 @@ app.whenReady().then(async () => {
     })
     const run = (js) => win.webContents.executeJavaScript(js)
 
-    // 预置：跳过欢迎页
+    // 预置：跳过欢迎页 + 预置坏 WebDAV 配置（保护 v1.6 头像场景走原换头像弹层；坏地址让 v1.10.0 自动同步静默失败，不影响前面的功能断言）
     await run(`(() => {
       const k = 'qingyu_state_v3'
       const s = JSON.parse(localStorage.getItem(k) || 'null')
       if (!s) return 'no-state'
       s.settings.welcomed = true
       localStorage.setItem(k, JSON.stringify(s))
+      localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: 'http://127.0.0.1:9/dav/qingyu/backup.json', username: '', password: '' }))
       return 'ok'
     })()`)
     await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
@@ -176,42 +231,50 @@ app.whenReady().then(async () => {
     await sleep(200)
     assert('按压缩放开：data-tap=on', await run(`document.documentElement.dataset.tap === 'on'`))
 
-    // v1.6.8 震动强度四档：桩换 navigator.vibrate 捕获入参，pointerdown 实测各档时长
+    // v1.6.8 震动强度四档（v1.7.1 改为可视化档位卡片）：桩换 navigator.vibrate 捕获入参，pointerdown 实测各档时长
     await run(`window.__vibs = [];
       const origVib = navigator.vibrate ? navigator.vibrate.bind(navigator) : () => true;
       Object.defineProperty(navigator, 'vibrate', { configurable: true, writable: true,
         value: (p) => { window.__vibs.push(Array.isArray(p) ? p.slice() : p); return true } });
       window.__tapCell = (extra) => {
-        const el = document.querySelector('.vibrate-cell') || document.querySelector('.cell');
+        const el = document.querySelector('.vib-card .vib-test');
         el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, isPrimary: true, clientX: 10, clientY: 10 }));
         window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, clientX: 10, clientY: 10 }));
       };
       'ok'`)
+    assert('震动卡片：4 个可视化档位', await run(`document.querySelectorAll('.vib-card .vib-opt').length === 4`))
+    assert('震动卡片：档位含毫秒标注与描述', await run(`!!document.querySelector('.vib-card .vib-meta em') && document.querySelector('.vib-card').textContent.includes('10ms')`))
     const setVibLevel = async (idx) => {
-      await run(`document.querySelectorAll('.vibrate-cell .seg button')[${idx}].click()`)
+      await run(`document.querySelectorAll('.vib-card .vib-opts .vib-opt')[${idx}].click()`)
       await sleep(150)
     }
     await setVibLevel(2)
+    assert('标准档选中态：波形柱点亮 3 根 + 勾选', await run(`document.querySelectorAll('.vib-opt.on .vib-bars i.lit').length === 3 && document.querySelector('.vib-opt.on .vib-check').textContent === '✓'`))
     await run(`window.__vibs = []; window.__tapCell()`)
     await sleep(60)
     assert('震动标准档：pointerdown 触发 10ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(10)).catch(() => false))
     await setVibLevel(1)
+    assert('轻柔档选中态：波形柱点亮 1 根', await run(`document.querySelectorAll('.vib-opt.on .vib-bars i.lit').length === 1`))
+    await run(`window.__vibs = []; document.querySelector('.vib-card .vib-test').click()`)
+    await sleep(60)
+    assert('试震按钮：轻柔档触发 6ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(6)).catch(() => false))
     await run(`window.__vibs = []; window.__tapCell()`)
     await sleep(60)
-    assert('震动轻柔档：触发 6ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(6)).catch(() => false))
+    assert('震动轻柔档：pointerdown 触发 6ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(6)).catch(() => false))
     await setVibLevel(3)
     await run(`window.__vibs = []; window.__tapCell()`)
     await sleep(60)
     assert('震动明快档：触发 20ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(20)).catch(() => false))
     // 滑动超过 14px → 撤震 vibrate(0)
     await run(`window.__vibs = [];
-      const el = document.querySelector('.vibrate-cell');
+      const el = document.querySelector('.vib-card .vib-test');
       el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, isPrimary: true, clientX: 10, clientY: 10 }));
       window.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 40, clientY: 10 }));
       'ok'`)
     await sleep(60)
     assert('滑动意图撤震：调用 vibrate(0)', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(0)).catch(() => false))
     await setVibLevel(0)
+    assert('关闭档：试震按钮禁用', await run(`document.querySelector('.vib-card .vib-test').disabled === true`))
     await run(`window.__vibs = []; window.__tapCell()`)
     await sleep(60)
     const vibOff = await run(`JSON.stringify(window.__vibs)`)
@@ -460,9 +523,10 @@ app.whenReady().then(async () => {
     assert('持久化：discIconAt.scan 已写入', persist.disc === true)
     assert('持久化：bookIconAt 已写入', persist.book === true)
 
-    // ============ v1.7.0 应用内更新（Web 兜底 + mock 原生桥全状态机 + SHA 校验） ============
+    // ============ v1.7.1 应用内更新（可视化安装组件：询问 → 静默下载仅 APK → 点击安装） ============
     // 13. mock GitHub Releases API；先测 Web/Electron 兜底（强制无原生桥 → 外链）
     await run(`(() => {
+      window.__qyNativeFetch = window.fetch.bind(window) // v1.9.0 资料云存档块要恢复原生 fetch（smoke 无 preload，WebDAV 走渲染进程 fetch）
       window.__openedUrl = null
       window.open = (url) => { window.__openedUrl = url; return null }
       window.__shaExpect = 'a'.repeat(64)
@@ -490,23 +554,25 @@ app.whenReady().then(async () => {
     await sleep(400)
     await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
     await sleep(600)
-    assert('更新中心：发现 v9.9.9 并渲染更新日志（markdown 符号已清理）',
-      await run(`(() => { const v = [...document.querySelectorAll('.upd-ver')].some((e) => e.textContent.includes('v9.9.9'))
+    assert('可视化组件：发现 v9.9.9 并渲染更新日志（markdown 符号已清理）',
+      await run(`(() => { const m = document.querySelector('.upd-modal'); const v = [...document.querySelectorAll('.upd-ver')].some((e) => e.textContent.includes('v9.9.9'))
         const notes = document.querySelector('.upd-notes')
-        return v && notes && notes.textContent.includes('新增应用内更新') && !notes.textContent.includes('##') })()`))
-    assert('Web 端：显示「前往下载页」而非下载按钮',
-      await run(`!![...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('前往下载页'))
-        && ![...document.querySelectorAll('.sheet .btn')].some((b) => b.textContent.includes('立即下载'))`))
+        return !!m && v && !!notes && notes.textContent.includes('新增应用内更新') && !notes.textContent.includes('##') })()`))
+    assert('Web 端：显示「前往下载页」而非更新按钮',
+      await run(`!![...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('前往下载页'))
+        && ![...document.querySelectorAll('.upd-modal .btn')].some((b) => b.textContent.includes('立即更新'))`))
     assert('Web 端：不显示自动下载开关（仅原生有意义）',
-      await run(`![...document.querySelectorAll('.sheet .cell')].some((e) => e.textContent.includes('自动下载'))`))
-    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('前往下载页')).click()`)
+      await run(`!document.querySelector('.upd-autodl')`))
+    await run(`[...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('前往下载页')).click()`)
     await sleep(200)
     assert('Web 端：点击打开对应 GitHub Release 页', await run(`(window.__openedUrl || '').includes('releases/tag/v9.9.9')`))
-    await run(`[...document.querySelectorAll('.sheet .upd-later')].find((b) => b.textContent.includes('以后再说')).click()`)
+    await run(`document.querySelector('.upd-modal .upd-later').click()`)
     await sleep(300)
     assert('「以后再说」按版本写入 dismissed', await run(`localStorage.getItem('qingyu_update_dismissed_v1') === 'v9.9.9'`))
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
+    await sleep(300)
 
-    // 14. mock 原生桥：受控下载（进度浮卡）→ SHA 匹配 → 就绪 → 拉起安装器
+    // 14. mock 原生桥：用户选择更新 → 静默下载（仅 APK，不安装）→ 进度环/浮卡 → 就绪 → 点击安装
     await run(`(() => {
       window.__installCalled = null
       window.__cancelCalled = false
@@ -535,69 +601,452 @@ app.whenReady().then(async () => {
       localStorage.removeItem('qingyu_update_dismissed_v1')
       return 'ok'
     })()`)
-    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
-    await sleep(400)
     await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于')).click()`)
     await sleep(400)
     await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
     await sleep(600)
-    assert('原生：显示「立即下载」与自动下载开关',
-      await run(`!![...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载'))
-        && [...document.querySelectorAll('.sheet .cell')].some((e) => e.textContent.includes('自动下载'))`))
-    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载')).click()`)
-    await sleep(300)
-    await run(`[...document.querySelectorAll('.sheet-head .sx')].pop().click()`) // 关更新 Sheet（关于弹窗留在下层）
+    assert('原生：弹窗含「立即更新」按钮与自动下载开关',
+      await run(`!![...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('立即更新'))
+        && !!document.querySelector('.upd-autodl')`))
+    assert('用户未选择前不自动下载（静默仅发生在用户确认后）',
+      await run(`!window.__bridgeLog.some((l) => l.startsWith('download enter'))`))
+    assert('默认自动后台下载关闭（发现新版先询问）',
+      await run(`JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.updateAutoDl === false`))
+    // 开关：开启并持久化（手动确认下载不受开关影响）
+    await run(`document.querySelector('.upd-autodl button.switch').click()`)
+    await sleep(200)
+    assert('自动后台下载开关可开启并持久化', await pollTrue(run,
+      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.updateAutoDl === true`, 5000))
+    await run(`[...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('立即更新')).click()`)
+    await sleep(400)
+    assert('弹窗内：下载态显示进度环 30% 与「只下载不安装」说明',
+      await run(`!!document.querySelector('.upd-ring') && document.querySelector('.ur-pct').textContent === '30%'
+        && document.querySelector('.upd-modal').textContent.includes('不会自动安装')`))
+    await run(`document.querySelector('.upd-modal .upd-x').click()`) // 最小化到浮卡后台等待
     await sleep(300)
     const dlFloat = await pollTrue(run,
       `!!document.querySelector('.upd-float') && document.querySelector('.upd-float').textContent.includes('30%')`, 6000)
-    assert('浮卡：下载中显示进度 30%（进度只涨不跌）', dlFloat)
+    assert('浮卡：后台下载中显示进度 30%（进度只涨不跌）', dlFloat)
     await run(`window.__resolveDl && window.__resolveDl()`)
     const readyFloat = await pollTrue(run,
       `!![...document.querySelectorAll('.upd-float b')].some((b) => b.textContent.includes('已就绪'))`, 8000)
-    assert('SHA-256 校验通过 → 浮卡进入就绪态', readyFloat)
-    await run(`document.querySelector('.upd-float').click()`) // ready → 直接安装
+    assert('SHA-256 校验通过 → 浮卡进入就绪态（仍未安装）', readyFloat && await run(`window.__installCalled === null`))
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`) // 关「关于」弹窗，露出浮卡
+    await sleep(300)
+    await run(`document.querySelector('.upd-float').click()`) // ready → 打开可视化组件
+    await sleep(400)
+    assert('可视化组件就绪态：出现「立即安装」按钮',
+      await run(`!![...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('立即安装'))`))
+    await run(`[...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('立即安装')).click()`)
     await sleep(400)
     assert('点击安装：向系统安装器传出下载好的 APK 路径',
       await run(`(window.__installCalled || '').includes('qingyu-v9.9.9-android.apk')`))
+    await run(`document.querySelector('.upd-modal .upd-x').click()`)
+    await sleep(200)
 
     // 15. SHA-256 不符（下载摘要与 .sha256 资产不一致）→ 失败态并删除可疑文件
     await run(`(() => {
+      window.__installCalled = null
       window.__cancelCalled = false
       window.__resolveDl = null
       window.__dlSha = 'c'.repeat(64)     // 实际下载算出的摘要
       window.__shaExpect = 'd'.repeat(64) // CI 发布的期望摘要
+      window.__bridgeLog = []
       window.__qyUpdateBridge = window.__makeBridge()
       return 'ok'
     })()`)
-    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
-    await sleep(400)
     await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于')).click()`)
     await sleep(400)
     await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
     await sleep(600)
-    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载')).click()`)
+    // 上一轮持久化为开：available 态切回关并验证落盘
+    await run(`document.querySelector('.upd-autodl button.switch').click()`)
+    await sleep(200)
+    assert('自动后台下载开关可关闭并持久化', await pollTrue(run,
+      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.updateAutoDl === false`, 5000))
+    await run(`[...document.querySelectorAll('.upd-modal .btn')].find((b) => b.textContent.includes('立即更新')).click()`)
     await sleep(300)
-    await run(`[...document.querySelectorAll('.sheet-head .sx')].pop().click()`)
+    await run(`document.querySelector('.upd-modal .upd-x').click()`) // 最小化到浮卡
     await sleep(200)
     await run(`window.__resolveDl && window.__resolveDl()`)
     const errFloat = await pollTrue(run,
       `!!document.querySelector('.upd-float') && document.querySelector('.upd-float').textContent.includes('失败')`, 8000)
     assert('SHA 不符：浮卡进入失败态', errFloat)
     assert('SHA 不符：已调用原生 cancel 删除可疑安装包', await run(`window.__cancelCalled === true`))
-    await run(`document.querySelector('.upd-float').click()`) // error → 打开 Sheet
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`) // 关「关于」弹窗
     await sleep(300)
-    assert('Sheet：展示 SHA-256 完整性校验失败文案',
-      await run(`!!document.querySelector('.sandbox-fail') && document.querySelector('.sandbox-fail').textContent.includes('SHA-256')`))
-    // 自动下载开关持久化（更新 Sheet 内开关，切到关再验证落盘）
+    await run(`document.querySelector('.upd-float').click()`) // error → 打开可视化组件
+    await sleep(300)
+    assert('可视化组件：展示 SHA-256 完整性校验失败文案',
+      await run(`!!document.querySelector('.upd-modal .sandbox-fail') && document.querySelector('.upd-modal .sandbox-fail').textContent.includes('SHA-256')`))
+    await run(`document.querySelector('.upd-modal .upd-later').click()`) // 以后再说关闭弹窗
+    await sleep(200)
+
+    // ============ v1.8.0 AI 回复风格（预设可视化 / 自定义参数 / 角色两阶段生成 + 缓存） ============
+    // 16. mock 网络与平台：强制 web 路径（platformKind 测试钩子）+ 维基检索/摘录 + chat/completions（门闩控制阶段2时序）
     await run(`(() => {
-      const cell = [...document.querySelectorAll('.sheet .cell')].find((e) => e.textContent.includes('自动下载'))
-      cell.querySelector('button.switch').click()
+      window.__qyForceWeb = true
+      localStorage.setItem('qingyu_ai_cfg_v1', JSON.stringify({ key: 'sk-smoke-test', model: 'glm-4.7-flash', baseUrl: 'https://open.bigmodel.cn/api/paas/v4' }))
+      window.__wikiCalls = 0
+      window.__chatCalls = 0
+      window.__resolveChat = null
+      window.__cardMock = {
+        name: '芙宁娜', title: '水神·原神', emoji: '🌊',
+        traits: ['戏剧化', '骄傲任性', '内心敏感'],
+        speech: ['句式华丽夸张，带舞台腔', '常以「本小姐」自称'],
+        tone: '语气华丽夸张、情绪高昂，偶有娇嗔但不越界',
+        vocab: ['哼哼~', '本小姐'],
+        usage: '适合日常账单点评与月度总结',
+        prompt: '你是芙宁娜，枫丹前任水神兼大明星。分析账单时以「本小姐」自称，称呼用户为「亲爱的观众」，句式华丽夸张带戏剧腔，多用舞台与演出比喻，情绪高昂但点到即止；发现严重超支时收起玩笑，用少见的认真口吻提醒。',
+      }
+      window.fetch = (u) => {
+        const url = String(u)
+        if (url.includes('zh.wikipedia.org')) {
+          window.__wikiCalls++
+          if (url.includes('list=search')) {
+            return Promise.resolve(new Response(JSON.stringify({ query: { search: [{ title: '芙宁娜' }] } }), { status: 200 }))
+          }
+          return Promise.resolve(new Response(JSON.stringify({ query: { pages: { p1: { title: '芙宁娜', extract: '芙宁娜是米哈游开发的游戏《原神》中的角色，枫丹前任水神，性格戏剧化、骄傲任性，喜爱戏剧与甜点，常以华丽舞台腔说话，内心敏感渴望被认可。' } } } }), { status: 200 }))
+        }
+        if (url.includes('chat/completions')) {
+          window.__chatCalls++
+          return new Promise((resolve) => {
+            window.__resolveChat = () => resolve(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(window.__cardMock) } }] }), { status: 200 }))
+          })
+        }
+        return Promise.resolve(new Response('{}', { status: 200 }))
+      }
+      return 'ok'
+    })()`)
+
+    // 17. 我的 → 设置 → AI 助手 → AI 账单分析（aiSettings）
+    await run(`(${clickText})('.cell', '设置')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', 'AI 助手')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', 'AI 账单分析')`)
+    await sleep(500)
+    assert('AI 设置：三模式分段器（预设/自定义/角色扮演）', await run(`(() => {
+      const bs = [...document.querySelectorAll('.seg button')]
+      return bs.some((b) => b.textContent.includes('预设')) && bs.some((b) => b.textContent.includes('自定义')) && bs.some((b) => b.textContent.includes('角色扮演'))
+    })()`))
+    assert('AI 设置：预设 4 张可视化风格卡（emoji/名称/描述/选中勾）', await run(`(() => {
+      if (document.querySelectorAll('.style-cards .style-card').length !== 4) return false
+      const on = document.querySelector('.style-card.on')
+      return !!document.querySelector('.stc-emoji') && !!document.querySelector('.stc-desc') && !!on && !!on.querySelector('.stc-check')
+    })()`))
+
+    // 18. 点预设卡即切换
+    await run(`[...document.querySelectorAll('.style-card')].find((c) => c.textContent.includes('犀利毒舌')).click()`)
+    assert('预设卡：点击「犀利毒舌」即切换（aiStyle=sharp）', await pollTrue(run,
+      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.aiStyle === 'sharp'`, 6000))
+
+    // 19. 自定义参数面板：四维选择 + 实时预览卡
+    await run(`[...document.querySelectorAll('.seg button')].find((b) => b.textContent.includes('自定义')).click()`)
+    await sleep(400)
+    assert('自定义面板：四维参数行 + 实时风格卡预览', await run(`document.querySelectorAll('.attrs-row').length === 4 && !!document.querySelector('.sc-view.sc-preview')`))
+    await run(`[...document.querySelectorAll('.attrs-row .seg button')].find((b) => b.textContent === '幽默').click()`)
+    assert('自定义：改语气为「幽默」落盘', await pollTrue(run,
+      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.aiStyleAttrs.tone === 'humor'`, 6000))
+    assert('自定义：预览卡实时反映参数组合', await run(`(() => {
+      const i = document.querySelector('.sc-preview .sc-tt i')
+      return !!i && i.textContent.includes('幽默') && i.textContent.includes('适中') && i.textContent.includes('小段落')
+    })()`))
+    assert('自定义：预览卡展示组合后的风格指令', await run(`document.querySelector('.sc-preview .sc-tone').textContent.includes('语气轻松幽默')`))
+
+    // 20. 角色扮演：输入芙宁娜 → 两阶段生成（阶段2 被门闩挂起以断言进度态）
+    await run(`[...document.querySelectorAll('.seg button')].find((b) => b.textContent.includes('角色扮演')).click()`)
+    await sleep(400)
+    assert('角色面板：输入框 + 生成按钮 + 两阶段与缓存说明', await run(`(() => {
+      const p = document.querySelector('.char-panel')
+      return !!p && !!p.querySelector('.char-input-row input') && !!p.querySelector('.char-gen-btn')
+        && p.textContent.includes('两阶段生成') && p.textContent.includes('缓存')
+    })()`))
+    await run(`(() => {
+      const i = document.querySelector('.char-input-row input')
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+      setter.call(i, '芙宁娜'); i.dispatchEvent(new Event('input', { bubbles: true }))
       return true
     })()`)
+    await run(`document.querySelector('.char-gen-btn').click()`)
+    const genPhase = await pollTrue(run, `(() => {
+      const steps = document.querySelectorAll('.cp-steps i')
+      return steps.length === 2 && steps[0].className === 'done' && steps[1].className === 'on'
+    })()`, 6000)
+    assert('两阶段进度：① 检索完成 → ② AI 合成进行中', genPhase)
+    assert('生成中：按钮禁用并显示「生成中…」', await run(`(() => {
+      const b = document.querySelector('.char-gen-btn')
+      return b.disabled && b.textContent.includes('生成中')
+    })()`))
+    assert('阶段1：维基检索 + 摘录共 2 次请求', await run(`window.__wikiCalls === 2`))
+    assert('阶段2：AI 合成调用 1 次', await run(`window.__chatCalls === 1`))
+    await run(`window.__resolveChat && window.__resolveChat()`)
+    const cardShown = await pollTrue(run, `(() => {
+      const v = document.querySelector('.char-panel .sc-view')
+      return !!v && v.textContent.includes('芙宁娜')
+    })()`, 8000)
+    assert('风格卡渲染：头像/名称/头衔 + 性格特质/语言习惯/口头禅/语气规范/风格指令', await run(`(() => {
+      const v = document.querySelector('.char-panel .sc-view')
+      if (!v) return false
+      return !!v.querySelector('.sc-ava') && !!v.querySelector('.sc-chips span') && !!v.querySelector('.sc-line')
+        && !!v.querySelector('.sc-prompt') && v.textContent.includes('性格特质') && v.textContent.includes('语言习惯')
+        && v.textContent.includes('口头禅') && v.textContent.includes('语气规范')
+    })()`))
+    assert('风格卡：注明检索来源（维基百科·芙宁娜·N 字资料）', cardShown && await run(`(() => {
+      const n = document.querySelector('.sc-note')
+      return !!n && n.textContent.includes('维基百科') && n.textContent.includes('芙宁娜') && n.textContent.includes('字资料')
+    })()`))
+    assert('缓存：风格卡已写入本机（qingyu_style_cards_v1）', await run(`(() => {
+      const o = JSON.parse(localStorage.getItem('qingyu_style_cards_v1') || '{}')
+      return Object.keys(o).length === 1 && !!o['芙宁娜']
+    })()`))
+
+    // 21. 应用角色风格
+    await run(`[...document.querySelectorAll('.sc-acts .btn')].find((b) => b.textContent.includes('应用此风格')).click()`)
+    assert('应用角色风格：aiStyle=char + aiCharName 落盘', await pollTrue(run, `(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3')).settings
+      return s.aiStyle === 'char' && s.aiCharName === '芙宁娜'
+    })()`, 6000))
+    assert('应用后：卡片带「使用中」徽标且应用按钮禁用', await run(`(() => {
+      const v = document.querySelector('.char-panel .sc-view')
+      const u = v && v.querySelector('.sc-using')
+      const b = [...document.querySelectorAll('.sc-acts .btn')].find((x) => x.textContent.includes('当前使用中'))
+      return !!u && u.textContent === '使用中' && !!b && b.disabled
+    })()`))
+
+    // 22. 缓存命中：同名再生成瞬时返回，不再发起任何网络请求
+    await run(`window.__wikiCalls = 0; window.__chatCalls = 0; 'ok'`)
+    await run(`document.querySelector('.char-gen-btn').click()`)
+    const cacheHit = await pollTrue(run, `(() => {
+      const n = document.querySelector('.sc-note')
+      return !!n && n.textContent.includes('已命中本机缓存')
+    })()`, 6000)
+    assert('缓存命中：同名角色免检索免生成（0 次网络请求）', cacheHit
+      && await run(`window.__wikiCalls === 0 && window.__chatCalls === 0`))
+
+    // 23. AI 分析页：顶部当前风格徽标（芙宁娜）
+    await run(`[...document.querySelectorAll('.btn')].find((b) => b.textContent.includes('去生成账单分析')).click()`)
+    await sleep(500)
+    assert('AI 分析页：风格徽标显示角色名与头衔，可点击更换', await run(`(() => {
+      const p = document.querySelector('.ai-style-pill')
+      return !!p && p.querySelector('.asp-main b').textContent.includes('芙宁娜')
+        && p.querySelector('.asp-main i').textContent.includes('水神') && p.textContent.includes('更换')
+    })()`))
+    assert('AI 分析页：徽标显示角色 emoji', await run(`document.querySelector('.asp-emoji').textContent === '🌊'`))
+    await run(`history.back()`)
+    await sleep(400)
+
+    // 24. 删除缓存：使用中的角色卡被删 → 自动回落预设温柔
+    await run(`document.querySelector('.sc-del').click()`)
+    assert('删除缓存：本机风格卡清空 + 角色风格回落 tender', await pollTrue(run, `(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3')).settings
+      const o = JSON.parse(localStorage.getItem('qingyu_style_cards_v1') || '{}')
+      return s.aiStyle === 'tender' && s.aiCharName === '' && Object.keys(o).length === 0
+    })()`, 6000))
+    assert('删除缓存：面板自动回到预设卡片视图', await run(`document.querySelector('.char-panel') === null && document.querySelectorAll('.style-cards .style-card').length === 4`))
+
+    // ============ v1.9.0 用户资料云存档（变更检测 → 打包 → 校验 → 自动上传） ============
+    // 25. 退回根页面（子页面无 TabBar，循环 back 直到出现）
+    // 恢复原生 fetch：本块 WebDAV 走渲染进程 fetch（smoke 无 preload 桥），前面 v1.7.1/v1.8.0 的 mock 会拦截并假 200
+    await run(`window.__qyNativeFetch && (window.fetch = window.__qyNativeFetch); 'ok'`)
+    for (let i = 0; i < 6; i++) {
+      if (await run(`!!document.querySelector('.tabbar')`)) break
+      await run(`history.back()`)
+      await sleep(400)
+    }
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(500)
+    // 改名 helper：点 .me-name → Sheet 输入 → 保存修改
+    const renameTo = async (name) => {
+      await run(`document.querySelector('.me-name').click()`)
+      await sleep(400)
+      await run(`(() => {
+        const i = document.querySelector('.sheet input.input')
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+        setter.call(i, '${name}'); i.dispatchEvent(new Event('input', { bubbles: true }))
+        return true
+      })()`)
+      await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('保存修改')).click()`)
+      await sleep(400)
+    }
+    // 场景 A：未配置 WebDAV → 改昵称 → 静默跳过（0 上传、无记录）
+    await run(`localStorage.removeItem('qingyu_sync_cfg_v1'); localStorage.removeItem('qingyu_profile_sync_v1'); 'ok'`)
+    await renameTo('未配置用户')
+    await sleep(4000)
+    assert('未配置 WebDAV：改昵称静默跳过（0 上传、无本机记录）',
+      await run(`localStorage.getItem('qingyu_profile_sync_v1') === null`) && profilePuts === 0)
+
+    // 场景 B：配置本地假 WebDAV → 改昵称 → 防抖后自动打包上传（端到端成功链路）
+    await run(`localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: '${stubUrl}', username: '', password: '' })); 'ok'`)
+    await renameTo('云存档用户')
+    let uploaded = false
+    for (let i = 0; i < 24; i++) {
+      await sleep(500)
+      const st = await run(`JSON.stringify({ nick: (JSON.parse(localStorage.getItem('qingyu_state_v3') || '{}')?.settings || {}).nickname, rec: JSON.parse(localStorage.getItem('qingyu_profile_sync_v1') || 'null') })`)
+      let parsed = null
+      try { parsed = JSON.parse(st) } catch { /* ignore */ }
+      if (i % 4 === 3) console.log(`  (B诊断 t+${((i + 1) * 0.5).toFixed(1)}s nick=${parsed?.nick} rec=${JSON.stringify(parsed?.rec)} puts=${profilePuts} ${JSON.stringify(putLog)})`)
+      if (parsed?.rec?.at && parsed.rec.data?.nickname === '云存档用户' && !parsed.rec.error) { uploaded = true; break }
+    }
+    assert('变更检测：昵称改动后自动打包上传并落本机记录（无手动同步）', uploaded && profilePuts === 1)
+    assert('档案包内容：kind/昵称/设备号齐备且过校验格式', (() => {
+      try {
+        const env = JSON.parse(profileBody)
+        return env.kind === 'qingyu-user-archive-v1' && env.app === 'qingyu' && env.deviceId
+          && env.data.nickname === '云存档用户' && !('transactions' in env.data)
+      } catch { return false }
+    })())
+
+    // 场景 C：资料未变化的 state 更新（打卡）→ 签名不变 → 不上传
+    await run(`(() => { const p = document.querySelector('.punch'); if (p && !p.disabled) p.click(); return 'ok' })()`)
+    await sleep(3500)
+    assert('打卡等无关变化：资料签名不变 → 不上传（0 新增请求）', profilePuts === 1)
+
+    // 场景 D：云备份页 cell 显示最近存档时间；手动存档未变化 → 明确反馈且不再上传
+    await run(`(${clickText})('.cell', '设置')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '数据与安全')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '云备份')`)
+    await sleep(500)
+    assert('云备份页：用户资料云存档 cell 显示最近存档时间',
+      await run(`(() => {
+        const c = [...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('用户资料云存档'))
+        return !!c && /\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}/.test(c.textContent)
+      })()`))
+    await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('用户资料云存档')).click()`)
+    await sleep(500)
+    assert('手动立即存档：资料未变化 → 明确反馈且不再上传',
+      await run(`[...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('资料未变化'))`) && profilePuts === 1)
+    await run(`history.back()`)
     await sleep(300)
-    assert('自动下载开关可关闭并持久化', await pollTrue(run,
-      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.updateAutoDl === false`, 5000))
-    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
+    await run(`history.back()`)
+    await sleep(300)
+    await run(`history.back()`)
+    await sleep(400)
+
+    // 场景 E：服务不可达 → 失败 toast + 失败原因记录本机
+    await run(`localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: 'http://127.0.0.1:1/dav/qingyu/backup.json', username: '', password: '' })); 'ok'`)
+    await renameTo('失败测试')
+    const errSeen = await pollTrue(run, `(() => {
+      const r = JSON.parse(localStorage.getItem('qingyu_profile_sync_v1') || 'null')
+      return !!r && !!r.error && !!r.error.message
+    })()`, 12000)
+    assert('上传失败：失败原因记录到本机（下次成功后清除）', errSeen && profilePuts === 1)
+    assert('上传失败：弹错误提示（资料变化触发的失败必须可见）',
+      await run(`[...document.querySelectorAll('.toast')].some((t) => t.textContent.includes('资料云存档失败'))`))
+    // 云备份页 cell 转为失败态展示
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '设置')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '数据与安全')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '云备份')`)
+    await sleep(500)
+    assert('云备份页：失败后 cell 显示失败原因',
+      await run(`(() => {
+        const c = [...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('用户资料云存档'))
+        return !!c && c.textContent.includes('最近存档失败')
+      })()`))
+
+    // ============ v1.10.0 云同步（未登录头像引导 / 换机自动导入 / 变化自动上传） ============
+    // 场景 F：未配置 WebDAV → 点头像 → 坚果云登录引导 Sheet（回到根页面）
+    for (let i = 0; i < 6; i++) {
+      if (await run(`!!document.querySelector('.tabbar')`)) break
+      await run(`history.back()`)
+      await sleep(400)
+    }
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(500)
+    await run(`localStorage.removeItem('qingyu_sync_cfg_v1'); 'ok'`)
+    // cloudReady 渲染时求值：开/关一次改名 Sheet 强制重渲染，让头像点击分流生效
+    await run(`document.querySelector('.me-name').click()`)
+    await sleep(400)
+    await run(`(() => { const b = [...document.querySelectorAll('.sheet .sx')].pop(); if (b) b.click(); return 'ok' })()`)
+    await sleep(300)
+    await run(`document.querySelector('.me-head .avatar-wrap').click()`)
+    await sleep(500)
+    assert('未登录点头像：弹出坚果云登录引导',
+      await run(`(() => {
+        const h = document.querySelector('.sheet-head')
+        return !!h && h.textContent.includes('登录坚果云') && document.querySelector('.sheet').textContent.includes('同步账单，换机不丢数据')
+      })()`))
+    await run(`window.open = (u) => { window.__jgyOpened = u; return null }; 'ok'`)
+    await run(`(${clickText})('.sheet button', '打开坚果云登录页')`)
+    await sleep(400)
+    assert('登录引导：跳转坚果云登录页链接正确',
+      await run(`(window.__jgyOpened || '').includes('jianguoyun.com/d/login')`))
+    await run(`(${clickText})('.sheet button', '去应用内配置')`)
+    await sleep(600)
+    assert('登录引导：去应用内配置 → 落在云备份页',
+      await run(`(() => {
+        const t = document.body.textContent
+        return t.includes('一键填入坚果云') && t.includes('配置后账单变化会自动双向同步')
+      })()`))
+
+    // 场景 G1：换机场景 —— 全新安装（空库）冷启动自动从云端导入资料与账单（restore 模式）
+    // 云端种子 = 当前本机数据 + 云端昵称 + 标记账单（必须在修改后取值，模拟"另一台设备"的数据）
+    const seedStateJson = await run(`(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3'))
+      s.settings.nickname = '云端用户'
+      s.settings.welcomed = true
+      const last = (s.transactions || []).slice(-1)[0]
+      s.transactions.push({ id: 'tx-cloud-1', ledgerId: s.currentLedgerId, date: '2026-10-01', time: '12:00', type: 'expense', amount: 66.6, categoryId: last ? last.categoryId : null, accountId: last ? last.accountId : null, note: '云端导入的测试账单', createdAt: '2026-10-01T12:00' })
+      return JSON.stringify(s)
+    })()`)
+    // 主进程直接种云端快照（新设备视角：云端已有老设备的数据）
+    files.set('backup.json', { text: JSON.stringify({ app: 'qingyu', kind: 'qingyu-cloud-v1', appVersion: '1.9.0', at: new Date().toISOString(), deviceId: 'smoke-seed-device', data: JSON.parse(seedStateJson) }), etag: 'w-seed' })
+    // 清空本机模拟换机 → 配置好坚果云（视为登录）→ 冷启动
+    await run(`localStorage.clear(); localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: '${stubUrl}', username: '', password: '' })); 'ok'`)
+    await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
+    await sleep(900)
+    const restored = await pollTrue(run, `(() => {
+      const last = JSON.parse(localStorage.getItem('qingyu_sync_last_v1') || 'null')
+      if (!last || last.mode !== 'restore') return false
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null')
+      return !!s && s.settings.nickname === '云端用户' && s.transactions.some((t) => t.id === 'tx-cloud-1')
+    })()`, 25000)
+    if (!restored) {
+      const diag = await run(`JSON.stringify({
+        last: JSON.parse(localStorage.getItem('qingyu_sync_last_v1') || 'null'),
+        base: !!localStorage.getItem('qingyu_sync_base_v1'),
+        cfg: localStorage.getItem('qingyu_sync_cfg_v1'),
+        nick: ((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).settings || {}).nickname,
+        txN: (((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).transactions) || []).length,
+        marker: (((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).transactions) || []).some((t) => t.id === 'tx-cloud-1'),
+        welcomed: ((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).settings || {}).welcomed,
+        ledgers: (((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).ledgers) || []).length,
+        cats: Object.keys((((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null') || {}).categories) || {})).map((k) => k + ':' + ((JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null')).categories[k] || []).length).join(','),
+      })`)
+      console.log('  (G1诊断 ' + diag + ' cloudEtag=' + ((files.get('backup.json') || {}).etag || 'none') + ')')
+    }
+    assert('换机场景：全新安装冷启动自动从云端导入资料与账单（restore 模式）', restored)
+
+    // 场景 G2：登录后数据变化 → 账单快照自动推上云端
+    await sleep(2000)
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(500)
+    await renameTo('自动上传用户')
+    let pushed = false
+    for (let i = 0; i < 30; i++) {
+      await sleep(500)
+      let nick = null
+      try { nick = JSON.parse(files.get('backup.json').text)?.data?.settings?.nickname } catch { /* ignore */ }
+      if (i % 8 === 7) console.log(`  (G2诊断 t+${((i + 1) * 0.5).toFixed(1)}s cloudNick=${nick} backupPuts=${backupPuts})`)
+      if (nick === '自动上传用户') { pushed = true; break }
+    }
+    assert('变化自动上传：改昵称后账单快照自动推上云端（含新昵称）', pushed)
+
+    // 场景 H：已配置 WebDAV → 点头像 → 原换头像弹层（回归保护）
+    await run(`document.querySelector('.me-head .avatar-wrap').click()`)
+    await sleep(500)
+    assert('已登录点头像：仍是「换个形象」弹层',
+      await run(`(() => {
+        const h = document.querySelector('.sheet-head')
+        return !!h && h.textContent.includes('换个形象')
+      })()`))
+    await run(`(() => { const b = [...document.querySelectorAll('.sheet .sx')].pop(); if (b) b.click(); return 'ok' })()`)
     await sleep(300)
   } catch (e) {
     results.push(['FAIL', '异常: ' + (e && e.message)])

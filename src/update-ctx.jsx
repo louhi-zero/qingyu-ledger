@@ -1,12 +1,14 @@
-/* v1.7.0 应用内更新 · 状态编排与 UI（安卓模式）
- * - UpdateProvider：启动 2.5s 后自动检查（当天一次），发现新版按开关静默下载，就绪后提示安装
- * - UpdateFloat：tabbar 上方浮卡（发现新版/下载进度/就绪安装/失败重试）
- * - UpdateSheet：更新中心（更新日志、下载/校验/安装状态机、web 端外链兜底、自动下载开关）
+/* v1.7.1 应用内更新 · 状态编排与可视化安装组件（安卓模式）
+ * - UpdateProvider：启动 2.5s 后自动检查（当天一次）
+ *   · 默认发现新版先弹 UpdatePrompt 询问，由用户选择是否更新
+ *   · 开启「自动后台下载」后才静默下载；静默的边界只到下载 APK，绝不自动安装
+ * - UpdatePrompt：居中可视化组件（更新日志 → 选择更新 → 下载进度 → 校验 → 点击安装）
+ * - UpdateFloat：tabbar 上方轻提示（静默下载进度/就绪安装/失败重试）
  * 安装是安卓平台硬约束：系统安装器必须用户点确认，任何应用都无法真正静默安装。
  */
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useStore } from './store.jsx'
-import { Sheet, Switch } from './ui.jsx'
+import { Switch } from './ui.jsx'
 import {
   APP_VERSION, checkForUpdate, downloadApk, cancelApkDownload, installerInfo,
   openInstallPermission, launchInstaller, openReleasePage, getUpdateBridge,
@@ -25,13 +27,14 @@ export function UpdateProvider({ children }) {
   const [info, setInfo] = useState(null)
   const [progress, setProgress] = useState(0)
   const [errorMsg, setErrorMsg] = useState('')
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const [promptOpen, setPromptOpen] = useState(false)
   const [native, setNative] = useState(null)
   const infoRef = useRef(null)
   const pathRef = useRef('')
   const progressRef = useRef(0)
-  const autoDlRef = useRef(true)
-  autoDlRef.current = state.settings.updateAutoDl !== false
+  const autoDlRef = useRef(false)
+  // v1.7.1：默认询问后再下载（用户自行选择是否更新）；用户显式开启后才静默预下载
+  autoDlRef.current = state.settings.updateAutoDl === true
 
   useEffect(() => { getUpdateBridge().then((b) => setNative(!!b)) }, [])
 
@@ -63,25 +66,31 @@ export function UpdateProvider({ children }) {
     }
   }, [])
 
-  // 检查更新。manual=true 来自「关于」页：跳过缓存、打开 Sheet、无新版 toast
+  // 检查更新。manual=true 来自「关于」页：跳过缓存、打开可视化组件、无新版也给反馈
   const check = useCallback(async ({ manual = false } = {}) => {
-    if (manual) { setSheetOpen(true); setStatus('checking'); setErrorMsg('') }
+    if (manual) { setPromptOpen(true); setStatus('checking'); setErrorMsg('') }
     let data = null
     try {
       data = await checkForUpdate(APP_VERSION, { force: manual })
     } catch { /* checkForUpdate 内部已回落缓存 */ }
     if (!data) {
-      if (manual) { setStatus('idle'); toast('已是最新版本') }
+      if (manual) setStatus('idle')
       return
     }
     setInfo(data); infoRef.current = data
     const bridge = await getUpdateBridge()
     setNative(!!bridge) // 实时刷新平台能力（mount 探测后测试钩子/桥延迟就绪也能纠正）
-    // 自动检查命中用户已点「以后再说」的同一版本 → 本次静默，不弹浮卡、不自动下载
+    // 自动检查命中用户已点「以后再说」的同一版本 → 本次完全静默
     if (!manual && dismissedTag() === data.tag) return
     setStatus('available')
-    if (manual) return // 手动场景等用户点按钮
-    if (bridge && autoDlRef.current) runDownload(data) // 静默下载；就绪后浮卡提示安装
+    if (manual) { setPromptOpen(true); return } // 手动检查：可视化呈现，等用户选择
+    // 自动检查：仅当用户预先开启「自动后台下载」才静默下载（只下载，不安装）；
+    // 否则弹出可视化组件由用户自行选择是否更新
+    if (bridge && autoDlRef.current) {
+      runDownload(data)
+    } else {
+      setPromptOpen(true)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runDownload])
 
@@ -98,7 +107,7 @@ export function UpdateProvider({ children }) {
     if (!silent) toast('已取消下载')
   }, [toast])
 
-  // 自动下载开关：关闭瞬间若正在下载，立即取消并删文件（对齐 NexBox 竞态处理）
+  // 自动后台下载开关：关闭瞬间若正在下载，立即取消并删文件
   const setAutoDownload = useCallback(async (on) => {
     set((d) => { d.settings.updateAutoDl = on })
     if (!on && status === 'downloading') {
@@ -125,16 +134,20 @@ export function UpdateProvider({ children }) {
     // launched：系统安装器接管，无需 App 内操作
   }, [toast])
 
+  // 「以后再说」：同版本不再自动询问（手动检查仍可看到）；回到 idle，浮卡同步消失
   const dismiss = useCallback(() => {
     if (infoRef.current) markDismissed(infoRef.current.tag)
-    setSheetOpen(false)
+    setPromptOpen(false)
     setStatus('idle')
   }, [])
 
+  // 仅收起可视化组件：已在下载/就绪时保留任务与浮卡，不写入 dismissed
+  const closePrompt = useCallback(() => setPromptOpen(false), [])
+
   const value = {
-    status, info, progress, errorMsg, sheetOpen, native,
-    openSheet: () => setSheetOpen(true),
-    closeSheet: () => setSheetOpen(false),
+    status, info, progress, errorMsg, promptOpen, native,
+    openPrompt: () => setPromptOpen(true),
+    closePrompt,
     checkManual: () => check({ manual: true }),
     startDownload: () => infoRef.current && runDownload(infoRef.current),
     cancelDownloading,
@@ -142,7 +155,7 @@ export function UpdateProvider({ children }) {
     install,
     dismiss,
     goDownloadPage: () => infoRef.current && openReleasePage(infoRef.current.tag),
-    autoDl: state.settings.updateAutoDl !== false,
+    autoDl: state.settings.updateAutoDl === true,
   }
   return <UpdateCtx.Provider value={value}>{children}</UpdateCtx.Provider>
 }
@@ -163,11 +176,11 @@ function fmtSize(bytes) {
   return ''
 }
 
-// ---------- 底部浮卡（仅根级页挂载，子页面不显示） ----------
+// ---------- 底部浮卡（仅根级页挂载，子页面不显示）：轻提示，点击进入可视化组件 ----------
 export function UpdateFloat() {
   const u = useUpdate()
-  if (!u || u.sheetOpen) return null
-  const { status, info, progress, errorMsg, openSheet } = u
+  if (!u || u.promptOpen) return null
+  const { status, info, progress, errorMsg, openPrompt } = u
   if (status === 'idle' || status === 'checking') return null
 
   let body
@@ -175,7 +188,7 @@ export function UpdateFloat() {
     body = (
       <>
         <span className="uf-ico">🎉</span>
-        <span className="uf-txt"><b>发现新版本 {info.tag}</b><i>点击查看更新内容</i></span>
+        <span className="uf-txt"><b>发现新版本 {info.tag}</b><i>点击查看更新内容并选择是否更新</i></span>
         <span className="uf-go">查看</span>
       </>
     )
@@ -184,7 +197,7 @@ export function UpdateFloat() {
       <>
         <span className="uf-ico">⬇️</span>
         <span className="uf-txt uf-progress">
-          <b>正在下载 {info.tag} · {progress}%</b>
+          <b>后台下载 {info.tag} · {progress}%</b>
           <span className="uf-bar"><i style={{ width: `${progress}%` }} /></span>
         </span>
       </>
@@ -200,8 +213,8 @@ export function UpdateFloat() {
     body = (
       <>
         <span className="uf-ico">✅</span>
-        <span className="uf-txt"><b>{info.tag} 已就绪</b><i>点击立即安装，数据不会丢失</i></span>
-        <span className="uf-go uf-go-ok">安装</span>
+        <span className="uf-txt"><b>{info.tag} 安装包已就绪</b><i>点击查看并确认安装，数据不会丢失</i></span>
+        <span className="uf-go uf-go-ok">去安装</span>
       </>
     )
   } else {
@@ -215,8 +228,8 @@ export function UpdateFloat() {
   }
 
   const onClick = () => {
-    if (status === 'ready') u.install()
-    else openSheet() // available/downloading/error 都进 Sheet 看详情（错误重试也在里面）
+    // 所有状态都进入可视化组件；安装动作只在组件内由用户明确点击触发
+    openPrompt()
   }
   return (
     <button className="upd-float" onClick={onClick} type="button">
@@ -225,106 +238,136 @@ export function UpdateFloat() {
   )
 }
 
-// ---------- 更新中心 Sheet ----------
-export function UpdateSheetCenter() {
+// ---------- 可视化安装组件（居中卡片）：选择 → 静默下载（仅 APK）→ 用户点击安装 ----------
+export function UpdatePrompt() {
   const u = useUpdate()
-  if (!u) return null
-  const { status, info, progress, errorMsg, sheetOpen, closeSheet } = u
+  if (!u || !u.promptOpen) return null
+  const { status, info, progress, errorMsg, closePrompt } = u
 
+  // 下载/校验/就绪阶段允许遮罩收起（浮卡仍在），其余阶段点遮罩同样收起
+  const hero = {
+    checking: ['🔍', 'upd-hero-check'],
+    available: ['🎉', 'upd-hero-new'],
+    downloading: ['⬇️', 'upd-hero-dl'],
+    verifying: ['🔐', 'upd-hero-check'],
+    ready: ['✅', 'upd-hero-ready'],
+    error: ['⚠️', 'upd-hero-err'],
+    idle: ['✔️', 'upd-hero-ready'],
+  }[status] || ['🎉', 'upd-hero-new']
+  const [heroEmoji, heroCls] = hero
   const notes = info ? tinyMd(info.notes) : []
+  const busy = status === 'downloading' || status === 'verifying'
 
   return (
-    <Sheet open={sheetOpen} onClose={closeSheet} title="软件更新">
-      {status === 'checking' && (
-        <div className="upd-center-box">
-          <div className="upd-spin" />
-          <div className="muted" style={{ marginTop: 10 }}>正在检查更新…</div>
-        </div>
-      )}
+    <div className="upd-mask" onClick={(e) => { if (e.target === e.currentTarget) closePrompt() }}>
+      <div className="upd-modal" role="dialog" aria-label="软件更新">
+        <button className="upd-x" onClick={closePrompt} aria-label="关闭">✕</button>
 
-      {status !== 'checking' && !info && status === 'idle' && (
-        <div className="upd-center-box">
-          <div style={{ fontSize: 44 }}>✔️</div>
-          <div style={{ fontWeight: 800, marginTop: 8 }}>已是最新版本</div>
-          <div className="muted" style={{ marginTop: 4 }}>当前版本 v{APP_VERSION}</div>
-          <button className="btn" style={{ marginTop: 16 }} onClick={u.checkManual}>重新检查</button>
-        </div>
-      )}
+        <div className={`upd-hero ${heroCls}`}><span>{heroEmoji}</span></div>
 
-      {info && status !== 'checking' && (
-        <>
-          <div className="upd-head">
-            <div className="upd-badge">🎉 新版本</div>
-            <div className="upd-ver">{info.tag}</div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              {info.publishedAt ? `${info.publishedAt} · ` : ''}{fmtSize(info.size) || '在线下载'}
-            </div>
+        {status === 'checking' && (
+          <div className="upd-modal-body upd-center">
+            <div className="upd-spin" />
+            <div className="muted" style={{ marginTop: 12 }}>正在检查更新…</div>
           </div>
+        )}
 
-          <div className="upd-notes">
-            {notes.length ? notes.map((line, i) => (
-              <p key={i} className={/^[一二三四五六七八九十\d]+[.、]/.test(line) || /^【.+】/.test(line) ? 'upd-note-h' : ''}>{line || ' '}</p>
-            )) : <p className="muted">本次更新暂无详细说明。</p>}
+        {status === 'idle' && (
+          <div className="upd-modal-body upd-center">
+            <div className="upd-title">已是最新版本</div>
+            <div className="muted" style={{ marginTop: 4 }}>当前版本 v{APP_VERSION}</div>
+            <button className="btn upd-main" onClick={closePrompt}>好的</button>
           </div>
+        )}
 
-          {/* 状态区 */}
-          {status === 'available' && (
-            u.native ? (
-              <button className="btn" onClick={u.startDownload}>
-                ⬇️ 立即下载{!u.autoDl ? '' : '（后台静默进行）'}
-              </button>
-            ) : (
-              <button className="btn" onClick={u.goDownloadPage}>🌐 前往下载页</button>
-            )
-          )}
-
-          {(status === 'downloading' || status === 'verifying') && (
-            <div className="upd-dl">
-              <div className="uf-bar uf-bar-lg"><i style={{ width: `${status === 'verifying' ? 100 : progress}%` }} /></div>
-              <div className="muted" style={{ textAlign: 'center', marginTop: 8, fontSize: 12.5 }}>
-                {status === 'verifying' ? '🔐 正在校验安装包 SHA-256…' : `正在下载 · ${progress}%（只走网络，可后台等待）`}
-              </div>
-              {status === 'downloading' && (
-                <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => u.cancelDownloading(false)}>取消下载</button>
-              )}
-            </div>
-          )}
-
-          {status === 'ready' && (
-            <>
-              <button className="btn" onClick={u.install}>📲 立即安装</button>
-              <div className="muted upd-tip">系统将弹出安装确认界面；签名一致可直接覆盖安装，账本与设置不会丢失。</div>
-              <button className="btn ghost" style={{ marginTop: 8 }} onClick={u.startDownload}>重新下载</button>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <div className="sandbox-fail">{errorMsg}</div>
-              <button className="btn" style={{ marginTop: 10 }} onClick={u.startDownload}>重试下载</button>
-            </>
-          )}
-
-          {/* 自动下载开关（浏览器端原生下载不可用，开关无意义则隐藏） */}
-          {u.native && (
-            <div className="cell" style={{ marginTop: 10 }} onClick={() => u.setAutoDownload(!u.autoDl)}>
-              <div className="cico">⚡</div>
-              <div className="cmain">
-                <div className="ctitle">发现新版自动下载</div>
-                <div className="cdesc">仅后台下载不打扰；安装仍需你点确认</div>
-              </div>
-              <div className="cright">
-                <Switch on={u.autoDl} onChange={() => u.setAutoDownload(!u.autoDl)} />
+        {info && status !== 'checking' && status !== 'idle' && (
+          <div className="upd-modal-body">
+            <div className="upd-center" style={{ marginBottom: 12 }}>
+              <div className="upd-badge">发现新版本</div>
+              <div className="upd-ver">{info.tag}</div>
+              <div className="muted upd-meta">
+                当前 v{APP_VERSION}
+                {info.publishedAt ? ` · ${info.publishedAt}` : ''}
+                {fmtSize(info.size) ? ` · ${fmtSize(info.size)}` : ''}
               </div>
             </div>
-          )}
 
-          <div className="upd-foot">
-            <span>当前 v{APP_VERSION}</span>
-            <button className="upd-later" onClick={u.dismiss}>以后再说</button>
+            {status === 'available' && (
+              <>
+                <div className="upd-notes">
+                  {notes.length ? notes.map((line, i) => (
+                    <p key={i} className={/^[一二三四五六七八九十\d]+[.、]/.test(line) || /^【.+】/.test(line) ? 'upd-note-h' : ''}>{line || ' '}</p>
+                  )) : <p className="muted">本次更新暂无详细说明。</p>}
+                </div>
+                {u.native ? (
+                  <button className="btn upd-main upd-main-grad" onClick={u.startDownload}>
+                    ⬇️ 立即更新
+                  </button>
+                ) : (
+                  <button className="btn upd-main upd-main-grad" onClick={u.goDownloadPage}>
+                    🌐 前往下载页
+                  </button>
+                )}
+                <button className="upd-later" onClick={u.dismiss}>以后再说</button>
+                {u.native && (
+                  <div className="upd-autodl" onClick={() => u.setAutoDownload(!u.autoDl)}>
+                    <Switch on={u.autoDl} onChange={() => u.setAutoDownload(!u.autoDl)} />
+                    <span>
+                      <b>有新版时自动后台下载</b>
+                      <i>仅静默下载安装包，安装仍需你手动确认</i>
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {busy && (
+              <div className="upd-dlbox">
+                <div className="upd-ring" aria-hidden="true">
+                  <svg viewBox="0 0 84 84">
+                    <circle className="ur-track" cx="42" cy="42" r="36" />
+                    <circle
+                      className="ur-fill" cx="42" cy="42" r="36"
+                      strokeDasharray={`${(status === 'verifying' ? 100 : progress) * 2.262} 226.2`}
+                    />
+                  </svg>
+                  <span className="ur-pct">{status === 'verifying' ? '🔐' : `${progress}%`}</span>
+                </div>
+                <div className="upd-dltxt">
+                  {status === 'verifying' ? '正在校验安装包完整性（SHA-256）…' : '正在静默下载安装包…'}
+                </div>
+                <div className="muted upd-dlsub">
+                  {status === 'verifying' ? '校验通过后才会出现安装按钮' : '只下载安装包，不会自动安装；可最小化到浮卡后台等待'}
+                </div>
+                <div className="uf-bar uf-bar-lg"><i style={{ width: `${status === 'verifying' ? 100 : progress}%` }} /></div>
+                {status === 'downloading' && (
+                  <button className="btn ghost" onClick={() => u.cancelDownloading(true)}>取消下载</button>
+                )}
+                {status === 'verifying' && (
+                  <button className="upd-later" onClick={closePrompt}>最小化到浮卡</button>
+                )}
+              </div>
+            )}
+
+            {status === 'ready' && (
+              <>
+                <div className="upd-readyline">安装包已下载并通过完整性校验</div>
+                <button className="btn upd-main upd-main-grad" onClick={u.install}>📲 立即安装</button>
+                <div className="upd-tip">系统将弹出安装确认界面；签名一致可直接覆盖安装，账本与设置不会丢失。</div>
+                <button className="upd-later" onClick={closePrompt}>稍后安装（浮卡保留入口）</button>
+              </>
+            )}
+
+            {status === 'error' && (
+              <>
+                <div className="sandbox-fail">{errorMsg}</div>
+                <button className="btn upd-main upd-main-grad" onClick={u.startDownload}>重新下载</button>
+                <button className="upd-later" onClick={u.dismiss}>以后再说</button>
+              </>
+            )}
           </div>
-        </>
-      )}
-    </Sheet>
+        )}
+      </div>
+    </div>
   )
 }

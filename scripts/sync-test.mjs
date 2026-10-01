@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import { demoState, emptyState } from '../src/seed.js'
 import { mergeStates, syncOnce, parseRemote, makeSnapshot, stableJson, deepClone, isPristineState } from '../src/sync.js'
 import { WebDavTransport } from '../src/webdav.js'
+import { runProfileSync, parseProfileArchive, profilePatch, PROFILE_ARCHIVE_FILE } from '../src/userarchive.js'
 import { startServer } from './webdav-stub.mjs'
 
 let pass = 0
@@ -298,6 +299,60 @@ console.log('合并器边界用例：')
 assert.ok(isPristineState(emptyState()))
 assert.ok(!isPristineState(s0))
 ok('出厂空状态识别准确（新机云恢复判定）')
+
+// ---------- v1.9.0 用户资料云存档编排 ----------
+console.log('用户资料云存档编排（runProfileSync）：')
+const tProf = new WebDavTransport({ url: srv.url, username: 'u', password: 'p' })
+const settingsA = { nickname: '云存档用户', avatar: '🐣', avatarPhotoAt: null }
+const settingsB = { nickname: '改名用户', avatar: '🐣', avatarPhotoAt: '2026-10-02T08:00:00Z' }
+const profCalls = []
+const countingTransport = {
+  putFile: async (name, body, mime) => {
+    profCalls.push({ name, body, mime })
+    return tProf.putFile(name, body, mime) // 真实落盘到 stub，可回读校验
+  },
+}
+
+let pr = await runProfileSync({ settings: settingsA, cfg: null, lastRec: null, deviceId: 'dev-P', appVersion: '1.9.0', transport: countingTransport })
+assert.equal(pr.status, 'skipped')
+assert.equal(profCalls.length, 0)
+ok('未配置 WebDAV → skipped（0 请求）')
+
+pr = await runProfileSync({ settings: settingsA, cfg: { url: srv.url }, lastRec: null, deviceId: 'dev-P', appVersion: '1.9.0', transport: countingTransport })
+assert.equal(pr.status, 'uploaded')
+assert.equal(profCalls.length, 1)
+const profEnv = parseProfileArchive(await tProf.getFile(PROFILE_ARCHIVE_FILE))
+assert.ok(profEnv && profEnv.kind === 'qingyu-user-archive-v1'
+  && profEnv.data.nickname === '云存档用户' && profEnv.deviceId === 'dev-P')
+ok('首次建档：PUT qingyu-profile.json，云端内容过校验')
+
+pr = await runProfileSync({ settings: settingsA, cfg: { url: srv.url }, lastRec: { at: pr.at, data: profEnv.data }, deviceId: 'dev-P', appVersion: '1.9.0', transport: countingTransport })
+assert.equal(pr.status, 'unchanged')
+assert.equal(profCalls.length, 1)
+ok('资料未变化 → unchanged（0 请求，变更检测生效）')
+
+pr = await runProfileSync({ settings: settingsB, cfg: { url: srv.url }, lastRec: { data: profEnv.data }, deviceId: 'dev-P', appVersion: '1.9.0', transport: countingTransport })
+assert.equal(pr.status, 'uploaded')
+assert.equal(profCalls.length, 2)
+const profEnv2 = parseProfileArchive(await tProf.getFile(PROFILE_ARCHIVE_FILE))
+assert.equal(profEnv2.data.nickname, '改名用户')
+assert.equal(profEnv2.data.avatarPhotoAt, settingsB.avatarPhotoAt)
+ok('检测到昵称/头像变化 → 重新打包上传，云端已更新')
+
+pr = await runProfileSync({ settings: { ...settingsA, nickname: '超'.repeat(33) }, cfg: { url: srv.url }, lastRec: null, deviceId: 'dev-P', appVersion: '1.9.0', transport: countingTransport })
+assert.equal(pr.status, 'invalid')
+assert.equal(profCalls.length, 2)
+ok('上传前校验拦截异常包（invalid，0 请求）')
+
+pr = await runProfileSync({ settings: settingsA, cfg: { url: srv.url }, lastRec: null, deviceId: 'dev-P', appVersion: '1.9.0', transport: { putFile: async () => { throw new Error('连接被拒绝') } } })
+assert.equal(pr.status, 'error')
+assert.ok(pr.message.includes('连接被拒绝'))
+ok('上传失败 → error 带原因（不抛出，由调用方决定提示策略）')
+
+const profPatch = profilePatch(profEnv2)
+assert.equal(profPatch.nickname, '改名用户')
+assert.equal(profPatch.avatarPhotoAt, settingsB.avatarPhotoAt)
+ok('云端档案 → profilePatch 可写回 settings（换机恢复联动）')
 
 srv.server.close()
 console.log(`\n全部通过：${pass} 项断言，diff=0 验收成功`)

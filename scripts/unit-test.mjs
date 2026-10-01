@@ -14,6 +14,10 @@ import {
   shouldAutoCheck, APP_VERSION,
 } from '../src/update.js'
 import { emptyState } from '../src/seed.js'
+import {
+  collectProfile, buildArchive, validateArchive, shouldUpload,
+  parseProfileArchive, profilePatch, PROFILE_ARCHIVE_KIND,
+} from '../src/userarchive.js'
 import { readFileSync, existsSync } from 'node:fs'
 
 let passed = 0
@@ -183,6 +187,14 @@ const appJs2 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
 assert('震动四档时长 0/6/10/20ms', appJs2.includes('[0, 6, 10, 20][vibrateLevel]'))
 assert('滑动撤震（vibrate(0) + 14px 阈值）', appJs2.includes('navigator.vibrate(0)') && appJs2.includes('MOVE_LIMIT = 196'))
 
+// v1.7.1 震动强度 UI：可视化档位卡片替换拥挤的分段控件
+assert('震动强度改为 VibrateCard 组件', settingsJs.includes('function VibrateCard'))
+assert('四档元数据（关/轻柔/标准/明快）', settingsJs.includes('VIBRATE_LEVELS') && settingsJs.includes("label: '明快'"))
+assert('波形柱可视化（vib-bars + lit 点亮）', settingsJs.includes('vib-bars') && css.includes('.vib-bars i.lit'))
+assert('选中态勾选与品牌描边', css.includes('.vib-opt.on') && settingsJs.includes("vib-check"))
+assert('手动试震按钮', settingsJs.includes('vib-test') && settingsJs.includes('感受一下这个档位'))
+assert('旧 vibrate-cell 拥挤布局已移除', !settingsJs.includes('vibrate-cell') && !css.includes('.vibrate-cell'))
+
 const themeJs2 = readFileSync(new URL('../src/theme.jsx', import.meta.url), 'utf-8')
 assert('发现图标存储动作（144 裁切，不做白底拦截）',
   themeJs2.includes('saveDiscIcon') && themeJs2.includes(`replaceBlob(`) && themeJs2.includes("maxSize: 144"))
@@ -197,7 +209,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 18 / 1.7.0', gradle.includes('versionCode 18') && gradle.includes('versionName "1.7.0"'))
+assert('版本 versionCode 22 / 1.10.0', gradle.includes('versionCode 22') && gradle.includes('versionName "1.10.0"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -256,8 +268,9 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 1.7.0', pkgJson.version === '1.7.0')
-for (const f of ['Settings.jsx', 'Profile.jsx', 'CloudBackup.jsx']) {
+assert('package.json 版本 1.10.0', pkgJson.version === '1.10.0')
+// v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
+for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
   assert(`版本单一源 ${f} 引用 APP_VERSION（无硬编码版本号）`,
     src.includes("from '../update.js'") && /APP_VERSION/.test(src) && !/1\.6\.9|1\.6\.8/.test(src))
@@ -325,9 +338,30 @@ assert('「以后再说」按版本静默（dismissed tag）', updateCtxJsx.incl
   && updateCtxJsx.includes('dismissedTag()'))
 assert('下载进度只涨不跌（Math.max）', updateCtxJsx.includes('pct > progressRef.current'))
 assert('关闭自动下载开关立即取消进行中任务', updateCtxJsx.includes("status === 'downloading'"))
-assert('出厂默认 updateAutoDl=true + 迁移兜底',
-  emptyState().settings.updateAutoDl === true
+assert('出厂默认 updateAutoDl=false（发现新版先询问）+ 迁移兜底',
+  emptyState().settings.updateAutoDl === false
   && storeJs.includes("typeof s.settings.updateAutoDl !== 'boolean'"))
+
+// v1.7.1 可视化安装组件：用户选择 → 静默仅下载 APK → 用户点击安装
+assert('导出 UpdatePrompt 可视化安装组件',
+  updateCtxJsx.includes('export function UpdatePrompt') && updateCtxJsx.includes("className=\"upd-modal\""))
+assert('旧 UpdateSheetCenter 已移除（单一更新 UI）', !updateCtxJsx.includes('UpdateSheetCenter'))
+assert('发现新版默认弹窗询问（autoDl 关/手动均打开 prompt）',
+  updateCtxJsx.includes('setPromptOpen(true)'))
+assert('仅 autoDl 显式开启才静默预下载',
+  updateCtxJsx.includes('autoDlRef.current') && updateCtxJsx.includes("=== true"))
+assert('用户点「立即更新」才开始下载', updateCtxJsx.includes('立即更新'))
+assert('静默边界文案：只下载安装包、不会自动安装',
+  updateCtxJsx.includes('不会自动安装') && updateCtxJsx.includes('仅静默下载安装包'))
+assert('就绪态由用户点击「立即安装」触发（无 useEffect 自动安装）',
+  updateCtxJsx.includes('立即安装')
+  && !/useEffect\(\(\)\s*=>\s*\{?[^}]*install\(/.test(updateCtxJsx))
+assert('下载可视化：环形进度 + 百分比', updateCtxJsx.includes('upd-ring') && updateCtxJsx.includes('ur-pct'))
+assert('App.jsx 挂载 UpdatePrompt（替代 Sheet 中心）',
+  appJs2.includes('UpdatePrompt') && !appJs2.includes('UpdateSheetCenter'))
+const css3 = css
+assert('弹窗样式齐备（遮罩/卡片/状态头像/进度环）',
+  css3.includes('.upd-mask') && css3.includes('.upd-modal') && css3.includes('.upd-hero') && css3.includes('.ur-fill'))
 
 const updatePluginJava = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/UpdatePlugin.java', import.meta.url), 'utf-8')
 assert('原生下载：边下边算 SHA-256（MessageDigest）', updatePluginJava.includes('MessageDigest.getInstance("SHA-256")'))
@@ -352,7 +386,336 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 1.7.0', APP_VERSION === '1.7.0')
+assert('update.js 版本单一源为 1.10.0', APP_VERSION === '1.10.0')
+
+// ---------- 9. v1.8.0 AI 风格卡（纯函数 + 源码断言） ----------
+console.log('v1.8.0 AI 回复风格卡：')
+const {
+  STYLE_ATTRS, normalizeStyleAttrs, composeStylePrompt, styleAttrsDesc,
+  validateStyleCard, buildWikiUrls,
+} = await import('../src/stylecard.js')
+const styleKeyOf2 = (await import('../src/utils.js')).styleKeyOf
+assert('styleKeyOf 规范化：去空白/间隔符 + 小写',
+  styleKeyOf2('  芙宁娜 ') === '芙宁娜' && styleKeyOf2('Furina·de·Fontaine') === 'furinadefontaine'
+  && styleKeyOf2("NEUviLlette.") === 'neuvillette')
+assert('自定义参数四维齐全（语气5/正式度3/篇幅3/结构3）',
+  STYLE_ATTRS.tone.length === 5 && STYLE_ATTRS.formality.length === 3 && STYLE_ATTRS.length.length === 3 && STYLE_ATTRS.structure.length === 3)
+assert('normalizeStyleAttrs：非法入参回落默认 + 非法选项逐维修正',
+  JSON.stringify(normalizeStyleAttrs(null)) === JSON.stringify({ tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' })
+  && normalizeStyleAttrs({ tone: 'oops', formality: 'formal' }).tone === 'gentle'
+  && normalizeStyleAttrs({ tone: 'oops', formality: 'formal' }).formality === 'formal')
+assert('composeStylePrompt：四维选择全部拼入提示词',
+  composeStylePrompt({ tone: 'humor', formality: 'casual', length: 'short', structure: 'list' }).includes('轻松幽默')
+  && composeStylePrompt({ tone: 'humor', formality: 'casual', length: 'short', structure: 'list' }).includes('要点列表'))
+assert('composeStylePrompt：未知维度回落第一项不崩溃',
+  composeStylePrompt({}).includes('温柔友善') && composeStylePrompt(undefined).includes('温柔友善'))
+assert('styleAttrsDesc：标签点号拼接', styleAttrsDesc({ tone: 'sharp', formality: 'formal', length: 'detail', structure: 'mix' }) === '犀利 · 正式 · 详尽 · 混合')
+
+// 校验协议
+const goodCard = {
+  name: '芙宁娜', title: '不休独舞 · 原神', emoji: '🌊',
+  traits: ['戏剧化', '自尊心强', '口是心非'],
+  speech: ['自称「本小姐」', '夸张的感叹句式', '爱提「审判」'],
+  tone: '浮夸戏剧化，傲娇但心软', vocab: ['审判！', '本小姐'],
+  usage: '适合轻松场景', prompt: '你将以芙宁娜的口吻进行财务分析：自称本小姐，把每期账单当成一场审判现场，用夸张戏剧化的句式点评，但数据结论必须严谨，不人身攻击。',
+}
+const vc = validateStyleCard(goodCard, '芙宁娜')
+assert('validateStyleCard：合法卡通过并归一', !!vc && vc.name === '芙宁娜' && vc.traits.length === 3 && vc.prompt.length >= 40)
+assert('validateStyleCard：超长字段截断', validateStyleCard({ ...goodCard, title: 'x'.repeat(60) }, '芙宁娜').title.length === 24)
+assert('validateStyleCard：角色名对不上 → 拒绝', validateStyleCard(goodCard, '钟离') === null)
+assert('validateStyleCard：名字双向包含容忍（芙宁娜(Furina)）', !!validateStyleCard({ ...goodCard, name: '芙宁娜(Furina)' }, '芙宁娜'))
+assert('validateStyleCard：性格特质不足 2 条 → 拒绝', validateStyleCard({ ...goodCard, traits: ['只有一条'] }, '芙宁娜') === null)
+assert('validateStyleCard：指令过短 → 拒绝', validateStyleCard({ ...goodCard, prompt: '太短' }, '芙宁娜') === null)
+assert('validateStyleCard：非对象 → 拒绝', validateStyleCard(null, '芙宁娜') === null && validateStyleCard('x', '芙宁娜') === null)
+
+// 维基检索 URL 构造
+const wu = buildWikiUrls('芙宁娜')
+assert('buildWikiUrls：MediaWiki 检索/摘录端点 + CORS origin=*',
+  wu.search.startsWith('https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch=')
+  && wu.search.includes('origin=*')
+  && wu.extract('芙宁娜').includes('prop=extracts&explaintext=1&exintro=1')
+  && decodeURIComponent(wu.search).includes('芙宁娜'))
+
+// 源码断言：两阶段生成 / 缓存 / 平台选路 / 无循环依赖
+const stylecardSrc = readFileSync(new URL('../src/stylecard.js', import.meta.url), 'utf-8')
+const aiSrc = readFileSync(new URL('../src/ai.js', import.meta.url), 'utf-8')
+const aiSettingsSrc = readFileSync(new URL('../src/pages/AiSettings.jsx', import.meta.url), 'utf-8')
+const aiInsightSrc = readFileSync(new URL('../src/pages/AiInsight.jsx', import.meta.url), 'utf-8')
+assert('两阶段生成：先缓存检查，再检索，再 AI 合成',
+  stylecardSrc.indexOf('getCachedCard(name)') < stylecardSrc.indexOf("onPhase?.('search'") && stylecardSrc.indexOf("onPhase?.('search'") < stylecardSrc.indexOf("onPhase?.('generate'"))
+assert('缓存命中免检索免生成（90% 提速）', stylecardSrc.includes('cached: true'))
+assert('校验不过带原因重试一次', stylecardSrc.includes('for (let i = 0; i < 2; i++)') && stylecardSrc.includes('上次输出未通过校验'))
+assert('检索失败降级模型知识，不阻断', stylecardSrc.includes('未检索到') && stylecardSrc.includes('return null // 网络失败'))
+assert('ai.js 不 import stylecard（避免循环依赖）', !aiSrc.includes('from \'./stylecard.js\''))
+assert('buildMessages 支持 custom/char 双模式',
+  aiSrc.includes("mode === 'custom'") && aiSrc.includes("mode === 'char'")
+  && aiSrc.includes('qingyu_style_cards_v1') && aiSrc.includes('角色卡缓存丢失时的优雅回落'))
+assert('ATTRS_TABLE 与 STYLE_ATTRS 提示词逐条一致',
+  Object.entries(STYLE_ATTRS).every(([k, list]) => list.every((x) => aiSrc.includes(`${x.id}: '${x.prompt}'`))))
+assert('postText 已导出供风格卡生成复用', aiSrc.includes('export async function postText'))
+assert('平台钩子 __qyForceWeb 强制 web 路径（便于冒烟 mock）', aiSrc.includes('__qyForceWeb'))
+assert('AI 设置页：三模式切换 + 预设可视化卡片',
+  aiSettingsSrc.includes('🎭 预设') && aiSettingsSrc.includes('🎛️ 自定义') && aiSettingsSrc.includes('✨ 角色扮演')
+  && aiSettingsSrc.includes('style-cards') && aiSettingsSrc.includes('stc-check'))
+assert('AI 设置页：角色两阶段进度与缓存徽标',
+  aiSettingsSrc.includes('① 联网检索角色资料') && aiSettingsSrc.includes('② AI 合成风格卡')
+  && aiSettingsSrc.includes('已命中本机缓存') && aiSettingsSrc.includes('char-cached'))
+assert('AI 设置页：自定义参数实时预览卡', aiSettingsSrc.includes('sc-preview') && aiSettingsSrc.includes('styleAttrsDesc'))
+assert('AI 分析页：当前风格徽标可见 + 直达设置',
+  aiInsightSrc.includes('ai-style-pill') && aiInsightSrc.includes('activeStyleInfo'))
+assert('风格卡样式齐备（卡片/参数行/进度/徽标）',
+  css.includes('.sc-view') && css.includes('.attrs-row') && css.includes('.char-spin') && css.includes('.ai-style-pill'))
+assert('出厂默认：aiStyleAttrs 四维 + aiCharName 空',
+  JSON.stringify(es.settings.aiStyleAttrs) === JSON.stringify({ tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' })
+  && es.settings.aiCharName === '')
+const storeSrc = readFileSync(new URL('../src/store.jsx', import.meta.url), 'utf-8')
+assert('迁移兜底：aiStyleAttrs 非法对象重建 + aiCharName 字符串化',
+  storeSrc.includes('aiStyleAttrs') && storeSrc.includes("typeof s.settings.aiCharName !== 'string'"))
+assert('UI 审计修复：月份切换/图标按钮触达 36/38px + ink3 对比度提升',
+  css.includes('.ymnav button { width: 36px; height: 36px; }') && css.includes('.iconbtn { width: 38px; height: 38px; }')
+  && css.includes('--ink3: #878f9f'))
+
+// ---------- 10. v1.9.0 用户资料云存档（纯函数 + 源码断言） ----------
+console.log('v1.9.0 用户资料云存档：')
+const profileSrc = readFileSync(new URL('../src/userarchive.js', import.meta.url), 'utf-8')
+const cloudSrc = readFileSync(new URL('../src/pages/CloudBackup.jsx', import.meta.url), 'utf-8')
+
+// collectProfile 严格挑字段
+const fakeSettings = { nickname: '小明', avatar: '🐣', avatarPhotoAt: '2026-10-01T00:00:00Z', dark: true, hideAmount: true, nickname2: '杂鱼' }
+assert('collectProfile 只挑昵称/头像三字段，不带其他设置',
+  JSON.stringify(Object.keys(collectProfile(fakeSettings))) === JSON.stringify(['nickname', 'avatar', 'avatarPhotoAt']))
+assert('collectProfile 非法类型归一（坏昵称→空串、坏时间戳→null）',
+  collectProfile({ nickname: 123, avatar: 456, avatarPhotoAt: 789 }).nickname === ''
+  && collectProfile({ nickname: 123, avatar: 456, avatarPhotoAt: 789 }).avatar === ''
+  && collectProfile({ nickname: 123, avatar: 456, avatarPhotoAt: 789 }).avatarPhotoAt === null)
+
+// buildArchive 打包信封
+const penv = buildArchive({ nickname: '小明', avatar: '🐣', avatarPhotoAt: null }, 'dev-001', '1.9.0', '2026-10-02T00:00:00Z')
+assert('buildArchive 信封结构（app/kind/at/deviceId/data）',
+  penv.app === 'qingyu' && penv.kind === PROFILE_ARCHIVE_KIND && penv.at === '2026-10-02T00:00:00Z'
+  && penv.deviceId === 'dev-001' && penv.data.nickname === '小明')
+
+// validateArchive 上传前校验协议
+assert('validateArchive：合法包通过', validateArchive(penv) === '')
+assert('validateArchive：非对象拒绝', validateArchive(null) !== '' && validateArchive('x') !== '' && validateArchive([]) !== '')
+assert('validateArchive：类型不符拒绝', validateArchive({ ...penv, kind: 'other' }) !== '')
+assert('validateArchive：缺数据体拒绝', validateArchive({ ...penv, data: null }) !== '')
+assert('validateArchive：空昵称拒绝', validateArchive({ ...penv, data: { ...penv.data, nickname: '  ' } }) !== '')
+assert('validateArchive：超长昵称（33 字）拒绝', validateArchive({ ...penv, data: { ...penv.data, nickname: '超'.repeat(33) } }) !== '')
+assert('validateArchive：头像时间戳非法拒绝', validateArchive({ ...penv, data: { ...penv.data, avatarPhotoAt: 123 } }) !== '')
+assert('validateArchive：超体积包拒绝',
+  validateArchive({ ...penv, data: { ...penv.data, nickname: 'x', avatar: '囍'.repeat(70 * 1024) } }) !== '')
+
+// shouldUpload 变更检测（只上传真正变化过的资料）
+assert('shouldUpload：从未上传过 → 上传（首次建档）', shouldUpload(penv.data, null) === true)
+assert('shouldUpload：与上次记录一致 → 跳过（0 请求前提）', shouldUpload(penv.data, { at: 'x', data: penv.data }) === false)
+assert('shouldUpload：昵称变化 → 上传', shouldUpload({ ...penv.data, nickname: '新名' }, { data: penv.data }) === true)
+assert('shouldUpload：头像时间戳变化 → 上传',
+  shouldUpload({ ...penv.data, avatarPhotoAt: '2026-10-02T01:00:00Z' }, { data: penv.data }) === true)
+
+// parseProfileArchive + profilePatch（从云端恢复联动）
+assert('parseProfileArchive：合法档案通过', parseProfileArchive(JSON.stringify(penv))?.data.nickname === '小明')
+assert('parseProfileArchive：脏 JSON/类型不符/校验不过 → null',
+  parseProfileArchive('{oops') === null
+  && parseProfileArchive(JSON.stringify({ ...penv, kind: 'x' })) === null
+  && parseProfileArchive(JSON.stringify({ ...penv, data: { ...penv.data, nickname: '' } })) === null)
+assert('profilePatch：提取三字段补丁且昵称去首尾空白',
+  JSON.stringify(profilePatch(penv)) === JSON.stringify({ nickname: '小明', avatar: '🐣', avatarPhotoAt: null }))
+assert('profilePatch：非法档案 → null', profilePatch({ ...penv, kind: 'x' }) === null)
+
+// 源码断言：触发链路与 UI
+assert('store.jsx 订阅资料签名（stableJson + collectProfile + syncProfileArchive）',
+  storeSrc.includes('profileSig') && storeSrc.includes('collectProfile') && storeSrc.includes('syncProfileArchive'))
+assert('冷启动 6s 自愈 + 资料变化 2.5s 防抖', storeSrc.includes('isFirst ? 6000 : 2500'))
+assert('云备份页：用户资料云存档 cell + 手动存档（含未变化/未配置反馈）',
+  cloudSrc.includes('用户资料云存档') && cloudSrc.includes('onProfileSync')
+  && cloudSrc.includes('资料未变化，云端已是最新') && cloudSrc.includes('请先在上方填写 WebDAV 文件地址'))
+assert('从云端恢复联动资料档案（parseProfileArchive/profilePatch 对齐昵称头像）',
+  cloudSrc.includes('parseProfileArchive') && cloudSrc.includes('profilePatch') && cloudSrc.includes('资料档案'))
+assert('档案不含账单数据（userarchive.js 无 transactions 引用）', !profileSrc.includes('transactions'))
+assert('未配置 WebDAV 静默跳过（not-configured）', profileSrc.includes("status: 'skipped', reason: 'not-configured'"))
+assert('失败原因记录到本机（qingyu_profile_sync_v1.error）',
+  profileSrc.includes('error: { at: new Date().toISOString(), message') && profileSrc.includes('LS_PROFILE_SYNC'))
+
+// ---------- 11. v1.10.0 账单自动同步（runAutoSync 编排：登录导入 + 变化自动上传） ----------
+console.log('v1.10.0 账单自动同步：')
+
+// node 无 localStorage：先装 mock 再动态加载 autosync（getWebdavCfg/getDeviceId 走 localStorage）
+const lsStore = new Map()
+globalThis.localStorage = {
+  getItem: (k) => (lsStore.has(k) ? lsStore.get(k) : null),
+  setItem: (k, v) => lsStore.set(k, String(v)),
+  removeItem: (k) => lsStore.delete(k),
+}
+const auto = await import('../src/autosync.js')
+const ua11 = await import('../src/userarchive.js')
+
+// 假云端：Map 文件存储 + ETag 乐观锁（put 带 If-Match，错配抛 412；getFile/putFile 服务图片资产与档案）
+function fakeCloud11() {
+  const files = new Map()
+  let etagN = 0
+  const stats = { gets: 0, puts: 0, lastPutBody: null }
+  const nextEtag = () => 'w' + (++etagN)
+  const transportFor = (cfgUrl) => {
+    const name = cfgUrl.split('/').pop() || 'backup.json'
+    return {
+      async get() {
+        stats.gets++
+        const f = files.get(name)
+        return f ? { env: f.text, etag: f.etag } : null
+      },
+      async put(text, etag) {
+        const f = files.get(name)
+        if (etag && f && f.etag !== etag) { const e = new Error('云端已被其他设备更新'); e.status = 412; throw e }
+        stats.puts++
+        stats.lastPutBody = text
+        files.set(name, { text, etag: nextEtag() })
+        return { status: 201 }
+      },
+      async getFile(n) { const f = files.get(n); return f ? f.text : null },
+      async putFile(n, text) { files.set(n, { text, etag: nextEtag() }); return { status: 201 } },
+    }
+  }
+  return { files, stats, transportFor }
+}
+
+const CFG_URL11 = 'http://fake.cloud/dav/qingyu/backup.json'
+const setCfg11 = () => lsStore.set('qingyu_sync_cfg_v1', JSON.stringify({ url: CFG_URL11, username: 'u', password: 'p' }))
+// 预置资料档案记录与 state 一致 → runAutoSync 顺带的 syncProfileArchive 走 unchanged（0 请求，不真发网络）
+const seedProfileRec11 = (state) => lsStore.set(
+  ua11.LS_PROFILE_SYNC,
+  JSON.stringify({ at: 'seed', deviceId: 'seed', data: collectProfile(state.settings), error: null }),
+)
+const mkSnapshotEnv = (data, deviceId) => ({
+  app: 'qingyu', kind: 'qingyu-cloud-v1', appVersion: '1.9.0',
+  at: '2026-10-02T00:00:00Z', deviceId, data,
+})
+// 场景隔离：清掉上一场景留下的 base/last（真实场景里 restore=全新安装无 base）
+const clearSyncLS11 = () => { lsStore.delete(auto.LS_BASE); lsStore.delete(auto.LS_LAST) }
+
+// ① 未配置 → skipped
+{
+  const fake = fakeCloud11()
+  lsStore.delete('qingyu_sync_cfg_v1')
+  const r = await auto.runAutoSync({ state: emptyState(), restoreState: () => true, toast: null, silent: true, transport: fake.transportFor(CFG_URL11) })
+  assert('未配置 WebDAV → skipped（不产生任何请求）',
+    r.status === 'skipped' && r.reason === 'not-configured' && fake.stats.gets === 0 && fake.stats.puts === 0)
+}
+
+// ② 本机有数据 + 云端为空 → first-upload
+{
+  const fake = fakeCloud11()
+  setCfg11()
+  clearSyncLS11()
+  const s = emptyState()
+  seedProfileRec11(s)
+  const toasts = []
+  let restored = null
+  const r = await auto.runAutoSync({
+    state: s, restoreState: (d) => { restored = d; return true },
+    toast: (m) => toasts.push(m), silent: false, transport: fake.transportFor(CFG_URL11),
+  })
+  const snap = JSON.parse(fake.stats.lastPutBody || '{}')
+  assert('本机有数据+云端为空 → first-upload 并 PUT 快照',
+    r.status === 'ok' && r.mode === 'first-upload' && fake.stats.puts >= 1
+    && snap.data?.settings?.nickname === '轻语用户')
+  assert('first-upload：restoreState 已写回 + base/last 落盘',
+    !!restored && JSON.parse(lsStore.get(auto.LS_BASE) || 'null')?.settings?.nickname === '轻语用户'
+    && JSON.parse(lsStore.get(auto.LS_LAST) || 'null')?.mode === 'first-upload')
+  assert('silent=false 成功 toast「已连接，本机数据已上传云端」',
+    toasts.some((m) => m.includes('已连接，本机数据已上传云端')))
+}
+
+// ③ 空库 + 云端有数据 → restore 导入（换机场景）
+{
+  const fake = fakeCloud11()
+  const cloudData = emptyState()
+  cloudData.settings.nickname = '云端用户'
+  cloudData.settings.welcomed = true
+  cloudData.transactions.push({ id: 'tx-cloud-1', date: '2026-10-01', type: 'expense', amount: 66.6, note: '云端导入的测试账单', categoryId: '', accountId: '' })
+  fake.files.set('backup.json', { text: JSON.stringify(mkSnapshotEnv(cloudData, 'cloud-dev')), etag: 'w-seed' })
+  setCfg11()
+  clearSyncLS11()
+  seedProfileRec11(cloudData)
+  const toasts = []
+  let restored = null
+  const r = await auto.runAutoSync({
+    state: emptyState(), restoreState: (d) => { restored = d; return true },
+    toast: (m) => toasts.push(m), silent: true, transport: fake.transportFor(CFG_URL11),
+  })
+  assert('空库+云端有数据 → restore 导入（换机场景）', r.status === 'ok' && r.mode === 'restore')
+  assert('restore：云端账单与昵称已导入本机',
+    restored?.transactions?.some((t) => t.note === '云端导入的测试账单' && t.amount === 66.6)
+    && restored?.settings?.nickname === '云端用户')
+  assert('restore 也回写云端快照（PUT 恒定）', fake.stats.puts >= 1)
+  assert('silent=true restore 全程静默（无 toast）', toasts.length === 0)
+}
+
+// ④ base 与云端一致 + 本机新账单 → merge
+{
+  const fake = fakeCloud11()
+  const baseData = emptyState()
+  baseData.settings.welcomed = true
+  fake.files.set('backup.json', { text: JSON.stringify(mkSnapshotEnv(baseData, 'cloud-dev')), etag: 'w7' })
+  setCfg11()
+  clearSyncLS11()
+  lsStore.set(auto.LS_BASE, JSON.stringify(baseData)) // 上次同步的 base 与云端一致
+  seedProfileRec11(baseData)
+  const local = JSON.parse(JSON.stringify(baseData))
+  local.transactions.push({ id: 'tx-local-1', date: '2026-10-02', type: 'expense', amount: 12.5, note: '本机新增的账单', categoryId: '', accountId: '' })
+  const r = await auto.runAutoSync({
+    state: local, restoreState: () => true, toast: null, silent: true, transport: fake.transportFor(CFG_URL11),
+  })
+  assert('base 与云端一致 + 本机新账单 → merge 模式', r.status === 'ok' && r.mode === 'merge')
+  assert('merge：本机新账单已合并并推上云端',
+    fake.stats.lastPutBody.includes('本机新增的账单')
+    && JSON.parse(lsStore.get(auto.LS_BASE) || 'null')?.transactions?.some((t) => t.note === '本机新增的账单'))
+}
+
+// ⑤⑥⑦ 失败路径
+{
+  setCfg11()
+  const r = await auto.runAutoSync({
+    state: emptyState(), restoreState: () => true, toast: null, silent: true,
+    transport: { get: async () => { throw new Error('网络断了') } },
+  })
+  const last = JSON.parse(lsStore.get(auto.LS_LAST) || 'null')
+  assert('transport 抛错 → status error', r.status === 'error' && r.message.includes('网络断了'))
+  assert('失败记录落盘 LS_LAST.error（含时间与消息）',
+    last?.error?.message === '网络断了' && typeof last?.error?.at === 'string')
+  const toasts = []
+  await auto.runAutoSync({
+    state: emptyState(), restoreState: () => true, toast: (m, t) => toasts.push([m, t]), silent: false,
+    transport: { get: async () => { throw new Error('密码不对') } },
+  })
+  assert('silent=false 失败 toast「同步失败」', toasts.some(([m, t]) => m.includes('同步失败') && t === 'err'))
+  const r3 = await auto.runAutoSync({
+    state: emptyState(), restoreState: () => false, toast: null, silent: true,
+    transport: fakeCloud11().transportFor(CFG_URL11),
+  })
+  assert('restoreState 拒绝写入 → error 不落库', r3.status === 'error' && r3.message.includes('校验失败'))
+}
+
+// 源码断言：订阅触发链路与 UI
+const autoSrc = readFileSync(new URL('../src/autosync.js', import.meta.url), 'utf-8')
+const profileSrc11 = readFileSync(new URL('../src/pages/Profile.jsx', import.meta.url), 'utf-8')
+assert('store.jsx 订阅数据签名 dataSig（stableJson）驱动自动同步',
+  storeSrc.includes('const dataSig = useMemo(() => stableJson(state), [state])') && storeSrc.includes("from './autosync.js'"))
+assert('冷启动 8s 自动导入 + 数据变化 3s 防抖自动同步', storeSrc.includes('isFirst ? 8000 : 3000'))
+assert('防重入 + 尾随补跑（autoBusy/autoRedo + 1.5s）',
+  storeSrc.includes('autoBusy') && storeSrc.includes('autoRedo') && storeSrc.includes('1500'))
+assert('云备份页：测试连接/立即同步复用 runAutoSync（silent=false）',
+  (cloudSrc.match(/await runAutoSync\(\{ state, restoreState, toast, silent: false \}\)/g) || []).length === 2)
+assert('云备份页：自动同步说明 + 最近一次失败可见',
+  cloudSrc.includes('配置后账单变化会自动双向同步') && cloudSrc.includes('最近一次失败'))
+assert('未登录点头像 → 坚果云登录引导 Sheet',
+  profileSrc11.includes('cloudReady ? setAvatarOpen(true) : setLoginOpen(true)')
+  && profileSrc11.includes('title="登录坚果云"') && profileSrc11.includes('同步账单，换机不丢数据'))
+assert('登录引导：打开坚果云登录页 + 去应用内配置',
+  profileSrc11.includes('jianguoyun.com/d/login') && profileSrc11.includes("nav.push({ page: 'cloud' })"))
+assert('关于文案：数据可自选同步到坚果云', profileSrc11.includes('可自选同步到你的坚果云'))
+assert('runAutoSync 顺带对齐资料档案（syncProfileArchive silent）',
+  autoSrc.includes('syncProfileArchive(result.data, { toast, silent: true })'))
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

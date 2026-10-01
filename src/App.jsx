@@ -17,7 +17,7 @@ import Settings from './pages/Settings.jsx'
 import SettingsSections from './pages/SettingsSections.jsx'
 import NotifyCatchSheet from './NotifyCatchSheet.jsx'
 import NoticeModal from './NoticeModal.jsx'
-import { UpdateProvider, UpdateFloat, UpdateSheetCenter } from './update-ctx.jsx'
+import { UpdateProvider, UpdateFloat, UpdatePrompt } from './update-ctx.jsx'
 import { getNotice, importantPending, loadConfirmed, noticeKey, addConfirmed } from './notice.js'
 import { startNotifyCatch, stopNotifyCatch } from './notifyCatch.js'
 import { parseMoneyNotify } from './utils.js'
@@ -294,9 +294,9 @@ function Shell() {
           {/* 底部导航：仅在根级页面显示 */}
           {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} tabImgs={tabImgs} />}
 
-          {/* v1.7.0 应用内更新浮卡：仅根级页面显示，更新中心 Sheet 全局可用 */}
+          {/* v1.7.1 应用内更新：根级页显示轻提示浮卡，可视化安装组件全局可用 */}
           {!stack.length && <UpdateFloat />}
-          <UpdateSheetCenter />
+          <UpdatePrompt />
 
           {/* 记一笔 / 编辑账单 */}
           <AddTx

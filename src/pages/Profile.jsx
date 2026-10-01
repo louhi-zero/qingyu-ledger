@@ -5,7 +5,10 @@ import { Sheet, Confirm, Switch } from '../ui.jsx'
 import { AvatarFace, useMediaActions, useTheme } from '../theme.jsx'
 import { useUpdate } from '../update-ctx.jsx'
 import { APP_VERSION } from '../update.js'
+import { getWebdavCfg } from '../userarchive.js'
 import { bookkeepingDays, streakOf, txsOfLedger } from '../utils.js'
+
+const JGY_LOGIN_URL = 'https://www.jianguoyun.com/d/login'
 
 export default function Profile() {
   const { state, set, toast } = useStore()
@@ -15,6 +18,7 @@ export default function Profile() {
   const avatarFileRef = useRef(null)
   const [nameOpen, setNameOpen] = useState(false)
   const [avatarOpen, setAvatarOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [fbOpen, setFbOpen] = useState(false)
   const [fbText, setFbText] = useState('')
@@ -39,6 +43,9 @@ export default function Profile() {
   const days = bookkeepingDays(state)
   const streak = streakOf(state.checkins || [])
   const checkedToday = (state.checkins || []).includes(new Date().toLocaleDateString('sv'))
+  // v1.10.0 未配置坚果云（未登录）时点头像 → 登录引导；已配置保持换头像原行为
+  const cloudReady = !!getWebdavCfg()
+  const onAvatarClick = () => (cloudReady ? setAvatarOpen(true) : setLoginOpen(true))
   // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
   const { palette } = useTheme()
   const headGlows = palette.length ? palette : ['#5b8cff', '#7a6bff', '#42a5f5']
@@ -70,7 +77,7 @@ export default function Profile() {
             ))}
           </div>
           <div className="me-row">
-            <div className="avatar-wrap" onClick={() => setAvatarOpen(true)}>
+            <div className="avatar-wrap" onClick={onAvatarClick}>
               <div className="avatar"><AvatarFace /></div>
               <span className="cam" aria-hidden="true">📷</span>
             </div>
@@ -139,6 +146,21 @@ export default function Profile() {
         <button className="btn" style={{ marginTop: 12 }} onClick={saveName}>保存修改</button>
       </Sheet>
 
+      {/* v1.10.0 未登录（未配置坚果云）点头像 → 登录引导：先去官网登录拿账号，再回应用内配置 */}
+      <Sheet open={loginOpen} onClose={() => setLoginOpen(false)} title="登录坚果云">
+        <div className="center-box" style={{ padding: '6px 0 12px' }}>
+          <div style={{ fontSize: 52 }}>☁️</div>
+          <div style={{ fontSize: 16, fontWeight: 800, marginTop: 8 }}>同步账单，换机不丢数据</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.8 }}>
+            登录坚果云后，账单与个人资料自动双向同步<br />数据存你自己的网盘，隐私无忧
+          </div>
+        </div>
+        <button className="btn" onClick={() => window.open(JGY_LOGIN_URL, '_blank')}>🌐 打开坚果云登录页</button>
+        <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setLoginOpen(false); nav.push({ page: 'cloud' }) }}>
+          已有账号？去应用内配置
+        </button>
+      </Sheet>
+
       {/* 换头像（v1.6 支持任意背景颜色图片） */}
       <Sheet open={avatarOpen} onClose={() => setAvatarOpen(false)} title="换个形象">
         <div className="center-box" style={{ padding: '6px 0 12px' }}>
@@ -174,7 +196,7 @@ export default function Profile() {
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
             🌿 极简流程，三秒记完一笔账<br />
-            🔒 所有数据仅存本机，不上传任何服务器<br />
+            🔒 数据默认仅存本机，可自选同步到你的坚果云<br />
             📊 清晰图表，快速看清钱花在哪<br />
             🎯 预算预警，帮你管住手<br />
             🔁 周期记账 · 账单导入 · 消费点评<br />
@@ -182,7 +204,7 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* v1.7.0 应用内更新：手动检查 + 自动下载开关 */}
+        {/* v1.7.1 应用内更新：手动检查 + 自动后台下载开关（静默仅限下载，安装必由用户确认） */}
         <button className="btn" style={{ marginTop: 4 }} onClick={upd?.checkManual}>
           {upd?.status === 'checking' ? '检查中…' : '检查更新'}
         </button>
@@ -190,8 +212,8 @@ export default function Profile() {
           <div className="cell" style={{ marginTop: 10 }} onClick={() => upd.setAutoDownload(!upd.autoDl)}>
             <div className="cico">⚡</div>
             <div className="cmain">
-              <div className="ctitle">发现新版自动下载</div>
-              <div className="cdesc">后台下载不打扰，安装仍需你确认</div>
+              <div className="ctitle">发现新版自动后台下载</div>
+              <div className="cdesc">仅静默下载安装包，是否安装仍由你决定</div>
             </div>
             <div className="cright">
               <Switch on={upd.autoDl} onChange={() => upd.setAutoDownload(!upd.autoDl)} />

@@ -778,3 +778,9 @@ export function isWhiteBgPixels(data, w, h) {
   }
   return whiteCnt === 4
 }
+
+/* ---------- v1.8.0 AI 风格卡：角色名规范化 key（缓存索引用） ---------- */
+export function styleKeyOf(name) {
+  return String(name || '').trim().toLowerCase()
+    .replace(/[\s·・.。,，'’"“”-]/g, '') // 去空白与常见分隔符，全半角引号
+}

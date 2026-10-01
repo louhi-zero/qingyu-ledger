@@ -1,28 +1,19 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Confirm } from '../ui.jsx'
-import { uid } from '../utils.js'
 import { WebDavTransport } from '../webdav.js'
-import { syncOnce, deepClone, parseRemote } from '../sync.js'
-import { syncAssets } from '../assetsync.js'
-import { APP_VERSION } from '../update.js'
+import { parseRemote } from '../sync.js'
+import {
+  getDeviceId, readLastProfileSync, syncProfileArchive,
+  parseProfileArchive, profilePatch, PROFILE_ARCHIVE_FILE,
+} from '../userarchive.js'
+import { runAutoSync, readLS, writeLS, readSyncLast, pullPushAssets, LS_BASE, LS_LAST } from '../autosync.js'
 
 const JIANGUO_URL = 'https://dav.jianguoyun.com/dav/qingyu/backup.json'
 const LS_CFG = 'qingyu_sync_cfg_v1'
-const LS_DEVICE = 'qingyu_sync_device_v1'
-const LS_BASE = 'qingyu_sync_base_v1'
-const LS_LAST = 'qingyu_sync_last_v1'
 
-function readLS(key, fallback) {
-  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback } catch { return fallback }
-}
-function writeLS(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 配额 */ }
-}
 function getDevice() {
-  let id = readLS(LS_DEVICE, null)
-  if (!id || typeof id !== 'string' || id.startsWith('"')) { id = uid(); writeLS(LS_DEVICE, id) }
-  return id
+  return getDeviceId() // v1.9.0 起与资料云存档共用同一设备号（userarchive.js 持有生成逻辑）
 }
 function fmtTime(at) {
   if (!at) return '从未同步'
@@ -41,7 +32,9 @@ export default function CloudBackup({ nav }) {
   const [busy, setBusy] = useState('')
   const [confirmRestore, setConfirmRestore] = useState(false)
   const [showJgyTip, setShowJgyTip] = useState(false)
-  const [last, setLast] = useState(() => readLS(LS_LAST, null))
+  const [last, setLast] = useState(() => readSyncLast())
+  // v1.9.0 用户资料云存档状态（最近自动/手动存档记录，含失败原因）
+  const [lastProfile, setLastProfile] = useState(() => readLastProfileSync())
   const logRef = useRef(null)
 
   const cfg = () => ({ url: url.trim(), username: username.trim(), password })
@@ -59,24 +52,7 @@ export default function CloudBackup({ nav }) {
     toast('已填入坚果云地址：账号填邮箱，密码填第三方应用密码')
   }
 
-  // 头像/壁纸资产推拉；直接把结果归并进 data（assetsMeta + settings.*At），
-  // 失败不阻断账单同步，仅把提示语带回。注意：调用方需在归并后再 restoreState/writeLS
-  const pullPushAssets = async (transport, data) => {
-    try {
-      const r = await syncAssets(transport, data.assetsMeta)
-      data.assetsMeta = r.meta
-      if (r.pulled.includes('avatar')) data.settings.avatarPhotoAt = r.meta.avatar.at
-      if (r.pulled.includes('wallpaper')) data.settings.wallpaperAt = r.meta.wallpaper.at
-      const names = { avatar: '头像', wallpaper: '壁纸' }
-      const parts = []
-      if (r.pulled.length) parts.push(`已更新${r.pulled.map((k) => names[k]).join('、')}`)
-      if (r.pushed.length) parts.push(`已上传${r.pushed.map((k) => names[k]).join('、')}`)
-      return parts.length ? `（图片资产：${parts.join('，')}）` : ''
-    } catch (e) {
-      return `（图片资产同步失败：${e.message}，不影响账单数据）`
-    }
-  }
-
+  // v1.10.0 测试连接成功视为「登录」，随后立即自动同步一次（登录后自动导入用户数据和账单）
   const onTest = async () => {
     const c = cfg()
     const err = validateCfg(c)
@@ -86,12 +62,15 @@ export default function CloudBackup({ nav }) {
     try {
       const msg = await new WebDavTransport(c).test()
       toast(msg)
+      // v1.10.0 测试通过视为「登录」：立即自动同步一次（云端有数据拉取合并，本机数据上传）
+      const r = await runAutoSync({ state, restoreState, toast, silent: false })
+      if (r.status === 'ok') setLast(readSyncLast())
     } catch (e) {
       toast(e.message, 'err')
     } finally { setBusy('') }
   }
 
-  // 立即同步：下载 → 三向合并 → 上传
+  // 立即同步：下载 → 三向合并 → 上传（v1.10.0 起与自动同步共用 runAutoSync 编排）
   const onSync = async () => {
     const c = cfg()
     const err = validateCfg(c)
@@ -99,31 +78,26 @@ export default function CloudBackup({ nav }) {
     saveCfg()
     setBusy('sync')
     try {
-      const device = getDevice()
-      const transport = new WebDavTransport(c)
-      const remote = await transport.get()
-      const base = readLS(LS_BASE, null)
-      const result = await syncOnce({
-        local: deepClone(state),
-        base,
-        remoteText: remote ? remote.env : null,
-        remoteEtag: remote ? remote.etag : null,
-        localDevice: device,
-        appVersion: APP_VERSION,
-        transport,
-      })
-      // 账单合并完成后再推拉头像/壁纸（失败不阻断），归并进同一份数据后统一落库
-      const assetNote = await pullPushAssets(transport, result.data)
-      if (!restoreState(result.data)) throw new Error('合并后的数据校验失败，已放弃写入')
-      writeLS(LS_BASE, result.data)
-      const info = { at: new Date().toISOString(), mode: result.mode, conflicts: result.conflicts.length, detail: result.conflicts }
-      writeLS(LS_LAST, info)
-      setLast(info)
-      toast((result.conflicts.length
-        ? `同步完成，发现 ${result.conflicts.length} 处冲突，已保留副本`
-        : '同步完成，两端数据一致') + assetNote)
-    } catch (e) {
-      toast('同步失败：' + e.message, 'err')
+      await runAutoSync({ state, restoreState, toast, silent: false })
+      setLast(readSyncLast())
+    } finally { setBusy('') }
+  }
+
+  // v1.9.0 手动立即存档资料（显式反馈：跳过/未变化/成功/失败都给 toast）
+  const onProfileSync = async () => {
+    setBusy('profile')
+    try {
+      const r = await syncProfileArchive(state, { toast, silent: false })
+      if (r.status === 'uploaded') {
+        setLastProfile(readLastProfileSync())
+        toast('资料已云存档')
+      } else if (r.status === 'unchanged') {
+        toast('资料未变化，云端已是最新')
+      } else if (r.status === 'skipped') {
+        toast('请先在上方填写 WebDAV 文件地址', 'err')
+      } else if (r.status === 'error') {
+        setLastProfile(readLastProfileSync())
+      }
     } finally { setBusy('') }
   }
 
@@ -138,14 +112,25 @@ export default function CloudBackup({ nav }) {
       const remote = await new WebDavTransport(c).get()
       if (!remote) { toast('云端还没有备份文件', 'err'); return }
       const env = parseRemote(remote.env)
+      // v1.9.0 资料档案联动：自动云存档的昵称/头像通常比全量快照更新，恢复时以档案对齐
+      let profileNote = ''
+      try {
+        const rawProfile = await new WebDavTransport(c).getFile(PROFILE_ARCHIVE_FILE)
+        const penv = rawProfile ? parseProfileArchive(rawProfile) : null
+        const patch = penv ? profilePatch(penv) : null
+        if (patch && env.data?.settings) {
+          Object.assign(env.data.settings, patch)
+          profileNote = '（资料档案：昵称/头像已对齐云端）'
+        }
+      } catch { /* 档案缺失或读取失败不阻断恢复 */ }
       // 恢复时按云端元数据把头像/壁纸也拉到本机（失败不阻断数据恢复）
       const assetNote = await pullPushAssets(new WebDavTransport(c), env.data)
       if (!restoreState(env.data)) throw new Error('云端数据无法识别')
       writeLS(LS_BASE, env.data)
-      const info = { at: new Date().toISOString(), mode: 'cloud-restore', conflicts: 0, detail: [] }
+      const info = { at: new Date().toISOString(), mode: 'cloud-restore', conflicts: 0, detail: [], error: null }
       writeLS(LS_LAST, info)
       setLast(info)
-      toast('已从云端恢复' + assetNote)
+      toast('已从云端恢复' + assetNote + profileNote)
     } catch (e) {
       toast('恢复失败：' + e.message, 'err')
     } finally { setBusy('') }
@@ -207,11 +192,30 @@ export default function CloudBackup({ nav }) {
 
         <div className="group">
           <div className="gtitle">同步</div>
+          {/* v1.9.0 用户资料云存档：检测到昵称/头像变化自动打包上传，点击可手动立即存档 */}
+          <div className="cell" onClick={busy ? undefined : onProfileSync}>
+            <div className="cico">🪪</div>
+            <div className="cmain">
+              <div className="ctitle">用户资料云存档</div>
+              <div className="cdesc">
+                {lastProfile?.error
+                  ? `最近存档失败：${lastProfile.error.message}`
+                  : '检测到昵称/头像变化自动打包上传，点击立即存档'}
+              </div>
+            </div>
+            <div className="cright">
+              {busy === 'profile' ? (
+                <button className="btn ghost" disabled>存档中…</button>
+              ) : (
+                <span className="muted">{lastProfile?.error ? '⚠ 失败' : (lastProfile?.at ? fmtTime(lastProfile.at) : '未存档')}</span>
+              )}
+            </div>
+          </div>
           <div className="cell" onClick={busy ? undefined : onSync}>
             <div className="cico">☁️</div>
             <div className="cmain">
               <div className="ctitle">立即同步</div>
-              <div className="cdesc">下载云端快照 → 与本机逐行合并（增删改）→ 上传</div>
+              <div className="cdesc">配置后账单变化会自动双向同步；也可在此手动同步</div>
             </div>
             <div className="cright"><button className="btn" disabled={!!busy}>
               {busy === 'sync' ? '同步中…' : '同步'}
@@ -233,8 +237,11 @@ export default function CloudBackup({ nav }) {
           <div className="gtitle">状态</div>
           <div className="cell">
             <div className="cico">🕒</div>
-            <div className="cmain"><div className="ctitle">最近同步</div></div>
-            <div className="cright muted">{fmtTime(last?.at)}</div>
+            <div className="cmain">
+              <div className="ctitle">最近同步</div>
+              {last?.error && <div className="cdesc">最近一次失败：{last.error.message}</div>}
+            </div>
+            <div className="cright muted">{last?.error ? '⚠ 异常' : fmtTime(last?.at)}</div>
           </div>
           <div className="cell">
             <div className="cico">🆔</div>

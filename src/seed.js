@@ -86,8 +86,11 @@ export function emptyState() {
       wallpaperAt: null, // 自定义壁纸更新时间（null=默认），图片本体在 IndexedDB
       avatarPhotoAt: null, // 头像照片更新时间（null=用 emoji）
       // v1.1 AI 分析（仅风格偏好随云同步；API Key/模型/BaseURL 只存本机）
-      aiStyle: 'tender', // tender 温柔鼓励 / sharp 犀利毒舌 / pro 专业财务师 / cute 俏皮可爱
+      aiStyle: 'tender', // v1.8.0: tender/sharp/pro/cute 四预设 | custom 参数组合 | char 角色风格卡
       aiCustomStyle: '',
+      // v1.8.0 自定义风格参数（aiStyle=custom 时生效）
+      aiStyleAttrs: { tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' },
+      aiCharName: '', // v1.8.0 角色风格：当前应用的角色名（卡片本体存本机 qingyu_style_cards_v1）
       aiIncludeNotes: true, // 分析时是否附带账单备注原文
       // v1.2 熬夜归属：0 点后（<5 点）记一笔默认算昨天
       nightAcross: false,
@@ -112,8 +115,9 @@ export function emptyState() {
       bookIconAt: {},
       // v1.6.5 公告：接收应用公告（发现页公告卡 + 重要公告弹窗，均受此开关控制）
       noticeEnabled: true,
-      // v1.7.0 应用内更新：发现新版自动后台下载（安装始终需用户确认；false=仅提示不自动下载）
-      updateAutoDl: true,
+      // v1.7.1 应用内更新：默认发现新版先询问，由用户选择是否更新；
+      // 开启后才静默后台下载（仅下载安装包，安装始终需用户确认）
+      updateAutoDl: false,
     },
     categories: cats,
     accounts,
