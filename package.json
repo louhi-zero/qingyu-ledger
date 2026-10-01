@@ -2,6 +2,7 @@
   "name": "qingyu-ledger",
   "private": true,
   "version": "1.6.4",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -38,7 +39,7 @@
   "build": {
     "appId": "com.qingyu.ledger",
     "productName": "轻语记账",
-    "copyright": "轻语记账",
+    "copyright": "Copyright © 2026 louhi-zero · GPL-3.0-or-later",
     "directories": {
       "output": "release",
       "buildResources": "build"
