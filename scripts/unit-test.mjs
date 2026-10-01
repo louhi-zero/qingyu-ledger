@@ -2,10 +2,13 @@
  * 1. isWhiteBgPixels 白底像素判定（头像/底部图标共用的强制校验）
  * 2. parseMoneyNotify 通知收支解析
  * 3. normalizeTabIconAt 底部图标时间戳表归一
- * 4. emptyState 出厂默认值（tapFeedback / tabIconAt / notifyCatch）
+ * 4. emptyState 出厂默认值（tapFeedback / tabIconAt / notifyCatch / noticeEnabled）
+ * 5. AndroidManifest 权限声明
+ * 6. notice 公告解析与筛选（v1.6.5）
  * 运行：npm run test:unit
  */
 import { isWhiteBgPixels, parseMoneyNotify, normalizeTabIconAt } from '../src/utils.js'
+import { parseNotice, noticeKey, unreadNotice, importantPending } from '../src/notice.js'
 import { emptyState } from '../src/seed.js'
 import { readFileSync } from 'node:fs'
 
@@ -85,12 +88,42 @@ assert('tapFeedback 默认开启', es.settings.tapFeedback === true)
 assert('tabIconAt 四 key 形状正确', JSON.stringify(normalizeTabIconAt(es.settings.tabIconAt)) === JSON.stringify({ home: null, charts: null, discover: null, profile: null }))
 assert('notifyCatch 默认关闭', es.settings.notifyCatch === false)
 assert('glassOn 默认关闭', es.settings.glassOn === false)
+assert('noticeEnabled 默认开启', es.settings.noticeEnabled === true)
 
 // ---------- 5. Android 权限声明 ----------
 console.log('AndroidManifest 权限：')
 const manifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf-8')
 assert('声明 VIBRATE 权限（navigator.vibrate 生效前提）', manifest.includes('android.permission.VIBRATE'))
 assert('声明 INTERNET 权限', manifest.includes('android.permission.INTERNET'))
+
+// ---------- 6. 公告 notice.js 纯函数（v1.6.5） ----------
+console.log('notice 公告解析与筛选：')
+const good = parseNotice(JSON.stringify({
+  version: 2,
+  list: [
+    { title: '版本更新', content: '内容A', important: true, date: '2026-10-01' },
+    { title: '  空标题省略  ', content: '内容B', important: 'yes', date: '2026-9-1' },
+    { title: '', content: '无标题丢弃' },
+    null,
+  ],
+}))
+assert('合法 JSON 解析出 version', good && good.version === 2)
+assert('脏条目过滤（空标题/null 丢弃，合法条目保留）', good.list.length === 2)
+assert('title 去首尾空格', good.list[1].title === '空标题省略')
+assert('important 非布尔视为 false', good.list[1].important === false)
+assert('date 格式非法置空', good.list[1].date === '')
+assert('noticeKey = title_date', noticeKey(good.list[0]) === '版本更新_2026-10-01')
+assert('非法 JSON → null', parseNotice('{oops') === null)
+assert('缺 list → null', parseNotice('{"version":1}') === null)
+const long = parseNotice(JSON.stringify({ version: 1, list: [{ title: 't'.repeat(99), content: 'c'.repeat(9999), date: '2026-10-01' }] }))
+assert('title/content 超长截断', long.list[0].title.length === 60 && long.list[0].content.length === 600)
+const over = parseNotice(JSON.stringify({ version: 1, list: Array.from({ length: 30 }, (_, i) => ({ title: `t${i}`, content: 'x', date: '2026-10-01' })) }))
+assert('列表超 20 条截断', over.list.length === 20)
+assert('unreadNotice：未读过 → 全部未读', unreadNotice(good.list, '').length === 2)
+assert('unreadNotice：晚于 lastRead 才算未读', unreadNotice(good.list, '2026-09-30').length === 1 && unreadNotice(good.list, '2026-10-01').length === 0)
+const pend = importantPending(good.list, ['版本更新_2026-10-01'])
+assert('importantPending：已确认的排除', pend.length === 0)
+assert('importantPending：未确认的保留且仅重要', importantPending(good.list, []).length === 1 && importantPending(good.list, [])[0].title === '版本更新')
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

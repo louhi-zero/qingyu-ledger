@@ -636,6 +636,47 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 /* v1.6 点击反馈：按压缩放（设置-外观 可关） */
 :root[data-tap="on"] .cell:active, :root[data-tap="on"] .txitem:active { transform: scale(.985); }
 
+/* ---------- 公告（v1.6.5） ---------- */
+/* 重要公告强弹窗：居中卡片，无关闭按钮，必须点「知道了」 */
+.nmodal {
+  position: fixed; inset: 0; z-index: 90;
+  display: flex; align-items: center; justify-content: center; padding: 26px;
+  background: rgba(15, 18, 28, .42);
+}
+.nmodal .ncard {
+  background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
+  width: 100%; max-width: 380px; max-height: 72dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: npop .18s cubic-bezier(.3, 0, .25, 1);
+}
+@keyframes npop { from { transform: scale(.92); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+.ncard-head { padding: 20px 18px 0; }
+.ncard-title { font-size: 17px; font-weight: 800; line-height: 1.4; }
+.ncard-date { font-size: 11.5px; color: var(--ink3); margin-top: 5px; }
+.ncard-body {
+  padding: 14px 18px 6px; overflow-y: auto;
+  font-size: 14px; line-height: 1.85; color: var(--ink);
+  white-space: pre-wrap; word-break: break-word;
+}
+.ncard-foot { padding: 12px 18px 18px; }
+.ncard-foot .btn { width: 100%; }
+/* 发现页公告卡 */
+.ncount {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--brand-weak); color: var(--brand);
+  font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center;
+}
+.ndot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+  display: inline-block; flex-shrink: 0;
+}
+/* 公告列表弹层 */
+.nlist { display: flex; flex-direction: column; gap: 12px; }
+.nitem { padding: 12px 14px; border-radius: 14px; background: var(--card2); }
+.nitem-head { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
+.nitem-head b { flex-shrink: 0; max-width: 70%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nitem-body { margin-top: 6px; font-size: 13px; line-height: 1.75; color: var(--ink2); white-space: pre-wrap; word-break: break-word; }
+
 /* 主玻璃容器 */
 :root[data-glass="on"] .card,
 :root[data-glass="on"] .group,

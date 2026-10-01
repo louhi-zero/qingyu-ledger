@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
-import { Seg, StatRow, Bar, Amount } from '../ui.jsx'
+import { Seg, StatRow, Bar, Amount, Sheet } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
 import { AiFace } from '../theme.jsx'
 import { fmt, periodOf, periodLabel, txsOfPeriod, sumBy, netWorth, round2, todayStr } from '../utils.js'
+import { getNotice, unreadNotice, loadRead, saveRead, noticeKey } from '../notice.js'
 
 export default function Discover() {
   const { state } = useStore()
@@ -38,10 +39,44 @@ export default function Discover() {
   ]
   const aiReport = state.aiReports?.[period]
 
+  // v1.6.5 公告卡：拉取 notice.json（三级缓存），未读红点，点击看全文
+  const [noticeList, setNoticeList] = useState([])
+  const [noticeUnread, setNoticeUnread] = useState(0)
+  const [noticeOpen, setNoticeOpen] = useState(false)
+  useEffect(() => {
+    let alive = true
+    getNotice().then((n) => {
+      if (!alive || !n?.list?.length) return
+      const sorted = [...n.list].sort((a, b) => (a.date < b.date ? 1 : -1))
+      setNoticeList(sorted)
+      setNoticeUnread(unreadNotice(sorted, loadRead()).length)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
+  const openNotice = () => {
+    setNoticeOpen(true)
+    if (noticeList.length) {
+      saveRead(noticeList[0].date || todayStr()) // 列表按日期倒序，首个即最新
+      setNoticeUnread(0)
+    }
+  }
+
   return (
     <>
       <TopBarStatic title="发现" />
       <div className="page-body">
+        {/* 公告卡 */}
+        {noticeList.length > 0 && state.settings.noticeEnabled !== false && (
+          <div className="card" style={{ cursor: 'pointer' }} onClick={openNotice}>
+            <div className="card-title" style={{ gap: 8 }}>
+              📢 公告
+              <span className="ncount">{noticeList.length}</span>
+              {noticeUnread > 0 && <span className="ndot" aria-label={`${noticeUnread} 条未读公告`} />}
+              <span className="muted" style={{ fontWeight: 400, marginLeft: 'auto', fontSize: 12 }}>{noticeList[0].date}</span>
+            </div>
+            <div className="card-sub" style={{ marginTop: 6 }}>{noticeList[0].title}</div>
+          </div>
+        )}
         {/* 本月概览 */}
         <div className="card">
           <div className="card-title">{periodLabel(period)}账单
@@ -139,6 +174,22 @@ export default function Discover() {
           </div>
         </div>
       </div>
+
+      {/* 公告列表（打开即清除红点，已在 openNotice 中记录已读） */}
+      <Sheet open={noticeOpen} onClose={() => setNoticeOpen(false)} title="📢 公告">
+        <div className="nlist">
+          {noticeList.map((a) => (
+            <div key={noticeKey(a)} className="nitem">
+              <div className="nitem-head">
+                <b>{a.title}</b>
+                {a.important && <span className="tag" style={{ color: 'var(--expense)' }}>重要</span>}
+                <span className="muted" style={{ marginLeft: 'auto', fontSize: 11.5 }}>{a.date}</span>
+              </div>
+              <div className="nitem-body">{a.content}</div>
+            </div>
+          ))}
+        </div>
+      </Sheet>
     </>
   )
 }

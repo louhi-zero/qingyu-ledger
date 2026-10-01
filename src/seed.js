@@ -103,6 +103,8 @@ export function emptyState() {
       // v1.6 个性化：点击反馈（按压缩放 + 轻震动）；底部菜单图标图片更新时间（本体 IndexedDB 'tabicon_<page>'）
       tapFeedback: true,
       tabIconAt: { home: null, charts: null, discover: null, profile: null },
+      // v1.6.5 公告：接收应用公告（发现页公告卡 + 重要公告弹窗，均受此开关控制）
+      noticeEnabled: true,
     },
     categories: cats,
     accounts,

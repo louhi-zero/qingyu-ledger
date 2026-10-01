@@ -446,6 +446,26 @@ function NotifySection({ ctx }) {
           </div>
         </div>
       </div>
+
+      <div className="group">
+        <div className="gtitle">公告</div>
+        <div className="cell" onClick={() => set((d) => { d.settings.noticeEnabled = d.settings.noticeEnabled === false })}>
+          <div className="cico">📢</div>
+          <div className="cmain">
+            <div className="ctitle">接收应用公告</div>
+            <div className="cdesc">发现页展示公告卡；重要公告启动时弹窗提醒。关闭后两者都不再出现</div>
+          </div>
+          <div className="cright"><Switch on={s.noticeEnabled !== false} onChange={() => set((d) => { d.settings.noticeEnabled = d.settings.noticeEnabled === false })} /></div>
+        </div>
+        <div className="cell">
+          <div className="cico">ℹ️</div>
+          <div className="cmain">
+            <div className="cdesc" style={{ lineHeight: 1.7 }}>
+              公告来自开发者发布在代码仓库中的 notice.json，App 启动时在线检查（失败时使用本地缓存，离线不影响任何功能）。
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   )
 }

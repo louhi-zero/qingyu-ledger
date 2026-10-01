@@ -16,6 +16,8 @@ import Invoices from './pages/Invoices.jsx'
 import Settings from './pages/Settings.jsx'
 import SettingsSections from './pages/SettingsSections.jsx'
 import NotifyCatchSheet from './NotifyCatchSheet.jsx'
+import NoticeModal from './NoticeModal.jsx'
+import { getNotice, importantPending, loadConfirmed, noticeKey, addConfirmed } from './notice.js'
 import { startNotifyCatch, stopNotifyCatch } from './notifyCatch.js'
 import { parseMoneyNotify } from './utils.js'
 import CategoryManage from './pages/CategoryManage.jsx'
@@ -182,9 +184,30 @@ function Shell() {
     }
   }, [state.settings.notifyCatch])
 
+  // v1.6.5 公告：启动 2 秒后拉取 notice.json（仓库即 CMS，无后台服务器）。
+  // 重要且未确认的公告 → 强弹窗队列。受「接收公告」开关控制——
+  // 修复 NexBox 同类机制缺陷①（原版弹窗绕过开关，关了公告照样被拦门）
+  const [noticeQueue, setNoticeQueue] = useState([])
+  useEffect(() => {
+    if (state.settings.noticeEnabled === false) return undefined
+    let alive = true
+    const t = setTimeout(async () => {
+      try {
+        const n = await getNotice()
+        if (alive && n) setNoticeQueue(importantPending(n.list, loadConfirmed()))
+      } catch { /* 网络异常静默：公告属增值信息，失败不影响主流程 */ }
+    }, 2000)
+    return () => { alive = false; clearTimeout(t) }
+  }, [])
+  // 确认当前重要公告 → 写入已确认列表 → 队列弹出下一条（若有）
+  const confirmNotice = () => setNoticeQueue((q) => {
+    if (q[0]) addConfirmed(noticeKey(q[0]))
+    return q.slice(1)
+  })
+
   // Android 物理返回键：仅 Capacitor 原生壳注册，浏览器/桌面端动态加载失败即静默
   const navRef = useRef(null)
-  navRef.current = { addOpen, stackLen: stack.length, tab, pop, setTab, closeAdd, toast }
+  navRef.current = { addOpen, stackLen: stack.length, tab, pop, setTab, closeAdd, toast, noticeLen: noticeQueue.length }
   useEffect(() => {
     let cancelled = false
     let listenerPromise = null
@@ -197,6 +220,7 @@ function Shell() {
         if (cancelled) return
         listenerPromise = App.addListener('backButton', () => {
           const n = navRef.current
+          if (n.noticeLen > 0) return // 重要公告弹窗打开时吞掉返回键，必须点「知道了」
           if (n.addOpen) n.closeAdd()
           else if (n.stackLen > 0) n.pop()
           else if (n.tab !== 'home') n.setTab('home')
@@ -250,6 +274,11 @@ function Shell() {
 
         {/* v1.5 收支监控确认弹窗：仅 Android 原生且开启监控时才会触发 */}
         <NotifyCatchSheet caught={caught} onClose={() => setCaught(null)} />
+
+        {/* v1.6.5 重要公告强弹窗：队列逐条展示，开关关闭或全部确认时不渲染 */}
+        {noticeQueue.length > 0 && (
+          <NoticeModal notice={noticeQueue[0]} remain={noticeQueue.length - 1} onConfirm={confirmNotice} />
+        )}
       </div>
     </NavCtx.Provider>
   )
