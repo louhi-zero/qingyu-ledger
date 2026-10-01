@@ -156,7 +156,7 @@ public class UpdatePlugin extends Plugin {
 
                         int pct = total > 0 ? (int) Math.min(99, (received * 100) / total) : 0;
                         long now = System.currentTimeMillis();
-                        if (pct !== lastPct && now - lastEmitAt >= 200) {
+                        if (pct != lastPct && now - lastEmitAt >= 200) {
                             lastPct = pct;
                             lastEmitAt = now;
                             JSObject ev = new JSObject();
