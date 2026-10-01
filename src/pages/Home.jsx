@@ -2,9 +2,10 @@ import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Empty, Seg, Amount } from '../ui.jsx'
+import { BookIconImg } from '../theme.jsx'
 import {
   fmt, todayStr, addDays, periodOf, periodAdd, periodLabel, weekdayOf,
-  txsOfPeriod, sumBy, catInfo, accountName, findCat, parseD, fmtD, pad2, WEEK_CN,
+  txsOfPeriod, sumBy, catInfo, accountName, findCat, parseD, fmtD, pad2, WEEK_CN, txsOfLedger,
 } from '../utils.js'
 
 export default function Home() {
@@ -21,6 +22,8 @@ export default function Home() {
   const [q, setQ] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [daySheet, setDaySheet] = useState(null) // 某日账单
+  // v1.6.9 首页顶部账本快捷切换
+  const [ledgerOpen, setLedgerOpen] = useState(false)
 
   const txs = useMemo(() => txsOfPeriod(state, period), [state, period])
   const expense = sumBy(txs, 'expense')
@@ -67,7 +70,14 @@ export default function Home() {
   return (
     <>
       <TopBar
-        title={ledger ? `${ledger.icon} ${ledger.name}` : '轻语记账'}
+        title={
+          // v1.6.9 顶部账本切换器：点击弹出快捷切换
+          <button className="ledger-switch" onClick={() => setLedgerOpen(true)} title="切换账本">
+            {ledger && <BookIconImg ledgerId={ledger.id} icon={ledger.icon} className="ledger-switch-img" />}
+            <b>{ledger ? ledger.name : '轻语记账'}</b>
+            <span className="ledger-switch-arrow">▾</span>
+          </button>
+        }
         right={
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="iconbtn" onClick={() => setView(view === 'list' ? 'calendar' : 'list')} title="切换视图">
@@ -77,6 +87,29 @@ export default function Home() {
           </div>
         }
       />
+
+      {/* v1.6.9 账本快捷切换弹层 */}
+      <Sheet open={ledgerOpen} onClose={() => setLedgerOpen(false)} title="切换账本">
+        {state.ledgers.map((l) => (
+          <div key={l.id} className="selectline" style={{ marginBottom: 8 }} onClick={() => {
+            if (l.id !== state.currentLedgerId) {
+              set((d) => { d.currentLedgerId = l.id })
+              toast(`已切换到「${l.name}」`)
+            }
+            setLedgerOpen(false)
+          }}>
+            <span className="ls-line">
+              <BookIconImg ledgerId={l.id} icon={l.icon} className="ledger-switch-img" />
+              <span style={{ fontWeight: state.currentLedgerId === l.id ? 700 : 500 }}>{l.name}</span>
+              <span className="muted" style={{ fontSize: 11.5 }}>{l.template} · {txsOfLedger(state, l.id).length} 笔</span>
+            </span>
+            {state.currentLedgerId === l.id && <span style={{ color: 'var(--brand)', fontWeight: 700, fontSize: 12.5 }}>使用中</span>}
+          </div>
+        ))}
+        <button className="btn ghost" style={{ marginTop: 6 }} onClick={() => { setLedgerOpen(false); nav.push({ page: 'ledgers', title: '我的账本' }) }}>
+          管理账本 · 新建 / 图标 / 删除 ›
+        </button>
+      </Sheet>
       <div className="page-body">
         {/* 汇总卡 */}
         <div className="home-head">

@@ -33,6 +33,10 @@ export function migrateState(s) {
   s.settings.tabIconAt = normalizeTabIconAt(s.settings.tabIconAt)
   // v1.6.8 发现页功能图标时间戳表归一（本体在 IndexedDB 'discicon_<key>'）
   s.settings.discIconAt = normalizeDiscIconAt(s.settings.discIconAt)
+  // v1.6.9 账本图标时间戳表归一（本体在 IndexedDB 'bookicon_<ledgerId>'，key 为账本 id，无固定键名）
+  if (!s.settings.bookIconAt || typeof s.settings.bookIconAt !== 'object' || Array.isArray(s.settings.bookIconAt)) s.settings.bookIconAt = {}
+  // v1.7.0 应用内更新：自动下载开关缺省开启（安装仍由系统弹窗要求用户确认）
+  if (typeof s.settings.updateAutoDl !== 'boolean') s.settings.updateAutoDl = true
   // v1.6.8 点击反馈拆分迁移：老版本只有 tapFeedback（缩放+震动合一开关）
   if (!('tapScale' in s.settings)) s.settings.tapScale = s.settings.tapFeedback !== false
   if (!('vibrateLevel' in s.settings)) {

@@ -9,6 +9,10 @@
  */
 import { isWhiteBgPixels, parseMoneyNotify, normalizeTabIconAt, normalizeDiscIconAt, DISCOVER_ICON_KEYS } from '../src/utils.js'
 import { parseNotice, noticeKey, unreadNotice, importantPending } from '../src/notice.js'
+import {
+  compareVersions, normalizeVersion, pickUpdateAssets, parseRelease,
+  shouldAutoCheck, APP_VERSION,
+} from '../src/update.js'
 import { emptyState } from '../src/seed.js'
 import { readFileSync, existsSync } from 'node:fs'
 
@@ -193,7 +197,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 16 / 1.6.8', gradle.includes('versionCode 16') && gradle.includes('versionName "1.6.8"'))
+assert('版本 versionCode 18 / 1.7.0', gradle.includes('versionCode 18') && gradle.includes('versionName "1.7.0"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -226,6 +230,129 @@ const iconBg = readFileSync(new URL('../android/app/src/main/res/values/ic_launc
 assert('自适应图标底色为新蓝 #556197', iconBg.includes('#556197'))
 const manifestAndroid = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf-8')
 assert('Manifest 使用 mipmap 图标', manifestAndroid.includes('@mipmap/ic_launcher'))
+
+// ---------- 9. v1.6.9 账本图标 / 首页切换 / 记账选账本 / 个性化预览 ----------
+console.log('v1.6.9 账本图标·切换·记账选账本：')
+assert('出厂默认含 bookIconAt 空表', es.settings.bookIconAt && typeof es.settings.bookIconAt === 'object' && !Array.isArray(es.settings.bookIconAt))
+assert('迁移归一 bookIconAt（非对象兜底空表）', storeJs.includes("s.settings.bookIconAt || typeof s.settings.bookIconAt !== 'object'"))
+assert('账本图标存储动作（128 裁切，任意背景）',
+  themeJs2.includes('saveBookIcon') && themeJs2.includes("maxSize: 128, quality: 0.88"))
+assert('账本图标 hook useBookIconUrl + BookIconImg 组件（单账本 hook，规避变长数组 hooks 违规）',
+  themeJs2.includes('export function useBookIconUrl') && themeJs2.includes('export function BookIconImg')
+  && !themeJs2.includes('useBookIconImgs'))
+const ledgersJs = readFileSync(new URL('../src/pages/Ledgers.jsx', import.meta.url), 'utf-8')
+assert('账本编辑弹层支持上传自定义图标', ledgersJs.includes('saveBookIcon(edit.id, f)') && ledgersJs.includes('上传自定义图标'))
+assert('账本列表渲染自定义图片图标（图片优先）', ledgersJs.includes('useBookIconUrl') && ledgersJs.includes('gi-img'))
+assert('删除账本时清理图标 Blob', ledgersJs.includes('replaceBlob(`bookicon_${delId}`, null)'))
+const homeJs = readFileSync(new URL('../src/pages/Home.jsx', import.meta.url), 'utf-8')
+assert('首页顶部账本切换器（胶囊按钮 + 箭头）', homeJs.includes('ledger-switch') && homeJs.includes('切换账本'))
+assert('首页切换弹层点击即切 + 管理入口', homeJs.includes('d.currentLedgerId = l.id') && homeJs.includes('nav.push({ page: \'ledgers\''))
+const addTxJs = readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8')
+assert('记账默认当前账本、编辑取账单原账本', addTxJs.includes('editTx?.ledgerId || state.currentLedgerId'))
+assert('保存落入所选账本（payload 携带 ledgerId）', addTxJs.includes('ledgerId: ledgerId || state.currentLedgerId'))
+assert('记账页账本选择弹层（存入哪个账本）', addTxJs.includes('存入哪个账本') && addTxJs.includes('setLedgerId(l.id)'))
+const css2 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
+  css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
+assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
+const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
+assert('package.json 版本 1.7.0', pkgJson.version === '1.7.0')
+for (const f of ['Settings.jsx', 'Profile.jsx', 'CloudBackup.jsx']) {
+  const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
+  assert(`版本单一源 ${f} 引用 APP_VERSION（无硬编码版本号）`,
+    src.includes("from '../update.js'") && /APP_VERSION/.test(src) && !/1\.6\.9|1\.6\.8/.test(src))
+}
+
+// ---------- 10. v1.7.0 应用内更新（版本比较/资产挑选/release 解析/纯 JS 可测链路） ----------
+console.log('v1.7.0 应用内更新：')
+assert('normalizeVersion 去 v 前缀与空白', normalizeVersion(' v1.7.0 ') === '1.7.0')
+assert('版本比较：新版更大', compareVersions('1.7.0', '1.6.9') === 1)
+assert('版本比较：带 v 前缀相等', compareVersions('v1.7.0', '1.7.0') === 0)
+assert('版本比较：1.10.0 > 1.9.0（位数陷阱）', compareVersions('v1.10.0', '1.9.0') === 1)
+assert('版本比较：旧版更小', compareVersions('1.6.0', '1.7.0') === -1)
+assert('版本比较：位长不一 1.7 < 1.7.1', compareVersions('1.7', '1.7.1') === -1)
+assert('版本比较：非法版本按 0 处理不崩溃', compareVersions('abc', '1.0.0') === -1)
+
+const fakeAssets = [
+  { name: 'qingyu-v1.7.0-android.apk.sha256', browser_download_url: 'https://x/1.sha256', created_at: '2026-10-01' },
+  { name: 'other.txt', browser_download_url: 'https://x/other.txt' },
+  { name: 'qingyu-v1.7.0-android.apk', browser_download_url: 'https://x/1.apk', size: 5242880, created_at: '2026-10-01' },
+]
+const picked = pickUpdateAssets(fakeAssets)
+assert('资产挑选：选中 -android.apk', picked.apk?.name === 'qingyu-v1.7.0-android.apk')
+assert('资产挑选：配对同名 .sha256 校验文件', picked.sha256?.browser_download_url === 'https://x/1.sha256')
+assert('资产挑选：无 APK → 双 null', pickUpdateAssets([{ name: 'a.txt' }]).apk === null
+  && pickUpdateAssets([]).sha256 === null)
+
+const fakeRelease = {
+  tag_name: 'v9.9.9', name: 'v9.9.9', body: '## 更新内容\n**修复**若干问题', draft: false, prerelease: false,
+  published_at: '2026-10-01T08:00:00Z', assets: fakeAssets,
+}
+const parsed = parseRelease(fakeRelease, '1.7.0')
+assert('parseRelease：高版本返回完整信息（tag/notes/size/sha256Url）',
+  parsed && parsed.version === '9.9.9' && parsed.apkUrl === 'https://x/1.apk'
+  && parsed.size === 5242880 && parsed.sha256Url === 'https://x/1.sha256' && parsed.publishedAt === '2026-10-01')
+assert('parseRelease：草稿/预发布不更新', parseRelease({ ...fakeRelease, draft: true }, '1.0.0') === null
+  && parseRelease({ ...fakeRelease, prerelease: true }, '1.0.0') === null)
+assert('parseRelease：版本不高于当前 → null', parseRelease(fakeRelease, '9.9.9') === null
+  && parseRelease(fakeRelease, '10.0.0') === null)
+assert('parseRelease：非法 tag/无 APK → null',
+  parseRelease({ tag_name: 'latest', assets: fakeAssets }, '1.0.0') === null
+  && parseRelease({ tag_name: 'v1.1.0', assets: [] }, '1.0.0') === null)
+
+const TTL = 60 * 60 * 1000
+assert('自动检查节流：无记录/超 1 小时才检查，期内跳过',
+  shouldAutoCheck(0, TTL) === true
+  && shouldAutoCheck(1000, 1000 + TTL + 1) === true
+  && shouldAutoCheck(1000, 1000 + TTL - 1) === false)
+
+// 源码级安全断言（对标 NexBox 风险清单）
+const updateJs = readFileSync(new URL('../src/update.js', import.meta.url), 'utf-8')
+assert('更新模块无硬编码访问令牌（规避 NexBox P1）',
+  !/Bearer\s+[A-Za-z0-9-]{8,}/.test(updateJs) && !/WmAt/.test(updateJs))
+assert('更新源为 GitHub Releases 官方 API（公开仓库匿名）', updateJs.includes('api.github.com/repos'))
+assert('Web/Electron 外链兜底（打开 Release 页）', updateJs.includes("window.open(url, '_blank'"))
+assert('测试钩子 window.__qyUpdateBridge 可注入 mock 桥', updateJs.includes('__qyUpdateBridge'))
+
+const updateCtxJsx = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
+assert('更新状态机含 下载/校验/就绪/失败 全相位',
+  ['downloading', 'verifying', 'ready', 'error'].every((s) => updateCtxJsx.includes(`'${s}'`)))
+assert('SHA-256 不符：取消并删除文件（不止字节数校验）',
+  updateCtxJsx.includes('fetchSha256') && updateCtxJsx.includes('cancelApkDownload()')
+  && updateCtxJsx.includes('SHA-256 不一致'))
+assert('无轮询定时器（启动一次 + 手动，同 NexBox 克制策略）', !updateCtxJsx.includes('setInterval'))
+assert('「以后再说」按版本静默（dismissed tag）', updateCtxJsx.includes('markDismissed')
+  && updateCtxJsx.includes('dismissedTag()'))
+assert('下载进度只涨不跌（Math.max）', updateCtxJsx.includes('pct > progressRef.current'))
+assert('关闭自动下载开关立即取消进行中任务', updateCtxJsx.includes("status === 'downloading'"))
+assert('出厂默认 updateAutoDl=true + 迁移兜底',
+  emptyState().settings.updateAutoDl === true
+  && storeJs.includes("typeof s.settings.updateAutoDl !== 'boolean'"))
+
+const updatePluginJava = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/UpdatePlugin.java', import.meta.url), 'utf-8')
+assert('原生下载：边下边算 SHA-256（MessageDigest）', updatePluginJava.includes('MessageDigest.getInstance("SHA-256")'))
+assert('原生下载：AtomicBoolean 可取消 + 取消删半成品',
+  updatePluginJava.includes('AtomicBoolean') && updatePluginJava.includes('CANCEL.set(true)') && updatePluginJava.includes('outFile.delete()'))
+assert('原生下载：手动跟随重定向（GitHub release 302）',
+  updatePluginJava.includes('setInstanceFollowRedirects(false)') && updatePluginJava.includes('openWithRedirects'))
+assert('原生下载：Content-Length 字节数校验 + sync 刷盘',
+  updatePluginJava.includes('SIZE_MISMATCH') && updatePluginJava.includes('getFD().sync()'))
+assert('原生下载：进度 200ms 节流防跳闪', updatePluginJava.includes('200'))
+assert('安装：FileProvider + 未知来源授权判定/引导',
+  updatePluginJava.includes('FileProvider.getUriForFile') && updatePluginJava.includes('canRequestPackageInstalls')
+  && updatePluginJava.includes('ACTION_MANAGE_UNKNOWN_APP_SOURCES')
+  && updatePluginJava.includes('application/vnd.android.package-archive'))
+assert('安装：canonical path 穿越防护 + 只接受 https',
+  updatePluginJava.includes('getCanonicalPath().startsWith') && updatePluginJava.includes('startsWith("https://")'))
+
+const manifestUpd = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf-8')
+assert('Manifest 声明 REQUEST_INSTALL_PACKAGES', manifestUpd.includes('android.permission.REQUEST_INSTALL_PACKAGES'))
+const filePaths = readFileSync(new URL('../android/app/src/main/res/xml/file_paths.xml', import.meta.url), 'utf-8')
+assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<external-files-path') && filePaths.includes('Download/'))
+const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
+assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
+assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
+assert('update.js 版本单一源为 1.7.0', APP_VERSION === '1.7.0')
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

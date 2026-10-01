@@ -190,6 +190,19 @@ export function useDiscIconImgs(keys) {
   }
   return urls
 }
+
+// v1.6.9 账本图标：单账本 hook（不可对账本数组循环调用——hooks 数量须恒定）
+export function useBookIconUrl(ledgerId) {
+  const { state } = useStore()
+  return useAssetUrl((state.settings.bookIconAt || {})[ledgerId], `bookicon_${ledgerId}`)
+}
+
+// 账本图标展示组件：自定义图片优先，回落 emoji（图片/emoji 同尺寸类）
+export function BookIconImg({ ledgerId, icon, className = '' }) {
+  const url = useBookIconUrl(ledgerId)
+  if (url) return <img className={className} src={url} alt="" decoding="async" draggable={false} />
+  return <span className={className}>{icon || '📒'}</span>
+}
 export function AiFace({ className = '', style }) {
   const { state } = useStore()
   const url = useAiFacePhoto()
@@ -309,6 +322,22 @@ export function useMediaActions() {
         await replaceBlob(`discicon_${key}`, null)
         set((d) => {
           if (d.settings.discIconAt?.[key]) d.settings.discIconAt[key] = null
+        })
+      },
+      // v1.6.9 账本图标：接受任意背景图片，128×128 居中裁切（每个账本独立）
+      async saveBookIcon(id, file) {
+        const blob = await fileToJpeg(file, { maxSize: 128, quality: 0.88, cover: true })
+        const at = new Date().toISOString()
+        await replaceBlob(`bookicon_${id}`, blob)
+        set((d) => {
+          if (!d.settings.bookIconAt || typeof d.settings.bookIconAt !== 'object') d.settings.bookIconAt = {}
+          d.settings.bookIconAt[id] = at
+        })
+      },
+      async clearBookIcon(id) {
+        await replaceBlob(`bookicon_${id}`, null)
+        set((d) => {
+          if (d.settings.bookIconAt?.[id]) d.settings.bookIconAt[id] = null
         })
       },
     }),

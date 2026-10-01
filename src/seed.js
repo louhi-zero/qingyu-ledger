@@ -108,8 +108,12 @@ export function emptyState() {
       tabIconAt: { home: null, charts: null, discover: null, profile: null },
       // v1.6.8 发现页功能图标自定义（本体 IndexedDB 'discicon_<key>'，时间戳表驱动刷新）
       discIconAt: {},
+      // v1.6.9 账本图标自定义（本体 IndexedDB 'bookicon_<ledgerId>'，时间戳表驱动刷新）
+      bookIconAt: {},
       // v1.6.5 公告：接收应用公告（发现页公告卡 + 重要公告弹窗，均受此开关控制）
       noticeEnabled: true,
+      // v1.7.0 应用内更新：发现新版自动后台下载（安装始终需用户确认；false=仅提示不自动下载）
+      updateAutoDl: true,
     },
     categories: cats,
     accounts,

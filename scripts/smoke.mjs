@@ -248,7 +248,8 @@ app.whenReady().then(async () => {
     await sleep(400)
 
     // v1.6.8 发现页图标：红底（非白底）也允许上传 → discIconAt 写入
-    await run(`(${clickText})('.cell', '发现页功能图标')`)
+    // v1.6.9 入口已改为个性化预览卡（skin-card）
+    await run(`[...document.querySelectorAll('.skin-card')].find((c) => c.textContent.includes('发现页功能图标')).click()`)
     await sleep(400)
     assert('发现图标 Sheet：14 个功能选择器', await run(`document.querySelectorAll('.discicon-grid .tabicon-item').length === 14`))
     await run(`(${INJECT})('nonwhite')`)
@@ -295,8 +296,8 @@ app.whenReady().then(async () => {
     await run(`(${clickText})('.cell', '液态玻璃效果')`)
     await sleep(400)
 
-    // 5. 底部菜单图标：非白底拦截 → 白底成功（v1.6.1 仅图片方式，无表情入口）
-    await run(`(${clickText})('.cell', '底部菜单图标')`)
+    // 5. 底部菜单图标：非白底拦截 → 白底成功（v1.6.1 仅图片方式，无表情入口；v1.6.9 入口为预览卡）
+    await run(`[...document.querySelectorAll('.skin-card')].find((c) => c.textContent.includes('底部菜单图标')).click()`)
     await sleep(400)
     assert('图标 Sheet：四个页签选择器渲染', await run(`document.querySelectorAll('.tabicon-item').length === 4`))
     assert('图标 Sheet：无表情自定义入口（无 .seg 切换）', await run(`document.querySelector('.sheet .seg') === null`))
@@ -344,8 +345,112 @@ app.whenReady().then(async () => {
     await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`) // 回到「我的」
     await sleep(400)
 
+    // ============ v1.6.9 账本图标 / 首页切换 / 记账选账本 ============
+    // 8. 首页顶部账本切换器
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('明细')).click()`)
+    await sleep(500)
+    assert('首页顶部渲染账本切换器', await run(`!!document.querySelector('.ledger-switch')`))
+    await run(`document.querySelector('.ledger-switch').click()`)
+    await sleep(400)
+    assert('切换 Sheet：初始仅 1 个账本', await run(`document.querySelectorAll('.sheet .selectline').length === 1`))
+    // 经「管理账本」进账本页新建「旅行」
+    await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('管理账本')).click()`)
+    await sleep(500)
+    await run(`[...document.querySelectorAll('.iconbtn')].pop().click()`)
+    await sleep(400)
+    await run(`(() => {
+      const i = document.querySelector('.sheet input.input')
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set
+      setter.call(i, '旅行'); i.dispatchEvent(new Event('input', { bubbles: true }))
+      return true
+    })()`)
+    await run(`[...document.querySelectorAll('.sheet .btnrow .btn')].find((b) => b.textContent === '保存').click()`)
+    await sleep(400)
+    assert('新建账本「旅行」已持久化', await pollTrue(run, `(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); return s.ledgers.some((l) => l.name === '旅行') })()`, 8000))
+    await run(`history.back()`)
+    await sleep(400)
+
+    // 9. 切换 Sheet 点击即切
+    await run(`document.querySelector('.ledger-switch').click()`)
+    await sleep(400)
+    assert('切换 Sheet：两个账本可选', await run(`document.querySelectorAll('.sheet .selectline').length === 2`))
+    await run(`[...document.querySelectorAll('.sheet .selectline')].find((e) => e.textContent.includes('旅行')).click()`)
+    const switched = await pollTrue(run, `(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3'))
+      const travel = s.ledgers.find((l) => l.name === '旅行')
+      return travel && s.currentLedgerId === travel.id
+    })()`, 8000)
+    assert('点击「旅行」即切换当前账本', switched)
+    assert('切换器标题实时更新为「旅行」', await run(`document.querySelector('.ledger-switch').textContent.includes('旅行')`))
+
+    // 10. 记一笔自选存入账本（首个 pill 是「智能填单」，账本 pill 用 📒 定位）
+    await run(`document.querySelector('.tab-add').click()`)
+    await sleep(500)
+    assert('记账页：账本 pill 显示当前账本「旅行」', await run(`(() => {
+      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒'))
+      return p ? p.textContent.includes('旅行') : 'no-pill'
+    })()`))
+    await run(`[...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒')).click()`)
+    await sleep(400)
+    assert('账本选择弹层：列出全部账本', await run(`document.querySelectorAll('.sheet .selectline').length === 2`))
+    await run(`[...document.querySelectorAll('.sheet .selectline')].find((e) => e.textContent.includes('默认账本')).click()`)
+    await sleep(300)
+    assert('账本 pill 已改为「默认账本」', await run(`(() => {
+      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒'))
+      return p ? p.textContent.includes('默认账本') : 'no-pill'
+    })()`))
+    await run(`(() => {
+      const nums = ['1', '0', '0']
+      for (const n of nums) [...document.querySelectorAll('.kp button')].find((b) => b.textContent === n).click()
+      return true
+    })()`)
+    await run(`[...document.querySelectorAll('.kp button')].find((b) => b.textContent === '完成').click()`)
+    const savedLedger = await pollTrue(run, `(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3'))
+      const def = s.ledgers.find((l) => l.name === '默认账本')
+      const t = (s.transactions || []).filter((x) => !x.deletedAt).pop()
+      return !!(t && t.amount === 100 && t.ledgerId === def.id)
+    })()`, 8000)
+    assert('记账存入所选账本（默认账本），当前账本仍为「旅行」', savedLedger
+      && await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')); const tr = s.ledgers.find((l) => l.name === '旅行'); return s.currentLedgerId === tr.id })()`))
+
+    // 11. 账本自定义图标：我的页 → 我的账本 → 编辑默认账本 → 上传红底图
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '我的账本')`)
+    await sleep(500)
+    await run(`document.querySelector('.grid3 .gitem').click()`)
+    await sleep(400)
+    await run(`(${INJECT})('nonwhite')`)
+    const bookSaved = await pollTrue(run, `(() => {
+      const s = JSON.parse(localStorage.getItem('qingyu_state_v3'))
+      const def = s.ledgers.find((l) => l.name === '默认账本')
+      return (s.settings.bookIconAt || {})[def.id] || null
+    })()`, 15000)
+    assert('账本图标：任意背景图片上传成功（bookIconAt 写入）', !!bookSaved)
+    assert('编辑弹层：图标预览渲染为图片', await pollTrue(run, `!!document.querySelector('.bookicon-preview img')`, 8000))
+    await run(`document.querySelector('.sheet-head .sx')?.click()`)
+    await sleep(300)
+    assert('账本卡：自定义图标已渲染（gi-img 图片铺满）', await pollTrue(run, `!!document.querySelector('.grid3 .gitem .gi.gi-img img')`, 8000))
+    await run(`history.back()`)
+    await sleep(400)
+
+    // 12. 个性化设置视觉预览卡
+    await run(`(${clickText})('.cell', '设置')`)
+    await sleep(400)
+    await run(`(${clickText})('.cell', '外观与个性化')`)
+    await sleep(500)
+    assert('个性化：视觉预览卡 4 张渲染', await run(`document.querySelectorAll('.skin-grid .skin-card').length === 4`))
+    assert('个性化：预览卡含壁纸/启动页/底部图标/发现图标',
+      await run(`(() => { const t = document.querySelector('.skin-grid').textContent; return t.includes('自定义壁纸') && t.includes('启动页背景') && t.includes('底部菜单图标') && t.includes('发现页功能图标') })()`))
+    assert('个性化：底部图标卡显示已自定义计数', await run(`[...document.querySelectorAll('.skin-card')].some((c) => c.textContent.includes('已自定义 1/4'))`))
+    await run(`history.back()`)
+    await sleep(300)
+    await run(`history.back()`)
+    await sleep(300)
+
     // 7. 持久化汇总
-    const persist = await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')).settings; return { glass: s.glassOn, tap: s.tapFeedback, tapScale: s.tapScale, vib: s.vibrateLevel, avatar: !!s.avatarPhotoAt, icon: !!s.tabIconAt?.home, disc: !!s.discIconAt?.scan } })()`)
+    const persist = await run(`(() => { const s = JSON.parse(localStorage.getItem('qingyu_state_v3')).settings; return { glass: s.glassOn, tap: s.tapFeedback, tapScale: s.tapScale, vib: s.vibrateLevel, avatar: !!s.avatarPhotoAt, icon: !!s.tabIconAt?.home, disc: !!s.discIconAt?.scan, book: Object.values(s.bookIconAt || {}).some(Boolean) } })()`)
     assert('持久化：glassOn=true', persist.glass === true)
     assert('持久化：tapFeedback=true', persist.tap === true)
     assert('持久化：tapScale=true（拆分迁移正确）', persist.tapScale === true)
@@ -353,6 +458,147 @@ app.whenReady().then(async () => {
     assert('持久化：avatarPhotoAt 已写入', persist.avatar === true)
     assert('持久化：tabIconAt.home 已写入', persist.icon === true)
     assert('持久化：discIconAt.scan 已写入', persist.disc === true)
+    assert('持久化：bookIconAt 已写入', persist.book === true)
+
+    // ============ v1.7.0 应用内更新（Web 兜底 + mock 原生桥全状态机 + SHA 校验） ============
+    // 13. mock GitHub Releases API；先测 Web/Electron 兜底（强制无原生桥 → 外链）
+    await run(`(() => {
+      window.__openedUrl = null
+      window.open = (url) => { window.__openedUrl = url; return null }
+      window.__shaExpect = 'a'.repeat(64)
+      window.fetch = (u) => {
+        const url = String(u)
+        if (url.includes('/releases/latest')) {
+          return Promise.resolve(new Response(JSON.stringify({
+            tag_name: 'v9.9.9', name: 'v9.9.9', draft: false, prerelease: false,
+            body: '## 更新内容\\n1. 新增应用内更新\\n2. 修复若干问题',
+            published_at: '2026-10-01T08:00:00Z',
+            assets: [
+              { name: 'qingyu-v9.9.9-android.apk', browser_download_url: 'https://x/v9.9.9.apk', size: 5242880, created_at: '2026-10-01' },
+              { name: 'qingyu-v9.9.9-android.apk.sha256', browser_download_url: 'https://x/v9.9.9.sha256', created_at: '2026-10-01' },
+            ],
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+        }
+        if (url.includes('.sha256')) return Promise.resolve(new Response(window.__shaExpect + '  qingyu.apk\\n', { status: 200 }))
+        return Promise.resolve(new Response('{}', { status: 200 }))
+      }
+      window.__qyUpdateBridge = null // 测试钩子：强制 web 路径
+      localStorage.removeItem('qingyu_update_dismissed_v1')
+      return 'ok'
+    })()`)
+    await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于')).click()`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
+    await sleep(600)
+    assert('更新中心：发现 v9.9.9 并渲染更新日志（markdown 符号已清理）',
+      await run(`(() => { const v = [...document.querySelectorAll('.upd-ver')].some((e) => e.textContent.includes('v9.9.9'))
+        const notes = document.querySelector('.upd-notes')
+        return v && notes && notes.textContent.includes('新增应用内更新') && !notes.textContent.includes('##') })()`))
+    assert('Web 端：显示「前往下载页」而非下载按钮',
+      await run(`!![...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('前往下载页'))
+        && ![...document.querySelectorAll('.sheet .btn')].some((b) => b.textContent.includes('立即下载'))`))
+    assert('Web 端：不显示自动下载开关（仅原生有意义）',
+      await run(`![...document.querySelectorAll('.sheet .cell')].some((e) => e.textContent.includes('自动下载'))`))
+    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('前往下载页')).click()`)
+    await sleep(200)
+    assert('Web 端：点击打开对应 GitHub Release 页', await run(`(window.__openedUrl || '').includes('releases/tag/v9.9.9')`))
+    await run(`[...document.querySelectorAll('.sheet .upd-later')].find((b) => b.textContent.includes('以后再说')).click()`)
+    await sleep(300)
+    assert('「以后再说」按版本写入 dismissed', await run(`localStorage.getItem('qingyu_update_dismissed_v1') === 'v9.9.9'`))
+
+    // 14. mock 原生桥：受控下载（进度浮卡）→ SHA 匹配 → 就绪 → 拉起安装器
+    await run(`(() => {
+      window.__installCalled = null
+      window.__cancelCalled = false
+      window.__resolveDl = null
+      window.__shaExpect = 'b'.repeat(64)
+      window.__makeBridge = () => {
+        let cbs = []
+        return {
+          addListener: async (ev, cb) => { window.__bridgeLog.push('add ' + ev); if (ev === 'downloadProgress') cbs.push(cb); return { remove() { window.__bridgeLog.push('remove ' + ev); cbs = cbs.filter((x) => x !== cb) } } },
+          download: async (opts) => {
+            window.__bridgeLog.push('download enter ' + opts.fileName)
+            await new Promise((r) => setTimeout(() => { cbs.forEach((cb) => cb({ progress: 30, received: 30, total: 100 })); r() }, 20))
+            await new Promise((r) => { window.__resolveDl = r })
+            window.__bridgeLog.push('download resolved')
+            return { path: '/data/Download/' + opts.fileName, sha256: window.__dlSha, bytes: 5242880 }
+          },
+          cancelDownload: async () => { window.__cancelCalled = true; window.__bridgeLog.push('cancel') },
+          installerInfo: async () => ({ platform: 'android', sdkInt: 30, canInstall: true }),
+          openInstallSettings: async () => {},
+          install: async ({ path }) => { window.__installCalled = path; window.__bridgeLog.push('install'); return { launched: true } },
+        }
+      }
+      window.__bridgeLog = []
+      window.__dlSha = 'b'.repeat(64) // 与 __shaExpect 一致 → 校验通过
+      window.__qyUpdateBridge = window.__makeBridge()
+      localStorage.removeItem('qingyu_update_dismissed_v1')
+      return 'ok'
+    })()`)
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于')).click()`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
+    await sleep(600)
+    assert('原生：显示「立即下载」与自动下载开关',
+      await run(`!![...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载'))
+        && [...document.querySelectorAll('.sheet .cell')].some((e) => e.textContent.includes('自动下载'))`))
+    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载')).click()`)
+    await sleep(300)
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].pop().click()`) // 关更新 Sheet（关于弹窗留在下层）
+    await sleep(300)
+    const dlFloat = await pollTrue(run,
+      `!!document.querySelector('.upd-float') && document.querySelector('.upd-float').textContent.includes('30%')`, 6000)
+    assert('浮卡：下载中显示进度 30%（进度只涨不跌）', dlFloat)
+    await run(`window.__resolveDl && window.__resolveDl()`)
+    const readyFloat = await pollTrue(run,
+      `!![...document.querySelectorAll('.upd-float b')].some((b) => b.textContent.includes('已就绪'))`, 8000)
+    assert('SHA-256 校验通过 → 浮卡进入就绪态', readyFloat)
+    await run(`document.querySelector('.upd-float').click()`) // ready → 直接安装
+    await sleep(400)
+    assert('点击安装：向系统安装器传出下载好的 APK 路径',
+      await run(`(window.__installCalled || '').includes('qingyu-v9.9.9-android.apk')`))
+
+    // 15. SHA-256 不符（下载摘要与 .sha256 资产不一致）→ 失败态并删除可疑文件
+    await run(`(() => {
+      window.__cancelCalled = false
+      window.__resolveDl = null
+      window.__dlSha = 'c'.repeat(64)     // 实际下载算出的摘要
+      window.__shaExpect = 'd'.repeat(64) // CI 发布的期望摘要
+      window.__qyUpdateBridge = window.__makeBridge()
+      return 'ok'
+    })()`)
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于')).click()`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
+    await sleep(600)
+    await run(`[...document.querySelectorAll('.sheet .btn')].find((b) => b.textContent.includes('立即下载')).click()`)
+    await sleep(300)
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].pop().click()`)
+    await sleep(200)
+    await run(`window.__resolveDl && window.__resolveDl()`)
+    const errFloat = await pollTrue(run,
+      `!!document.querySelector('.upd-float') && document.querySelector('.upd-float').textContent.includes('失败')`, 8000)
+    assert('SHA 不符：浮卡进入失败态', errFloat)
+    assert('SHA 不符：已调用原生 cancel 删除可疑安装包', await run(`window.__cancelCalled === true`))
+    await run(`document.querySelector('.upd-float').click()`) // error → 打开 Sheet
+    await sleep(300)
+    assert('Sheet：展示 SHA-256 完整性校验失败文案',
+      await run(`!!document.querySelector('.sandbox-fail') && document.querySelector('.sandbox-fail').textContent.includes('SHA-256')`))
+    // 自动下载开关持久化（更新 Sheet 内开关，切到关再验证落盘）
+    await run(`(() => {
+      const cell = [...document.querySelectorAll('.sheet .cell')].find((e) => e.textContent.includes('自动下载'))
+      cell.querySelector('button.switch').click()
+      return true
+    })()`)
+    await sleep(300)
+    assert('自动下载开关可关闭并持久化', await pollTrue(run,
+      `JSON.parse(localStorage.getItem('qingyu_state_v3')).settings.updateAutoDl === false`, 5000))
+    await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`)
+    await sleep(300)
   } catch (e) {
     results.push(['FAIL', '异常: ' + (e && e.message)])
     console.log('FAIL  异常: ' + (e && e.message))

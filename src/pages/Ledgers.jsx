@@ -1,17 +1,30 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm } from '../ui.jsx'
 import { LEDGER_TEMPLATES } from '../seed.js'
 import { txsOfLedger, uid, fmt } from '../utils.js'
+import { useBookIconUrl, useMediaActions } from '../theme.jsx'
+import { replaceBlob } from '../blobdb.js'
 
 function blankLedger() {
   return { id: uid(), name: '', icon: '📒', template: '标准账本' }
 }
 
+// 账本图标：自定义图片优先（IndexedDB 'bookicon_<id>'），否则 emoji
+function LedgerIcon({ l, className = 'gi', style }) {
+  const url = useBookIconUrl(l.id)
+  if (url) return <div className={`${className} gi-img`} style={style}><img className="gi-img-img" src={url} alt="" decoding="async" draggable={false} /></div>
+  return <div className={className} style={style}>{l.icon}</div>
+}
+
 export default function Ledgers({ nav }) {
   const { state, set, toast } = useStore()
+  const media = useMediaActions()
   const [edit, setEdit] = useState(null)
   const [delId, setDelId] = useState(null)
+  const [busyIcon, setBusyIcon] = useState(false)
+  const iconFileRef = useRef(null)
+  const editIconUrl = useBookIconUrl(edit?.id)
 
   const counts = useMemo(() => {
     const m = {}
@@ -32,6 +45,7 @@ export default function Ledgers({ nav }) {
   }
 
   const doDelete = () => {
+    replaceBlob(`bookicon_${delId}`, null).catch(() => {})
     set((d) => {
       d.ledgers = d.ledgers.filter((l) => l.id !== delId)
       d.transactions = d.transactions.filter((t) => t.ledgerId !== delId)
@@ -39,6 +53,22 @@ export default function Ledgers({ nav }) {
     })
     toast('账本及其账单已删除')
     setDelId(null)
+  }
+
+  // 上传账本图标：自动居中裁切 128×128，任意背景均可
+  const onPickIcon = async (e) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f || !edit) return
+    setBusyIcon(true)
+    try {
+      await media.saveBookIcon(edit.id, f)
+      toast('图标已更新')
+    } catch {
+      toast('图片处理失败，换一张试试', 'err')
+    } finally {
+      setBusyIcon(false)
+    }
   }
 
   return (
@@ -52,7 +82,7 @@ export default function Ledgers({ nav }) {
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.7 }}>
             📚 不同用途分开记：日常、旅行、装修、报销互不干扰。<br />
-            点击账本即可切换，底部明细与图表随之更新。
+            点击账本即可切换，首页顶部也能随时一键切换。
           </div>
         </div>
 
@@ -60,9 +90,7 @@ export default function Ledgers({ nav }) {
           {state.ledgers.map((l) => (
             <button key={l.id} className="gitem" style={{ background: 'var(--card)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', padding: '12px 4px' }}
               onClick={() => setEdit({ ...l })}>
-              <div className="gi" style={state.currentLedgerId === l.id ? { background: 'var(--brand-weak)', boxShadow: 'inset 0 0 0 2px var(--brand)' } : {}}>
-                {l.icon}
-              </div>
+              <LedgerIcon l={l} style={state.currentLedgerId === l.id ? { background: 'var(--brand-weak)', boxShadow: 'inset 0 0 0 2px var(--brand)' } : {}} />
               <span style={{ color: 'var(--ink)', fontWeight: 700, maxWidth: 100, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                 {l.name}
               </span>
@@ -79,7 +107,7 @@ export default function Ledgers({ nav }) {
               set((d) => { d.currentLedgerId = l.id })
               toast(`已切换到「${l.name}」`)
             }}>
-              <div className="cico">{l.icon}</div>
+              <LedgerIcon l={l} className="cico" />
               <div className="cmain">
                 <div className="ctitle">{l.name}</div>
                 <div className="cdesc">{l.template} · {counts[l.id] || 0} 笔账单</div>
@@ -108,6 +136,28 @@ export default function Ledgers({ nav }) {
                   </button>
                 ))}
               </div>
+            </div>
+            {/* v1.6.9 自定义账本图标：上传图片优先于模板 emoji */}
+            <div className="field">
+              <label>账本图标</label>
+              <div className="bookicon-row">
+                <div className="bookicon-preview">
+                  {editIconUrl
+                    ? <img src={editIconUrl} alt="" decoding="async" draggable={false} />
+                    : (edit.icon || '📒')}
+                </div>
+                <button className="btn ghost" style={{ flex: 1, margin: 0 }} disabled={busyIcon} onClick={() => iconFileRef.current?.click()}>
+                  {busyIcon ? '处理中…' : '🖼️ 上传自定义图标'}
+                </button>
+                {editIconUrl && (
+                  <button className="btn ghost" style={{ margin: 0 }} disabled={busyIcon} onClick={async () => {
+                    await media.clearBookIcon(edit.id)
+                    toast('已恢复默认图标')
+                  }}>恢复</button>
+                )}
+              </div>
+              <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>上传任意图片自动居中裁切为方形图标，液态玻璃自动适配</div>
+              <input ref={iconFileRef} type="file" accept="image/*" hidden onChange={onPickIcon} />
             </div>
             <div className="field">
               <label>账本名称</label>

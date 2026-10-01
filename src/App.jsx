@@ -17,6 +17,7 @@ import Settings from './pages/Settings.jsx'
 import SettingsSections from './pages/SettingsSections.jsx'
 import NotifyCatchSheet from './NotifyCatchSheet.jsx'
 import NoticeModal from './NoticeModal.jsx'
+import { UpdateProvider, UpdateFloat, UpdateSheetCenter } from './update-ctx.jsx'
 import { getNotice, importantPending, loadConfirmed, noticeKey, addConfirmed } from './notice.js'
 import { startNotifyCatch, stopNotifyCatch } from './notifyCatch.js'
 import { parseMoneyNotify } from './utils.js'
@@ -282,33 +283,39 @@ function Shell() {
   }
 
   return (
-    <NavCtx.Provider value={nav}>
-      <div className="phone">
-        <Backdrop />
-        <div className="app">
-          <Page nav={nav} params={top?.params || {}} />
+    <UpdateProvider>
+      <NavCtx.Provider value={nav}>
+        <div className="phone">
+          <Backdrop />
+          <div className="app">
+            <Page nav={nav} params={top?.params || {}} />
+          </div>
+
+          {/* 底部导航：仅在根级页面显示 */}
+          {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} tabImgs={tabImgs} />}
+
+          {/* v1.7.0 应用内更新浮卡：仅根级页面显示，更新中心 Sheet 全局可用 */}
+          {!stack.length && <UpdateFloat />}
+          <UpdateSheetCenter />
+
+          {/* 记一笔 / 编辑账单 */}
+          <AddTx
+            key={editTx ? editTx.id : 'new'}
+            open={addOpen}
+            editTx={editTx}
+            onClose={() => { setAddOpen(false); setEditTx(null) }}
+          />
+
+          {/* v1.5 收支监控确认弹窗：仅 Android 原生且开启监控时才会触发 */}
+          <NotifyCatchSheet caught={caught} onClose={() => setCaught(null)} />
+
+          {/* v1.6.5 重要公告强弹窗：队列逐条展示，开关关闭或全部确认时不渲染 */}
+          {noticeQueue.length > 0 && (
+            <NoticeModal notice={noticeQueue[0]} remain={noticeQueue.length - 1} onConfirm={confirmNotice} />
+          )}
         </div>
-
-        {/* 底部导航：仅在根级页面显示 */}
-        {!stack.length && <TabBar tab={tab} setTab={setTab} openAdd={openAdd} tabImgs={tabImgs} />}
-
-        {/* 记一笔 / 编辑账单 */}
-        <AddTx
-          key={editTx ? editTx.id : 'new'}
-          open={addOpen}
-          editTx={editTx}
-          onClose={() => { setAddOpen(false); setEditTx(null) }}
-        />
-
-        {/* v1.5 收支监控确认弹窗：仅 Android 原生且开启监控时才会触发 */}
-        <NotifyCatchSheet caught={caught} onClose={() => setCaught(null)} />
-
-        {/* v1.6.5 重要公告强弹窗：队列逐条展示，开关关闭或全部确认时不渲染 */}
-        {noticeQueue.length > 0 && (
-          <NoticeModal notice={noticeQueue[0]} remain={noticeQueue.length - 1} onConfirm={confirmNotice} />
-        )}
-      </div>
-    </NavCtx.Provider>
+      </NavCtx.Provider>
+    </UpdateProvider>
   )
 }
 

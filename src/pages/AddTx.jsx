@@ -4,6 +4,7 @@ import { Seg, Confirm, Empty, Sheet } from '../ui.jsx'
 import { fmt, uid, todayStr, nowTime, addDays, accountName } from '../utils.js'
 import { getObjectUrl, replaceBlob, fileToJpeg, blobToDataUrl } from '../blobdb.js'
 import { loadAiCfg, parseTxText, parseReceiptImage } from '../ai.js'
+import { BookIconImg } from '../theme.jsx'
 
 // 熬夜归属：0:00–4:59 记账默认算昨天
 function defaultDate(settings) {
@@ -32,6 +33,14 @@ export default function AddTx({ open, editTx, onClose }) {
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [accOpen, setAccOpen] = useState(false)
   const [accSetter, setAccSetter] = useState(null)
+  // v1.6.9 记账可选账本：默认当前账本，编辑时取账单原账本
+  const [ledgerId, setLedgerId] = useState(editTx?.ledgerId || state.currentLedgerId)
+  const [ledgerOpen, setLedgerOpen] = useState(false)
+  // 打开时对齐账本（组件常驻挂载，useState 初始值是启动时快照；切换账本后记账须取最新）
+  useEffect(() => {
+    if (open) setLedgerId(editTx?.ledgerId || state.currentLedgerId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editTx])
   // v1.2 标签 / 报销 / 附件 / 模板
   const [tags, setTags] = useState(editTx?.tags || [])
   const [reimburse, setReimburse] = useState(editTx?.reimburse || 'none')
@@ -107,6 +116,7 @@ export default function AddTx({ open, editTx, onClose }) {
     const cat = categoryId || mainCat?.id
     const payload = {
       type, amount: Math.round(amt * 100) / 100,
+      ledgerId: ledgerId || state.currentLedgerId,
       categoryId: type === 'transfer' ? null : cat,
       accountId, toAccountId: type === 'transfer' ? toAccountId : null,
       date, time, note: note.trim(),
@@ -119,7 +129,7 @@ export default function AddTx({ open, editTx, onClose }) {
         const t = d.transactions.find((x) => x.id === editTx.id)
         Object.assign(t, payload)
       } else {
-        d.transactions.push({ id: txIdRef.current, ledgerId: d.currentLedgerId, createdAt: new Date().toISOString(), ...payload })
+        d.transactions.push({ id: txIdRef.current, createdAt: new Date().toISOString(), ...payload })
       }
     })
     toast(editTx ? '已保存修改' : `已记一笔 ${type === 'income' ? '收入' : type === 'expense' ? '支出' : '转账'} ¥${fmt(amt)}`)
@@ -347,6 +357,10 @@ export default function AddTx({ open, editTx, onClose }) {
 
           {/* 元信息 */}
           <div className="meta-row">
+            {/* v1.6.9 记账可选账本 */}
+            <button className="meta-pill" onClick={() => setLedgerOpen(true)}>
+              📒 <b>{state.ledgers.find((l) => l.id === (ledgerId || state.currentLedgerId))?.name || '选择账本'}</b>
+            </button>
             <button className="meta-pill" onClick={() => setNoteEditOpen(true)}>📝 {note ? <b>{note.slice(0, 8)}</b> : '备注'}</button>
             <button className="meta-pill" onClick={() => pickAccount(setAccountId)}>💳 <b>{type === 'transfer' ? accountName(state, accountId) : accountName(state, accountId)}</b></button>
             <button className="meta-pill" onClick={() => setShowDatePicker((v) => !v)}>📅 <b>{date === todayStr() ? '今天' : date.slice(5)}</b></button>
@@ -408,6 +422,22 @@ export default function AddTx({ open, editTx, onClose }) {
         <NoteEditor open={noteEditOpen} onClose={() => setNoteEditOpen(false)} note={note} setNote={setNote} />
         <TimeSheet open={timeOpen} onClose={() => setTimeOpen(false)} time={time} setTime={setTime} />
         <AccountSheet state={state} open={accOpen} onClose={() => setAccOpen(false)} onPick={(id) => { accSetter?.(id); setAccOpen(false) }} />
+
+        {/* v1.6.9 账本选择弹层 */}
+        <Sheet open={ledgerOpen} onClose={() => setLedgerOpen(false)} title="存入哪个账本">
+          {state.ledgers.map((l) => (
+            <div key={l.id} className="selectline" style={{ marginBottom: 8 }} onClick={() => { setLedgerId(l.id); setLedgerOpen(false) }}>
+              <span className="ls-line">
+                <BookIconImg ledgerId={l.id} icon={l.icon} className="ledger-switch-img" />
+                <span style={{ fontWeight: ledgerId === l.id ? 700 : 500 }}>{l.name}</span>
+                <span className="muted" style={{ fontSize: 11.5 }}>{l.template}</span>
+              </span>
+              {ledgerId === l.id
+                ? <b style={{ color: 'var(--brand)', fontSize: 12.5 }}>已选</b>
+                : <span className="arrow">›</span>}
+            </div>
+          ))}
+        </Sheet>
 
         {/* v1.2 标签编辑 */}
         <Sheet open={tagOpen} onClose={() => setTagOpen(false)} title="标签">

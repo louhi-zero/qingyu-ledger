@@ -102,11 +102,14 @@ jobs:
           APK_SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -n1)
           echo "选用 APK: $APK_SRC"
           cp "$APK_SRC" "rel/qingyu-${TAG}-android.apk"
+          # v1.7.0 随包发布 SHA-256 校验文件（sha256sum 标准格式：<hash>  <filename>），
+          # 客户端下载完成后比对摘要，防传输损坏/资产被篡改（仅 Content-Length 不够）
+          (cd rel && sha256sum "qingyu-${TAG}-android.apk" > "qingyu-${TAG}-android.apk.sha256")
           # Release 已存在（如重跑流水线）则只更新资产，否则创建并自动生成变更说明
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "rel/qingyu-${TAG}-android.apk" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" "rel/qingyu-${TAG}-android.apk" "rel/qingyu-${TAG}-android.apk.sha256" --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" "rel/qingyu-${TAG}-android.apk" \
+            gh release create "$TAG" "rel/qingyu-${TAG}-android.apk" "rel/qingyu-${TAG}-android.apk.sha256" \
               --repo "$GITHUB_REPOSITORY" \
               --title "轻语记账 $TAG" \
               --generate-notes

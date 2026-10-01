@@ -1,13 +1,16 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
-import { Sheet, Confirm } from '../ui.jsx'
+import { Sheet, Confirm, Switch } from '../ui.jsx'
 import { AvatarFace, useMediaActions, useTheme } from '../theme.jsx'
+import { useUpdate } from '../update-ctx.jsx'
+import { APP_VERSION } from '../update.js'
 import { bookkeepingDays, streakOf, txsOfLedger } from '../utils.js'
 
 export default function Profile() {
   const { state, set, toast } = useStore()
   const nav = useNav()
+  const upd = useUpdate()
   const media = useMediaActions()
   const avatarFileRef = useRef(null)
   const [nameOpen, setNameOpen] = useState(false)
@@ -127,7 +130,7 @@ export default function Profile() {
           </div>
         </div>
 
-        <div className="ver-foot">轻语记账 v1.6.8 · GPL-3.0 · 全功能免费</div>
+        <div className="ver-foot">轻语记账 v{APP_VERSION} · GPL-3.0 · 全功能免费</div>
       </div>
 
       {/* 改名 */}
@@ -166,7 +169,7 @@ export default function Profile() {
         <div className="center-box" style={{ padding: '10px 0' }}>
           <div style={{ fontSize: 52 }}>📖</div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
-          <div className="muted">v1.6.8 · 全功能免费</div>
+          <div className="muted">v{APP_VERSION} · 全功能免费</div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
@@ -178,6 +181,23 @@ export default function Profile() {
             💡 记账虽不能直接实现财务自由，但坚持记、不断改善，一定可以。
           </div>
         </div>
+
+        {/* v1.7.0 应用内更新：手动检查 + 自动下载开关 */}
+        <button className="btn" style={{ marginTop: 4 }} onClick={upd?.checkManual}>
+          {upd?.status === 'checking' ? '检查中…' : '检查更新'}
+        </button>
+        {upd?.native && (
+          <div className="cell" style={{ marginTop: 10 }} onClick={() => upd.setAutoDownload(!upd.autoDl)}>
+            <div className="cico">⚡</div>
+            <div className="cmain">
+              <div className="ctitle">发现新版自动下载</div>
+              <div className="cdesc">后台下载不打扰，安装仍需你确认</div>
+            </div>
+            <div className="cright">
+              <Switch on={upd.autoDl} onChange={() => upd.setAutoDownload(!upd.autoDl)} />
+            </div>
+          </div>
+        )}
       </Sheet>
 
       {/* 反馈 */}

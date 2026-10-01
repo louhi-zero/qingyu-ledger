@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
-import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs } from '../theme.jsx'
+import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs, useTheme } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { DISCOVER_TOOLS } from './Discover.jsx'
 import { getNotifyCatch, isNotifyListening, openNotifySettings, testNotifyEmit } from '../notifyCatch.js'
@@ -169,6 +169,13 @@ function ProfileSection({ ctx, nav }) {
 function AppearanceSection({ ctx }) {
   const { state, set, toast, media } = ctx
   const s = state.settings
+  const { wallUrl } = useTheme()
+  const tabImgs = useTabIconImgs()
+  const discImgsCtx = useDiscIconImgs(DISCOVER_TOOLS.map((t) => t.key))
+  // v1.6.9 个性化预览卡：真实缩略图 + 自定义计数，所见即所得
+  const TAB_KEYS = ['home', 'charts', 'discover', 'profile']
+  const tabCount = TAB_KEYS.filter((k) => s.tabIconAt?.[k]).length
+  const discCount = DISCOVER_TOOLS.filter((t) => s.discIconAt?.[t.key]).length
   return (
     <>
       <div className="group">
@@ -208,13 +215,48 @@ function AppearanceSection({ ctx }) {
       </div>
       <div className="group">
         <div className="gtitle">背景与形象</div>
-        <div className="cell" onClick={() => ctx.wallpaperRef.current?.click()}>
-          <div className="cico">🖼️</div>
-          <div className="cmain">
-            <div className="ctitle">自定义壁纸</div>
-            <div className="cdesc">{s.wallpaperAt ? '已设置壁纸，点击重新选择' : '上传喜欢的图片，玻璃与我的页头部将随其晕光'}</div>
-          </div>
-          <div className="cright"><span className="arrow">›</span></div>
+        {/* v1.6.9 个性化视觉预览卡网格：缩略图所见即所得，替代纯文字列表 */}
+        <div className="skin-grid">
+          <button className="skin-card" onClick={() => ctx.wallpaperRef.current?.click()}>
+            <span className="skin-thumb">
+              {wallUrl
+                ? <img src={wallUrl} alt="" decoding="async" draggable={false} />
+                : <span className="skin-ph">🖼️</span>}
+            </span>
+            <b>自定义壁纸</b>
+            <span className="skin-st">{s.wallpaperAt ? '已设置 · 点击更换' : '未设置'}</span>
+          </button>
+          <button className="skin-card" onClick={() => ctx.setWelcomeOpen(true)}>
+            <span className="skin-thumb">
+              {ctx.welcomeBg
+                ? <img src={ctx.welcomeBg} alt="" decoding="async" draggable={false} />
+                : <span className="skin-ph">🌅</span>}
+            </span>
+            <b>启动页背景</b>
+            <span className="skin-st">{s.welcomeBgAt ? '已设置 · 点击更换' : '未设置'}</span>
+          </button>
+          <button className="skin-card" onClick={() => ctx.setTabIconOpen(true)}>
+            <span className="skin-thumb skin-thumb-tabs">
+              {TAB_KEYS.map((k) => (
+                tabImgs[k]
+                  ? <img key={k} src={tabImgs[k]} alt="" decoding="async" draggable={false} />
+                  : <i key={k}>{DEFAULT_TAB_ICONS[k]}</i>
+              ))}
+            </span>
+            <b>底部菜单图标</b>
+            <span className="skin-st">{tabCount ? `已自定义 ${tabCount}/4` : '未自定义'}</span>
+          </button>
+          <button className="skin-card" onClick={() => { ctx.setDiscIconKey('scan'); ctx.setDiscIconOpen(true) }}>
+            <span className="skin-thumb skin-thumb-tabs">
+              {DISCOVER_TOOLS.slice(0, 4).map((t) => (
+                s.discIconAt?.[t.key] && discImgsCtx[t.key]
+                  ? <img key={t.key} src={discImgsCtx[t.key]} alt="" decoding="async" draggable={false} />
+                  : <i key={t.key}>{t.icon}</i>
+              ))}
+            </span>
+            <b>发现页功能图标</b>
+            <span className="skin-st">{discCount ? `已自定义 ${discCount}/14` : '未自定义'}</span>
+          </button>
         </div>
         {s.wallpaperAt && (
           <div className="cell" onClick={async () => {
@@ -226,30 +268,6 @@ function AppearanceSection({ ctx }) {
             <div className="cright"><span className="arrow">›</span></div>
           </div>
         )}
-        <div className="cell" onClick={() => ctx.setWelcomeOpen(true)}>
-          <div className="cico">🌅</div>
-          <div className="cmain">
-            <div className="ctitle">启动页背景</div>
-            <div className="cdesc">{s.welcomeBgAt ? '已设置，点击重新选择' : '上传一张图，首次打开更有专属感'}</div>
-          </div>
-          <div className="cright"><span className="arrow">›</span></div>
-        </div>
-        <div className="cell" onClick={() => ctx.setTabIconOpen(true)}>
-          <div className="cico">🧩</div>
-          <div className="cmain">
-            <div className="ctitle">底部菜单图标</div>
-            <div className="cdesc">上传白底图片自定义四个页签图标，自动居中裁切</div>
-          </div>
-          <div className="cright"><span className="arrow">›</span></div>
-        </div>
-        <div className="cell" onClick={() => ctx.setDiscIconOpen(true)}>
-          <div className="cico">✨</div>
-          <div className="cmain">
-            <div className="ctitle">发现页功能图标</div>
-            <div className="cdesc">为发现页 14 个功能入口上传任意图标图片，液态玻璃自动适配</div>
-          </div>
-          <div className="cright"><span className="arrow">›</span></div>
-        </div>
       </div>
       <div className="group">
         <div className="gtitle">点击反馈</div>

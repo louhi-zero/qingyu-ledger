@@ -9,6 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // v1.5 收支监控：注册本地通知监听插件
         registerPlugin(NotifyCatchPlugin.class);
+        // v1.7.0 应用内更新：注册 APK 下载/安装插件
+        registerPlugin(UpdatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
