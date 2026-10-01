@@ -7,10 +7,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
-import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs } from '../theme.jsx'
+import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
-import { getNotifyCatch, isNotifyListening, openNotifySettings } from '../notifyCatch.js'
-import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES } from '../utils.js'
+import { DISCOVER_TOOLS } from './Discover.jsx'
+import { getNotifyCatch, isNotifyListening, openNotifySettings, testNotifyEmit } from '../notifyCatch.js'
+import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify } from '../utils.js'
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
 
@@ -59,6 +60,10 @@ function useSettingsCtx() {
   const [tabIconOpen, setTabIconOpen] = useState(false)
   const [tabIconPage, setTabIconPage] = useState('home')
   const tabIconFileRef = useRef(null)
+  // v1.6.8 发现页功能图标自定义（任意背景图片均可）
+  const [discIconOpen, setDiscIconOpen] = useState(false)
+  const [discIconKey, setDiscIconKey] = useState('scan')
+  const discIconFileRef = useRef(null)
   const [pending, setPending] = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const restoreRef = useRef(null)
@@ -124,6 +129,7 @@ function useSettingsCtx() {
     confirmClear, setConfirmClear, restoreRef, avatarFileRef,
     wallpaperRef, welcomeFileRef, aiFaceFileRef, openName, pickImage, readRestore,
     tabIconOpen, setTabIconOpen, tabIconPage, setTabIconPage, tabIconFileRef,
+    discIconOpen, setDiscIconOpen, discIconKey, setDiscIconKey, discIconFileRef,
   }
 }
 
@@ -176,19 +182,26 @@ function AppearanceSection({ ctx }) {
           <div className="cright"><Switch on={s.glassOn} onChange={() => set((d) => { d.settings.glassOn = !d.settings.glassOn })} /></div>
         </div>
         {s.glassOn && (
-          <div className="cell">
+          <div className="cell range-cell">
             <div className="cico">🌫️</div>
             <div className="cmain">
               <div className="ctitle">模糊强度</div>
-              <div className="cdesc">数值越大磨砂感越强</div>
+              <div className="cdesc">数值越大，背景越清晰、磨砂层越透</div>
             </div>
-            <div className="cright" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="cright" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
                 type="range" min={8} max={28} step={2} value={s.glassBlur}
-                onChange={(e) => set((d) => { d.settings.glassBlur = Number(e.target.value) })}
-                style={{ width: 110 }}
+                aria-label="模糊强度"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  // 先直接写 CSS 变量：拖动时雾度零延迟变化，不等待 React 重渲染
+                  const root = document.documentElement
+                  root.style.setProperty('--glass-blur', `${v}px`)
+                  root.style.setProperty('--glass-blur-n', String(v))
+                  set((d) => { d.settings.glassBlur = v })
+                }}
               />
-              <span className="muted" style={{ width: 34, textAlign: 'right' }}>{s.glassBlur}</span>
+              <span className="muted" style={{ width: 30, textAlign: 'right' }}>{s.glassBlur}</span>
             </div>
           </div>
         )}
@@ -229,16 +242,44 @@ function AppearanceSection({ ctx }) {
           </div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
+        <div className="cell" onClick={() => ctx.setDiscIconOpen(true)}>
+          <div className="cico">✨</div>
+          <div className="cmain">
+            <div className="ctitle">发现页功能图标</div>
+            <div className="cdesc">为发现页 14 个功能入口上传任意图标图片，液态玻璃自动适配</div>
+          </div>
+          <div className="cright"><span className="arrow">›</span></div>
+        </div>
       </div>
       <div className="group">
         <div className="gtitle">点击反馈</div>
-        <div className="cell" onClick={() => set((d) => { d.settings.tapFeedback = d.settings.tapFeedback === false })}>
+        <div className="cell" onClick={() => set((d) => { d.settings.tapScale = d.settings.tapScale === false })}>
+          <div className="cico">�</div>
+          <div className="cmain">
+            <div className="ctitle">按压缩放动画</div>
+            <div className="cdesc">点按按钮与列表项时的轻微缩放反馈</div>
+          </div>
+          <div className="cright"><Switch on={s.tapScale !== false} onChange={() => set((d) => { d.settings.tapScale = d.settings.tapScale === false })} /></div>
+        </div>
+        <div className="cell vibrate-cell">
           <div className="cico">📳</div>
           <div className="cmain">
-            <div className="ctitle">按压缩放与轻震动</div>
-            <div className="cdesc">点按时的缩放反馈与 8ms 触觉震动（设备支持时）</div>
+            <div className="ctitle">震动反馈强度</div>
+            <div className="cdesc">手指落下即震；滑动滚动自动撤震，不会烦人</div>
           </div>
-          <div className="cright"><Switch on={s.tapFeedback !== false} onChange={() => set((d) => { d.settings.tapFeedback = d.settings.tapFeedback === false })} /></div>
+          <div className="cright">
+            <Seg
+              options={[{ label: '关', value: 0 }, { label: '轻柔', value: 1 }, { label: '标准', value: 2 }, { label: '明快', value: 3 }]}
+              value={s.vibrateLevel ?? 2}
+              onChange={(v) => {
+                set((d) => { d.settings.vibrateLevel = v })
+                // 选择即预览（除关闭外），让用户当场感受档位差异
+                if (v > 0 && typeof navigator !== 'undefined' && navigator.vibrate) {
+                  try { navigator.vibrate([0, 6, 10, 20][v]) } catch { /* ignore */ }
+                }
+              }}
+            />
+          </div>
         </div>
       </div>
       <input
@@ -361,8 +402,14 @@ function NotifySection({ ctx }) {
   const s = state.settings
   const [nativeOk, setNativeOk] = useState(false)
   const [listening, setListening] = useState(false)
+  const [sandbox, setSandbox] = useState('微信支付收款0.01元')
+  const [sandboxState, setSandboxState] = useState({ status: 'none' })
 
-  // 检测原生插件与通知使用权连接状态
+  const refreshListening = () => {
+    isNotifyListening().then(setListening).catch(() => {})
+  }
+
+  // 检测原生插件与通知使用权连接状态；回前台/从系统设置返回时自动刷新
   useEffect(() => {
     let alive = true
     getNotifyCatch().then((p) => {
@@ -370,7 +417,25 @@ function NotifySection({ ctx }) {
       setNativeOk(!!p)
       if (p) isNotifyListening().then((v) => { if (alive) setListening(v) }).catch(() => {})
     }).catch(() => {})
-    return () => { alive = false }
+    const onVis = () => { if (document.visibilityState === 'visible') refreshListening() }
+    document.addEventListener('visibilitychange', onVis)
+    let resumeHandle = null
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core')
+        if (!Capacitor.isNativePlatform()) return
+        const { App } = await import('@capacitor/app')
+        if (cancelled) return
+        resumeHandle = await App.addListener('resume', refreshListening)
+      } catch { /* 非原生环境静默 */ }
+    })()
+    return () => {
+      alive = false
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVis)
+      resumeHandle?.remove?.().catch(() => {})
+    }
   }, [s.notifyCatch])
 
   // 每日提醒：开关与行内点击共用，行为保持一致（含权限申请与提示）
@@ -381,6 +446,25 @@ function NotifySection({ ctx }) {
       Notification.requestPermission().catch(() => {})
     }
     toast(next ? '已开启每日提醒' : '已关闭提醒')
+  }
+
+  // 打开系统通知使用权页；开启监控时自动引导
+  const openAuth = async () => {
+    const ok = await openNotifySettings()
+    if (ok) toast('请在系统设置中允许轻语记账使用通知使用权')
+    else toast('无法打开系统设置页', 'err')
+  }
+
+  // 端到端测试：原生注入一条模拟微信收款通知 → 真实监听链路 → 解析 → 确认弹窗
+  const runNativeTest = async () => {
+    const ok = await testNotifyEmit({ title: '微信支付', text: '微信支付收款0.01元，可在账单详情查看', pkg: 'com.tencent.mm' })
+    toast(ok ? '已发送测试通知，应弹出确认记账窗' : '原生通道不可用', ok ? 'ok' : 'err')
+  }
+
+  // 解析沙盒：任意环境可用，验证文案识别规则
+  const runSandbox = () => {
+    const p = parseMoneyNotify('通知测试', sandbox, '')
+    setSandboxState(p ? { status: 'ok', p } : { status: 'fail' })
   }
 
   return (
@@ -410,7 +494,11 @@ function NotifySection({ ctx }) {
 
       <div className="group">
         <div className="gtitle">收支监控</div>
-        <div className="cell" onClick={() => set((d) => { d.settings.notifyCatch = !d.settings.notifyCatch })}>
+        <div className="cell" onClick={() => set((d) => {
+          const next = !d.settings.notifyCatch
+          d.settings.notifyCatch = next
+          if (next && nativeOk) setTimeout(openAuth, 300)
+        })}>
           <div className="cico">👁️</div>
           <div className="cmain">
             <div className="ctitle">微信 / 支付宝收支监控</div>
@@ -419,29 +507,55 @@ function NotifySection({ ctx }) {
           <div className="cright"><Switch on={s.notifyCatch} onChange={() => set((d) => { d.settings.notifyCatch = !d.settings.notifyCatch })} /></div>
         </div>
         {s.notifyCatch && nativeOk && (
-          <div className="cell" onClick={async () => {
-            const ok = await openNotifySettings()
-            if (ok) toast('请在系统设置中允许轻语记账使用通知使用权')
-          }}>
+          <div className="cell" onClick={openAuth}>
             <div className="cico">🔐</div>
             <div className="cmain">
               <div className="ctitle">通知使用权</div>
-              <div className="cdesc">{listening ? '已授权，正在监听通知' : '未授权，点击去系统设置开启'}</div>
+              <div className="cdesc">{listening ? '已授权，正在监听微信/支付宝通知' : '未授权或被系统回收，点击去开启'}</div>
             </div>
             <div className="cright">
               <span className="tag" style={{ color: listening ? 'var(--income)' : 'var(--expense)' }}>
-                {listening ? '已连接' : '待授权'}
+                {listening ? '● 已连接' : '待授权'}
               </span>
               <span className="arrow">›</span>
             </div>
           </div>
         )}
+        {s.notifyCatch && nativeOk && (
+          <div className="cell" onClick={runNativeTest}>
+            <div className="cico">🧪</div>
+            <div className="cmain">
+              <div className="ctitle">发送测试通知</div>
+              <div className="cdesc">注入一条 0.01 元模拟收款，验证监听→解析→弹窗全链路</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
+        )}
+        {/* 识别规则沙盒：浏览器/桌面也能验证文案解析，无需真付款 */}
+        <div className="notify-sandbox">
+          <div className="muted" style={{ fontSize: 12.5, marginBottom: 6 }}>🔎 文案识别测试（粘贴通知内容，验证能否识别金额与收支方向）</div>
+          <textarea
+            className="input" rows={2} value={sandbox}
+            placeholder="例如：微信支付-9.90 / 支付宝到账100.00元"
+            onChange={(e) => { setSandbox(e.target.value); setSandboxState({ status: 'none' }) }}
+          />
+          <button className="btn ghost" style={{ marginTop: 8, padding: '8px 14px' }} onClick={runSandbox}>测试识别</button>
+          {sandboxState.status === 'ok' && (
+            <div className="sandbox-ok">
+              ✓ 识别成功：{sandboxState.p.source === 'wechat' ? '微信' : '支付宝'} ·
+              {sandboxState.p.kind === 'income' ? '收入' : '支出'} · ¥{sandboxState.p.amount}
+            </div>
+          )}
+          {sandboxState.status === 'fail' && (
+            <div className="sandbox-fail">未识别为收支通知（缺来源/金额/方向关键词，或属于验证码等噪声），不会弹窗</div>
+          )}
+        </div>
         <div className="cell">
           <div className="cico">ℹ️</div>
           <div className="cmain">
             <div className="ctitle">工作方式与隐私</div>
             <div className="cdesc" style={{ lineHeight: 1.7 }}>
-              使用 Android 通知使用权读取微信/支付宝通知原文，在本机解析金额与收支方向后弹窗确认，任何内容不上传。识别不出的通知直接忽略。{!nativeOk && '当前为浏览器/桌面环境，此功能不可用。'}
+              使用 Android 通知使用权读取微信/支付宝通知原文（含展开文本与会话消息），在本机解析金额与方向后弹窗确认，任何内容不上传；识别不出直接忽略，15 秒内重复通知自动去重。{!nativeOk && '当前为浏览器/桌面环境，监听功能不可用，仅可做文案测试。'}
             </div>
           </div>
         </div>
@@ -589,7 +703,9 @@ function SectionSheets({ ctx, section }) {
   const { state, set, toast, media } = ctx
   const s = state.settings
   const tabImgs = useTabIconImgs()
+  const discImgs = useDiscIconImgs(DISCOVER_TOOLS.map((t) => t.key))
   const [busyTab, setBusyTab] = useState(false)
+  const [busyDisc, setBusyDisc] = useState(false)
 
   // v1.6 底部图标上传：严格白底校验（非白底在压缩时抛错）
   const upTabIcon = async (file) => {
@@ -602,6 +718,20 @@ function SectionSheets({ ctx, section }) {
       toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底图片' : '图片读取失败，请换一张试试', 'err')
     } finally {
       setBusyTab(false)
+    }
+  }
+
+  // v1.6.8 发现页图标上传：任意背景图片均可，144×144 居中裁切
+  const upDiscIcon = async (file) => {
+    if (!file) return
+    setBusyDisc(true)
+    try {
+      await media.saveDiscIcon(ctx.discIconKey, file)
+      toast('功能图标已更新')
+    } catch {
+      toast('图片读取失败，请换一张试试', 'err')
+    } finally {
+      setBusyDisc(false)
     }
   }
   return (
@@ -741,6 +871,47 @@ function SectionSheets({ ctx, section }) {
           })
           toast('已恢复默认参考汇率')
         }}>恢复默认参考汇率</button>
+      </Sheet>
+
+      {/* v1.6.8 发现页功能图标：任意背景图片上传，玻璃材质自动适配 */}
+      <Sheet open={ctx.discIconOpen} onClose={() => ctx.setDiscIconOpen(false)} title="发现页功能图标">
+        <div className="tabicon-grid discicon-grid">
+          {DISCOVER_TOOLS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={`tabicon-item ${ctx.discIconKey === t.key ? 'on' : ''}`}
+              onClick={() => ctx.setDiscIconKey(t.key)}
+            >
+              <span className={`tico-cell gi-cell${discImgs[t.key] ? ' has-img' : ''}`}>
+                {discImgs[t.key]
+                  ? <img className="tabicon-img discicon-img" src={discImgs[t.key]} alt="" decoding="async" draggable="false" />
+                  : t.icon}
+              </span>
+              <span>{t.name}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ height: 14 }} />
+        <div className="center-box" style={{ padding: '0 0 12px' }}>
+          <div className="muted" style={{ fontSize: 12, lineHeight: 1.7 }}>
+            先点选功能入口，再上传图片：自动居中裁切为 144×144 并实时应用到发现页。<br />
+            任意背景图片均可（不限制白底），玻璃开启时自动套用磨砂描边与高光
+          </div>
+        </div>
+        <button className="btn" disabled={busyDisc} onClick={() => ctx.discIconFileRef.current?.click()}>
+          {busyDisc ? '处理中…' : `📷 为「${(DISCOVER_TOOLS.find((t) => t.key === ctx.discIconKey) || {}).name || ''}」上传图片`}
+        </button>
+        {s.discIconAt?.[ctx.discIconKey] && (
+          <button className="btn ghost" style={{ marginTop: 10 }} disabled={busyDisc} onClick={async () => {
+            await media.clearDiscIcon(ctx.discIconKey)
+            toast('已恢复该功能默认图标')
+          }}>恢复默认图标</button>
+        )}
+        <input
+          ref={ctx.discIconFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) upDiscIcon(f); e.target.value = '' }}
+        />
       </Sheet>
 
       {/* v1.6 底部菜单图标：白底图片上传（v1.6.1 移除表情自定义，仅保留图片） */}

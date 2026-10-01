@@ -100,9 +100,14 @@ export function emptyState() {
       baseCurrency: 'CNY',
       // v1.5 收支监控：Android 通知监听（微信/支付宝收支自动弹确认窗），仅原生端生效
       notifyCatch: false,
-      // v1.6 个性化：点击反馈（按压缩放 + 轻震动）；底部菜单图标图片更新时间（本体 IndexedDB 'tabicon_<page>'）
+      // v1.6 个性化：点击反馈；底部菜单图标图片更新时间（本体 IndexedDB 'tabicon_<page>'）
+      // v1.6.8 拆分：tapScale 管按压缩放，vibrateLevel 管震动强度（0 关/1 轻柔 6ms/2 标准 10ms/3 明快 20ms）
       tapFeedback: true,
+      tapScale: true,
+      vibrateLevel: 2,
       tabIconAt: { home: null, charts: null, discover: null, profile: null },
+      // v1.6.8 发现页功能图标自定义（本体 IndexedDB 'discicon_<key>'，时间戳表驱动刷新）
+      discIconAt: {},
       // v1.6.5 公告：接收应用公告（发现页公告卡 + 重要公告弹窗，均受此开关控制）
       noticeEnabled: true,
     },

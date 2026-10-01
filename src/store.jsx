@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
 import { emptyState, demoState } from './seed.js'
-import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt } from './utils.js'
+import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
 
@@ -31,6 +31,15 @@ export function migrateState(s) {
   if (!s.settings.tabIcons || typeof s.settings.tabIcons !== 'object' || Array.isArray(s.settings.tabIcons)) s.settings.tabIcons = {}
   // v1.6 底部菜单图标自定义恢复：图片时间戳表归一（本体在 IndexedDB 'tabicon_<page>'）
   s.settings.tabIconAt = normalizeTabIconAt(s.settings.tabIconAt)
+  // v1.6.8 发现页功能图标时间戳表归一（本体在 IndexedDB 'discicon_<key>'）
+  s.settings.discIconAt = normalizeDiscIconAt(s.settings.discIconAt)
+  // v1.6.8 点击反馈拆分迁移：老版本只有 tapFeedback（缩放+震动合一开关）
+  if (!('tapScale' in s.settings)) s.settings.tapScale = s.settings.tapFeedback !== false
+  if (!('vibrateLevel' in s.settings)) {
+    s.settings.vibrateLevel = s.settings.tapFeedback === false ? 0 : 2
+  } else if (![0, 1, 2, 3].includes(Number(s.settings.vibrateLevel))) {
+    s.settings.vibrateLevel = 2
+  }
   // v1.2 记账模板 + 交易行级新字段（可选字段，逐行补默认即可）
   if (!Array.isArray(s.templates)) s.templates = []
   if (Array.isArray(s.transactions)) {

@@ -3,13 +3,32 @@ import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { Seg, StatRow, Bar, Amount, Sheet } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
-import { AiFace } from '../theme.jsx'
+import { AiFace, useDiscIconImgs } from '../theme.jsx'
 import { fmt, periodOf, periodLabel, txsOfPeriod, sumBy, netWorth, round2, todayStr } from '../utils.js'
 import { getNotice, unreadNotice, loadRead, saveRead, noticeKey } from '../notice.js'
+
+// v1.6.8 发现页功能图标自定义：key 与设置弹层共用
+export const DISCOVER_TOOLS = [
+  { key: 'scan', icon: '📸', name: '扫票记账', page: 'scan' },
+  { key: 'assets', icon: '🏦', name: '资产管家', page: 'assets' },
+  { key: 'creditCards', icon: '🪪', name: '信用卡', page: 'creditCards' },
+  { key: 'debts', icon: '📉', name: '债务管理', page: 'debts' },
+  { key: 'goals', icon: '🎯', name: '储蓄目标', page: 'goals' },
+  { key: 'reimburse', icon: '💼', name: '报销管理', page: 'reimburse' },
+  { key: 'templates', icon: '⚡', name: '记账模板', page: 'templates' },
+  { key: 'loan', icon: '🏠', name: '房贷计算器', page: 'loan' },
+  { key: 'fx', icon: '💱', name: '汇率换算', page: 'fx' },
+  { key: 'invoice', icon: '🧾', name: '发票助手', page: 'invoice' },
+  { key: 'import', icon: '📥', name: '账单导入', page: 'import' },
+  { key: 'recurring', icon: '🔁', name: '周期记账', page: 'recurring' },
+  { key: 'ledgers', icon: '📒', name: '账本管理', page: 'ledgers' },
+  { key: 'review', icon: '🪄', name: '消费点评', page: 'review' },
+]
 
 export default function Discover() {
   const { state } = useStore()
   const nav = useNav()
+  const discImgs = useDiscIconImgs(DISCOVER_TOOLS.map((t) => t.key))
   const sd = state.settings.monthStartDay || 1
   const period = periodOf(todayStr(), sd)
   const txs = txsOfPeriod(state, period)
@@ -21,22 +40,6 @@ export default function Discover() {
   const usePct = budget > 0 ? (exp / budget) * 100 : 0
   const nw = netWorth(state)
 
-  const tools = [
-    { icon: '📸', name: '扫票记账', page: 'scan' },
-    { icon: '🏦', name: '资产管家', page: 'assets' },
-    { icon: '🪪', name: '信用卡', page: 'creditCards' },
-    { icon: '📉', name: '债务管理', page: 'debts' },
-    { icon: '🎯', name: '储蓄目标', page: 'goals' },
-    { icon: '💼', name: '报销管理', page: 'reimburse' },
-    { icon: '⚡', name: '记账模板', page: 'templates' },
-    { icon: '🏠', name: '房贷计算器', page: 'loan' },
-    { icon: '💱', name: '汇率换算', page: 'fx' },
-    { icon: '🧾', name: '发票助手', page: 'invoice' },
-    { icon: '📥', name: '账单导入', page: 'import' },
-    { icon: '🔁', name: '周期记账', page: 'recurring' },
-    { icon: '📒', name: '账本管理', page: 'ledgers' },
-    { icon: '🪄', name: '消费点评', page: 'review' },
-  ]
   const aiReport = state.aiReports?.[period]
 
   // v1.6.5 公告卡：拉取 notice.json（三级缓存），未读红点，点击看全文
@@ -163,11 +166,22 @@ export default function Discover() {
 
         {/* 常用功能 */}
         <div className="card">
-          <div className="card-title" style={{ marginBottom: 12 }}>常用功能</div>
+          <div className="card-title" style={{ marginBottom: 12 }}>
+            常用功能
+            <button
+              type="button"
+              className="disc-custom-btn"
+              onClick={() => nav.push({ page: 'settingsSection', title: '外观与个性化', params: { section: 'appearance' } })}
+            >🎨 自定义图标</button>
+          </div>
           <div className="grid4">
-            {tools.map((t) => (
-              <button key={t.page} className="gitem" onClick={() => nav.push({ page: t.page })}>
-                <div className="gi">{t.icon}</div>
+            {DISCOVER_TOOLS.map((t) => (
+              <button key={t.key} className="gitem" onClick={() => nav.push({ page: t.page })}>
+                <div className={`gi${discImgs[t.key] ? ' gi-img' : ''}`}>
+                  {discImgs[t.key]
+                    ? <img src={discImgs[t.key]} alt="" decoding="async" draggable="false" />
+                    : t.icon}
+                </div>
                 <span>{t.name}</span>
               </button>
             ))}

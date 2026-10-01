@@ -143,18 +143,46 @@ function Shell() {
 
   const nav = { push, pop, openAdd, tab, setTab }
 
-  // v1.6 点击反馈：全 App 按压轻震动 8ms（设置-外观 可关；浏览器不支持时静默）
-  // v1.6.3 修复：Android WebView 的 navigator.vibrate 需应用持有 VIBRATE 权限（已补声明），否则静默返回 false
-  const tapFeedback = state.settings.tapFeedback !== false
+  // v1.6.8 震动反馈：pointerdown 即时触发，强度四档可调（0 关 / 6 / 10 / 20ms）。
+  // 防烦人：手指落下先轻震，若判定为滑动（移动 >14px 或 pointercancel）立即 vibrate(0) 撤震，
+  // 这样滚动列表不会一路嗡嗡响；多指与禁用按钮不震。
+  const vibrateLevel = [0, 1, 2, 3].includes(Number(state.settings.vibrateLevel))
+    ? Number(state.settings.vibrateLevel) : 2
   useEffect(() => {
-    if (!tapFeedback) return undefined
-    const h = (e) => {
-      if (!e.target?.closest?.('button, .cell, .txitem, .chip') || !navigator.vibrate) return
-      try { navigator.vibrate(8) } catch { /* ignore */ }
+    if (vibrateLevel === 0 || typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+      return undefined
     }
-    document.addEventListener('click', h, true)
-    return () => document.removeEventListener('click', h, true)
-  }, [tapFeedback])
+    const ms = [0, 6, 10, 20][vibrateLevel]
+    const MOVE_LIMIT = 196 // 14px²
+    const down = (e) => {
+      if (e.isPrimary === false) return
+      const el = e.target?.closest?.('button, .cell, .txitem, .chip')
+      if (!el) return
+      const b = el.closest?.('button')
+      if (b && (b.disabled || b.getAttribute('aria-disabled') === 'true')) return
+      const sx = e.clientX
+      const sy = e.clientY
+      const cancel = (ev) => {
+        const dx = ev.clientX - sx
+        const dy = ev.clientY - sy
+        if (ev.type === 'pointercancel' || dx * dx + dy * dy > MOVE_LIMIT) {
+          try { navigator.vibrate(0) } catch { /* ignore */ }
+          cleanup()
+        }
+      }
+      const cleanup = () => {
+        window.removeEventListener('pointermove', cancel)
+        window.removeEventListener('pointercancel', cancel)
+        window.removeEventListener('pointerup', cleanup)
+      }
+      window.addEventListener('pointermove', cancel, { passive: true })
+      window.addEventListener('pointercancel', cancel, { passive: true })
+      window.addEventListener('pointerup', cleanup, { passive: true })
+      try { navigator.vibrate(ms) } catch { /* ignore */ }
+    }
+    document.addEventListener('pointerdown', down, { passive: true, capture: true })
+    return () => document.removeEventListener('pointerdown', down, { capture: true })
+  }, [vibrateLevel])
 
   // v1.6 底部菜单自定义图片图标（IndexedDB 'tabicon_<page>'）
   const tabImgs = useTabIconImgs()
@@ -167,10 +195,10 @@ function Shell() {
     let alive = true
     startNotifyCatch((n) => {
       if (!alive || !n) return
-      // 同签名通知 15 秒内去重（系统会重复 post 分组通知）
+      // 同签名通知 15 秒内去重（系统会重复 post 分组通知）；带原生 ts 时并入签名
       const sig = `${n.title || ''}|${n.text || ''}`
       const last = seenRef.current.get(sig) || 0
-      const now = Date.now()
+      const now = n.ts || Date.now()
       if (now - last < 15000) return
       seenRef.current.set(sig, now)
       if (seenRef.current.size > 50) seenRef.current.clear()

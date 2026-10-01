@@ -1,12 +1,18 @@
 apply plugin: 'com.android.application'
 
-// 可选 release 签名：仅当 android/app/keystore.properties 存在时启用（CI 从 Secrets 生成）。
-// 该文件不入库；缺失时 release 只产出未签名包，debug 构建不受任何影响。
+// v1.6.8 签名一致性：默认使用随仓库入库的 release 密钥（qingyu-release.p12），
+// 保证任何机器/CI 每次构建签名相同，应用内下载更新可直接覆盖安装。
+// 仍可用 android/app/keystore.properties（不入库，CI 可由 Secrets 生成）覆盖为自己的密钥。
 def keystorePropertiesFile = rootProject.file("app/keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def defaultStoreFile = rootProject.file("app/qingyu-release.p12")
+def releaseStoreFile = keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : defaultStoreFile
+def releaseStorePassword = keystoreProperties['storePassword'] ?: 'qingyu2026'
+def releaseKeyAlias = keystoreProperties['keyAlias'] ?: 'qingyu'
+def releaseKeyPassword = keystoreProperties['keyPassword'] ?: 'qingyu2026'
 
 android {
     namespace "com.qingyu.ledger"
@@ -15,8 +21,8 @@ android {
         applicationId "com.qingyu.ledger"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "1.6.6"
+        versionCode 16
+        versionName "1.6.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -26,21 +32,21 @@ android {
     }
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-            }
+            storeFile releaseStoreFile
+            storePassword releaseStorePassword
+            keyAlias releaseKeyAlias
+            keyPassword releaseKeyPassword
+            // 显式启用 v1/v2/v3：覆盖安装校验更快更稳，Android 7+/9+ 走新式签名
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV3Signing true
         }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (keystorePropertiesFile.exists()) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
         }
     }
 }

@@ -58,13 +58,38 @@ export function ThemeProvider({ children }) {
   const [wallUrl, setWallUrl] = useState(null)
   const [palette, setPalette] = useState([])
 
-  // 玻璃开关与模糊度 + 点击反馈开关
+  // 玻璃总开关：启动/开启时分两级上屏——先铺 tint（首帧极轻、可立刻交互），
+  // 两帧后再挂 backdrop-filter（错开大面积模糊光栅化的启动峰值，期间背景仍在 .2s 淡入）。
+  // setTimeout 是隐藏窗口等 rAF 不推进环境下的兜底。
   useEffect(() => {
     const el = document.documentElement
     el.dataset.glass = s.glassOn ? 'on' : 'off'
-    el.style.setProperty('--glass-blur', `${s.glassBlur ?? 16}px`)
-    el.dataset.tap = s.tapFeedback === false ? 'off' : 'on'
-  }, [s.glassOn, s.glassBlur, s.tapFeedback])
+    if (!s.glassOn) {
+      delete el.dataset.gboot
+      return undefined
+    }
+    el.dataset.gboot = '1'
+    let raf2 = 0
+    const done = () => { delete el.dataset.gboot }
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(done) })
+    const timer = setTimeout(done, 150)
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); clearTimeout(timer) }
+  }, [s.glassOn])
+
+  // 模糊度变量（拖动时只改 CSS 变量，成本极低）
+  // --glass-blur 带 px 供模糊半径用；--glass-blur-n 无单位供 veil 浓度做数字运算
+  useEffect(() => {
+    const el = document.documentElement
+    const n = Number(s.glassBlur ?? 16)
+    el.style.setProperty('--glass-blur', `${n}px`)
+    el.style.setProperty('--glass-blur-n', String(n))
+  }, [s.glassBlur])
+
+  // 按压缩放开关（震动强度由 App.jsx 按 vibrateLevel 处理）
+  useEffect(() => {
+    const el = document.documentElement
+    el.dataset.tap = s.tapScale === false ? 'off' : 'on'
+  }, [s.tapScale])
 
   // 壁纸：avatarPhotoAt 同理，wallpaperAt 变化时重新取 objectURL
   useEffect(() => {
@@ -105,7 +130,7 @@ export function Backdrop() {
       <div className="bd-veil" />
       <div className="bd-glows">
         {glows.map((c, i) => (
-          <i key={i} className={`bd-glow g${i % 4}`} style={{ background: c }} />
+          <i key={i} className={`bd-glow g${i % 4}`} style={{ '--glow': c }} />
         ))}
       </div>
     </div>
@@ -153,6 +178,17 @@ export function useTabIconImgs() {
   const discover = useAssetUrl(at.discover, 'tabicon_discover')
   const profile = useAssetUrl(at.profile, 'tabicon_profile')
   return { home, charts, discover, profile }
+}
+// v1.6.8 发现页功能图标图片（IndexedDB 'discicon_<key>'，settings.discIconAt 驱动刷新）
+export function useDiscIconImgs(keys) {
+  const { state } = useStore()
+  const at = state.settings.discIconAt || {}
+  const urls = {}
+  for (const k of keys) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    urls[k] = useAssetUrl(at[k], `discicon_${k}`)
+  }
+  return urls
 }
 export function AiFace({ className = '', style }) {
   const { state } = useStore()
@@ -257,6 +293,22 @@ export function useMediaActions() {
         await replaceBlob(`tabicon_${page}`, null)
         set((d) => {
           if (d.settings.tabIconAt?.[page]) d.settings.tabIconAt[page] = null
+        })
+      },
+      // v1.6.8 发现页功能图标：接受任意背景图片（不做白底拦截），144×144 居中裁切
+      async saveDiscIcon(key, file) {
+        const blob = await fileToJpeg(file, { maxSize: 144, quality: 0.88, cover: true })
+        const at = new Date().toISOString()
+        await replaceBlob(`discicon_${key}`, blob)
+        set((d) => {
+          if (!d.settings.discIconAt || typeof d.settings.discIconAt !== 'object') d.settings.discIconAt = {}
+          d.settings.discIconAt[key] = at
+        })
+      },
+      async clearDiscIcon(key) {
+        await replaceBlob(`discicon_${key}`, null)
+        set((d) => {
+          if (d.settings.discIconAt?.[key]) d.settings.discIconAt[key] = null
         })
       },
     }),

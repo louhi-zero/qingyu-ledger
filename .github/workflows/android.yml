@@ -1,8 +1,8 @@
 name: Android APK
 
 # 手动触发或推送 v* 标签时，在云端构建可侧载的 APK；
-# 配置签名 Secrets 后额外产出可安装的 release APK（见末尾说明）。
-# 推送 v* 标签时自动创建 GitHub Release 并附上重命名后的 APK。
+# release 包默认用仓库内 qingyu-release.p12 稳定签名（每次构建签名一致，应用内更新可覆盖安装），
+# 也可配置签名 Secrets 覆盖为你自己的密钥。推送 v* 标签时自动创建 GitHub Release 并附上 APK。
 on:
   workflow_dispatch:
   push:
@@ -56,7 +56,7 @@ jobs:
         id: keystore_check
         run: echo "has=${{ secrets.ANDROID_KEYSTORE != '' }}" >> "$GITHUB_OUTPUT"
 
-      - name: 准备 release 签名（仅在配置了 Secrets 时）
+      - name: 可选：用 Secrets 覆盖 release 签名
         if: steps.keystore_check.outputs.has == 'true'
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 -d > android/app/qingyu-release.jks
@@ -73,8 +73,7 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: 构建 release APK（配置签名后）
-        if: steps.keystore_check.outputs.has == 'true'
+      - name: 构建 release APK（稳定密钥签名，可覆盖安装）
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
@@ -86,7 +85,6 @@ jobs:
           if-no-files-found: error
 
       - name: 上传 release APK
-        if: steps.keystore_check.outputs.has == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: qingyu-${{ github.ref_name }}-release-apk
@@ -100,9 +98,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           mkdir -p rel
-          # 有签名 release APK 用之，否则回退 debug APK
-          APK_SRC=$(ls android/app/build/outputs/apk/release/*.apk 2>/dev/null | head -n1 || true)
-          [ -z "$APK_SRC" ] && APK_SRC=$(ls android/app/build/outputs/apk/debug/*.apk | head -n1)
+          # 固定发布稳定签名的 release APK（与历史版本同签名，可直接覆盖安装）
+          APK_SRC=$(ls android/app/build/outputs/apk/release/*.apk | head -n1)
           echo "选用 APK: $APK_SRC"
           cp "$APK_SRC" "rel/qingyu-${TAG}-android.apk"
           # Release 已存在（如重跑流水线）则只更新资产，否则创建并自动生成变更说明
@@ -115,9 +112,11 @@ jobs:
               --generate-notes
           fi
 
-# ── release 签名 Secrets（可选，仓库 Settings → Secrets and variables → Actions）──
-# ANDROID_KEYSTORE          base64 编码的 .jks（本地：base64 -w0 qingyu-release.jks）
+# ── release 签名 Secrets（可选覆盖，仓库 Settings → Secrets and variables → Actions）──
+# 默认无需配置：CI 使用仓库内 android/app/qingyu-release.p12（密码 qingyu2026，别名 qingyu），
+# 所有版本同签名，应用内下载更新可直接覆盖安装。
+# 如需换成自己的密钥，再配置以下四项（build.gradle 检测到 keystore.properties 即优先使用）：
+# ANDROID_KEYSTORE          base64 编码的 .jks/.p12（本地：base64 -w0 文件）
 # ANDROID_KEYSTORE_PASSWORD  keystore 密码
 # ANDROID_KEY_ALIAS         密钥别名
 # ANDROID_KEY_PASSWORD       密钥密码
-# 未配置时只产出 debug APK，手机开启「允许安装未知来源应用」即可侧载。
