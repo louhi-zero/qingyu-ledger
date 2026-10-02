@@ -43,9 +43,12 @@ export default function Profile() {
   const days = bookkeepingDays(state)
   const streak = streakOf(state.checkins || [])
   const checkedToday = (state.checkins || []).includes(new Date().toLocaleDateString('sv'))
-  // v1.10.0 未配置坚果云（未登录）时点头像 → 登录引导；已配置保持换头像原行为
+  // v1.11.0 登录态判定：配置了坚果云（cloudReady）且用户没关同步 → 视为登录
   const cloudReady = !!getWebdavCfg()
-  const onAvatarClick = () => (cloudReady ? setAvatarOpen(true) : setLoginOpen(true))
+  const syncOff = state.settings.cloudSyncOff === true
+  const loggedIn = cloudReady && !syncOff
+  const displayName = loggedIn ? state.settings.nickname : '未登录'
+  const onAvatarClick = () => (loggedIn ? setAvatarOpen(true) : setLoginOpen(true))
   // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
   const { palette } = useTheme()
   const headGlows = palette.length ? palette : ['#5b8cff', '#7a6bff', '#42a5f5']
@@ -83,13 +86,13 @@ export default function Profile() {
             </div>
             <div className="me-id" style={{ flex: 1, minWidth: 0 }}>
               <div className="me-name" onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
-                <span className="me-name-txt">{state.settings.nickname}</span>
+                <span className="me-name-txt">{displayName}</span>
                 <span className="me-edit">✏️</span>
               </div>
-              {/* v1.10.1 云状态徽标：未登录（未配置坚果云）时可见，点击直达登录引导 */}
+              {/* v1.11.0 云状态徽标：未登录（未配置坚果云或手动关闭同步）时可见，点击直达登录引导 */}
               <div className="me-tags">
                 <span className="me-badge">🔥 已坚持 {days} 天</span>
-                {!cloudReady && (
+                {!loggedIn && (
                   <button type="button" className="me-cloud" aria-label="坚果云未登录，点击登录" onClick={() => setLoginOpen(true)}>
                     ☁️ 未登录
                   </button>

@@ -40,6 +40,8 @@ export function migrateState(s) {
   if (!s.settings.bookIconAt || typeof s.settings.bookIconAt !== 'object' || Array.isArray(s.settings.bookIconAt)) s.settings.bookIconAt = {}
   // v1.7.1 应用内更新：自动下载开关缺省关闭——发现新版先可视化询问，静默仅限下载不安装
   if (typeof s.settings.updateAutoDl !== 'boolean') s.settings.updateAutoDl = false
+  // v1.11.0 坚果云同步开关：默认开启（已配置就同步），用户可手动关闭后昵称恢复正常显示
+  if (typeof s.settings.cloudSyncOff !== 'boolean') s.settings.cloudSyncOff = false
   // v1.8.0 AI 风格：自定义参数表与角色名归一（角色卡本体只存本机 localStorage）
   if (!s.settings.aiStyleAttrs || typeof s.settings.aiStyleAttrs !== 'object' || Array.isArray(s.settings.aiStyleAttrs)) {
     s.settings.aiStyleAttrs = { tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' }

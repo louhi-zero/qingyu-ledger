@@ -143,6 +143,10 @@ export function getWebdavCfg() {
  */
 export async function syncProfileArchive(state, { toast, silent } = {}) {
   const cfg = getWebdavCfg()
+  // v1.11.0 用户手动关闭云同步 → 跳过（资料也不同步）
+  if (state?.settings?.cloudSyncOff === true) {
+    return { status: 'skipped', reason: 'user-disabled' }
+  }
   let r
   if (!cfg) {
     r = { status: 'skipped', reason: 'not-configured' }

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Confirm } from '../ui.jsx'
+import { TopBar, Confirm, Switch } from '../ui.jsx'
 import { WebDavTransport } from '../webdav.js'
 import { parseRemote } from '../sync.js'
 import {
@@ -24,7 +24,7 @@ function fmtTime(at) {
 }
 
 export default function CloudBackup({ nav }) {
-  const { state, toast, restoreState } = useStore()
+  const { state, set, toast, restoreState } = useStore()
   const savedCfg = readLS(LS_CFG, { url: '', username: '', password: '' })
   const [url, setUrl] = useState(savedCfg.url || '')
   const [username, setUsername] = useState(savedCfg.username || '')
@@ -192,6 +192,26 @@ export default function CloudBackup({ nav }) {
 
         <div className="group">
           <div className="gtitle">同步</div>
+          {/* v1.11.0 云同步总开关：关闭后自动同步停止，昵称恢复正常显示（不再显示「未登录」） */}
+          {(() => {
+            const toggle = (e) => {
+              if (e) e.stopPropagation?.()
+              set((d) => { d.settings.cloudSyncOff = !d.settings.cloudSyncOff })
+              toast(state.settings.cloudSyncOff ? '已开启云同步' : '已关闭云同步')
+            }
+            return (
+              <div className="cell" onClick={toggle}>
+                <div className="cico">🔘</div>
+                <div className="cmain">
+                  <div className="ctitle">开启云同步</div>
+                  <div className="cdesc">{state.settings.cloudSyncOff ? '已关闭：数据不会再上传或下载' : '已开启：账单变化自动双向同步'}</div>
+                </div>
+                <div className="cright">
+                  <Switch on={!state.settings.cloudSyncOff} onChange={toggle} />
+                </div>
+              </div>
+            )
+          })()}
           {/* v1.9.0 用户资料云存档：检测到昵称/头像变化自动打包上传，点击可手动立即存档 */}
           <div className="cell" onClick={busy ? undefined : onProfileSync}>
             <div className="cico">🪪</div>

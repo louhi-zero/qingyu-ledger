@@ -58,6 +58,8 @@ export async function pullPushAssets(transport, data) {
 export async function runAutoSync({ state, restoreState, toast, silent = true, transport }) {
   const cfg = getWebdavCfg()
   if (!cfg) return { status: 'skipped', reason: 'not-configured' }
+  // v1.11.0 用户手动关闭云同步 → 跳过（保留配置但不自动跑，昵称恢复正常显示）
+  if (state?.settings?.cloudSyncOff === true) return { status: 'skipped', reason: 'user-disabled' }
   try {
     const t = transport || new WebDavTransport(cfg)
     const remote = await t.get()

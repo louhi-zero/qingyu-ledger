@@ -1,9 +1,15 @@
-/* v1.7.1 应用内更新 · 状态编排与可视化安装组件（安卓模式）
- * - UpdateProvider：启动 2.5s 后自动检查（当天一次）
- *   · 默认发现新版先弹 UpdatePrompt 询问，由用户选择是否更新
- *   · 开启「自动后台下载」后才静默下载；静默的边界只到下载 APK，绝不自动安装
- * - UpdatePrompt：居中可视化组件（更新日志 → 选择更新 → 下载进度 → 校验 → 点击安装）
- * - UpdateFloat：tabbar 上方轻提示（静默下载进度/就绪安装/失败重试）
+/* v1.11.0 应用内更新 · 完全重构
+ * - UpdateProvider：启动 2.5s 自动检查一次（当天缓存 1h）
+ * - UpdateCard：设置页内常驻可视化卡片（不是弹窗式），任何状态都展示
+ *   · 有新版 → 彩色渐变卡片 + 版本号 + 「立即更新」主按钮
+ *   已是最新 → 简洁展示当前版本 + 检查时间 + 手动检查入口
+ *   检查中 → 转圈 + 文案
+ *   下载中 → 环形进度 + 百分比
+ *   就绪 → 绿色「立即安装」
+ *   错误 → 橙红提示 + 重试
+ * - UpdateFloat：tabbar 上方浮卡（后台下载/就绪/失败轻提示）
+ * - UpdatePrompt：居中详情弹窗（点击卡片后进入，查看更新日志 + 详细操作）
+ *
  * 安装是安卓平台硬约束：系统安装器必须用户点确认，任何应用都无法真正静默安装。
  */
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
@@ -29,16 +35,18 @@ export function UpdateProvider({ children }) {
   const [errorMsg, setErrorMsg] = useState('')
   const [promptOpen, setPromptOpen] = useState(false)
   const [native, setNative] = useState(null)
+  const [lastCheckAt, setLastCheckAt] = useState(0)
+  const statusRef = useRef('idle')
+  statusRef.current = status
   const infoRef = useRef(null)
   const pathRef = useRef('')
   const progressRef = useRef(0)
   const autoDlRef = useRef(false)
-  // v1.7.1：默认询问后再下载（用户自行选择是否更新）；用户显式开启后才静默预下载
   autoDlRef.current = state.settings.updateAutoDl === true
 
   useEffect(() => { getUpdateBridge().then((b) => setNative(!!b)) }, [])
 
-  // 下载 + SHA-256 校验 + 落 ready；取消静默回 available，其余进 error
+  // 下载 + SHA-256 校验 + 落 ready
   const runDownload = useCallback(async (data) => {
     setStatus('downloading'); setErrorMsg(''); setProgress(0); progressRef.current = 0
     try {
@@ -49,9 +57,8 @@ export function UpdateProvider({ children }) {
       if (data.sha256Url) {
         setStatus('verifying')
         const expectSha = await fetchSha256(data.sha256Url)
-        // 取不到校验文本时降级（老 release/网络问题）：字节数校验已在原生侧完成
         if (expectSha && expectSha !== res.sha256) {
-          await cancelApkDownload() // 删除被篡改/不完整文件
+          await cancelApkDownload()
           setStatus('error')
           setErrorMsg('安装包完整性校验失败（SHA-256 不一致），文件已删除，请重试')
           return
@@ -66,35 +73,35 @@ export function UpdateProvider({ children }) {
     }
   }, [])
 
-  // 检查更新。manual=true 来自「关于」页：跳过缓存、打开可视化组件、无新版也给反馈
+  // 检查更新。manual=true 来自「关于」页/卡片：跳过缓存并打开详情弹窗（无论有无新版都给可视化反馈）
   const check = useCallback(async ({ manual = false } = {}) => {
-    if (manual) { setPromptOpen(true); setStatus('checking'); setErrorMsg('') }
+    if (statusRef.current === 'checking') return
+    if (manual) setPromptOpen(true)
+    setStatus('checking'); setErrorMsg('')
     let data = null
     try {
       data = await checkForUpdate(APP_VERSION, { force: manual })
-    } catch { /* checkForUpdate 内部已回落缓存 */ }
+    } catch { /* 内部已回落缓存 */ }
+    setLastCheckAt(Date.now())
     if (!data) {
-      if (manual) setStatus('idle')
+      setStatus('idle')
       return
     }
     setInfo(data); infoRef.current = data
     const bridge = await getUpdateBridge()
-    setNative(!!bridge) // 实时刷新平台能力（mount 探测后测试钩子/桥延迟就绪也能纠正）
-    // 自动检查命中用户已点「以后再说」的同一版本 → 本次完全静默
-    if (!manual && dismissedTag() === data.tag) return
+    setNative(!!bridge)
     setStatus('available')
-    if (manual) { setPromptOpen(true); return } // 手动检查：可视化呈现，等用户选择
-    // 自动检查：仅当用户预先开启「自动后台下载」才静默下载（只下载，不安装）；
-    // 否则弹出可视化组件由用户自行选择是否更新
+    if (manual) return // 手动检查：弹窗已开着，等用户选择
+    // 自动检查：不再自动弹窗（设置卡片即可视化入口）；用户已「以后再说」的版本不静默下载；
+    // 仅开启自动下载时静默下载（只下载不安装）
+    if (dismissedTag() === data.tag) return
     if (bridge && autoDlRef.current) {
       runDownload(data)
-    } else {
-      setPromptOpen(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runDownload])
 
-  // 启动后自动检查一次（与公告 2s 错开，避免启动并发请求；无定时器/轮询）
+  // 启动后自动检查一次（与公告 2s 错开）
   useEffect(() => {
     const t = setTimeout(() => { check({ manual: false }).catch(() => {}) }, 2500)
     return () => clearTimeout(t)
@@ -107,7 +114,6 @@ export function UpdateProvider({ children }) {
     if (!silent) toast('已取消下载')
   }, [toast])
 
-  // 自动后台下载开关：关闭瞬间若正在下载，立即取消并删文件
   const setAutoDownload = useCallback(async (on) => {
     set((d) => { d.settings.updateAutoDl = on })
     if (!on && status === 'downloading') {
@@ -131,23 +137,19 @@ export function UpdateProvider({ children }) {
     } else if (!r) {
       toast('无法启动系统安装器', 'err')
     }
-    // launched：系统安装器接管，无需 App 内操作
   }, [toast])
 
-  // 「以后再说」：同版本不再自动询问（手动检查仍可看到）；回到 idle，浮卡同步消失
+  // 「以后再说」：同版本自动检查不再静默下载（卡片仍可见），关闭弹窗与浮卡
   const dismiss = useCallback(() => {
     if (infoRef.current) markDismissed(infoRef.current.tag)
     setPromptOpen(false)
     setStatus('idle')
   }, [])
 
-  // 仅收起可视化组件：已在下载/就绪时保留任务与浮卡，不写入 dismissed
-  const closePrompt = useCallback(() => setPromptOpen(false), [])
-
   const value = {
-    status, info, progress, errorMsg, promptOpen, native,
+    status, info, progress, errorMsg, promptOpen, native, lastCheckAt,
     openPrompt: () => setPromptOpen(true),
-    closePrompt,
+    closePrompt: () => setPromptOpen(false),
     checkManual: () => check({ manual: true }),
     startDownload: () => infoRef.current && runDownload(infoRef.current),
     cancelDownloading,
@@ -160,7 +162,7 @@ export function UpdateProvider({ children }) {
   return <UpdateCtx.Provider value={value}>{children}</UpdateCtx.Provider>
 }
 
-// ---------- 更新日志极简格式化：去 markdown 标题/粗体符号，按行展示 ----------
+// ---------- 小工具 ----------
 function tinyMd(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
@@ -168,36 +170,128 @@ function tinyMd(text) {
     .map((line) => line.replace(/^#{1,6}\s*/, '').replace(/\*\*(.+?)\*\*/g, '$1').trimEnd())
     .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
 }
-
 function fmtSize(bytes) {
   const n = Number(bytes) || 0
   if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`
   if (n >= 1024) return `${Math.round(n / 1024)} KB`
   return ''
 }
+function fmtTime(ts) {
+  if (!ts) return ''
+  try {
+    const d = new Date(ts)
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } catch { return '' }
+}
 
-// ---------- 底部浮卡（仅根级页挂载，子页面不显示）：轻提示，点击进入可视化组件 ----------
+// ============================================================================
+// UpdateCard：设置页内常驻可视化更新卡片（非弹窗式，任何状态都展示）
+// ============================================================================
+export function UpdateCard({ onClick }) {
+  const u = useUpdate()
+  if (!u) return null
+  const { status, info, progress, errorMsg, lastCheckAt, checkManual, native } = u
+
+  // 卡片主色渐变与图标
+  const cardCls = {
+    idle: 'upd-card-idle',
+    checking: 'upd-card-check',
+    available: 'upd-card-new',
+    downloading: 'upd-card-dl',
+    verifying: 'upd-card-check',
+    ready: 'upd-card-ready',
+    error: 'upd-card-err',
+  }[status] || 'upd-card-idle'
+
+  const icon = {
+    idle: '✅',
+    checking: '🔍',
+    available: '🎉',
+    downloading: '⬇️',
+    verifying: '🔐',
+    ready: '📲',
+    error: '⚠️',
+  }[status] || '✅'
+
+  const title = {
+    idle: '已是最新版本',
+    checking: '正在检查更新…',
+    available: '发现新版本',
+    downloading: '正在下载更新…',
+    verifying: '正在校验安装包…',
+    ready: '安装包已就绪',
+    error: '更新检查失败',
+  }[status] || '已是最新版本'
+
+  const sub = (() => {
+    if (status === 'available' && info) return `${info.tag} · ${fmtSize(info.size) || '点击查看'}`
+    if (status === 'downloading') return `${Math.round(progress)}% · 下载中`
+    if (status === 'verifying') return 'SHA-256 完整性校验'
+    if (status === 'ready') return '点击确认安装，数据不会丢失'
+    if (status === 'error') return errorMsg || '点击重试'
+    if (status === 'idle') {
+      const t = fmtTime(lastCheckAt)
+      return `v${APP_VERSION}${t ? ` · ${t} 已检查` : ' · 点击手动检查'}`
+    }
+    return `v${APP_VERSION}`
+  })()
+
+  const right = (() => {
+    if (status === 'checking') return <div className="upd-card-spin" />
+    if (status === 'downloading' || status === 'verifying') {
+      const pct = status === 'verifying' ? 100 : progress
+      return (
+        <div className="upd-card-ring">
+          <svg viewBox="0 0 44 44">
+            <circle className="ucr-track" cx="22" cy="22" r="18" />
+            <circle className="ucr-fill" cx="22" cy="22" r="18"
+              strokeDasharray={`${pct * 1.131} 113.1`} />
+          </svg>
+          <span className="ucr-pct">{status === 'verifying' ? '🔐' : `${Math.round(pct)}%`}</span>
+        </div>
+      )
+    }
+    if (status === 'available') return <button className="upd-card-btn" type="button" onClick={(e) => { e.stopPropagation(); onClick && onClick() }}>更新</button>
+    if (status === 'ready') return <button className="upd-card-btn upd-card-btn-ok" type="button" onClick={(e) => { e.stopPropagation(); onClick && onClick() }}>安装</button>
+    if (status === 'idle') return <button className="upd-card-btn upd-card-btn-ghost" type="button" onClick={(e) => { e.stopPropagation(); checkManual() }}>检查</button>
+    if (status === 'error') return <button className="upd-card-btn upd-card-btn-ghost" type="button" onClick={(e) => { e.stopPropagation(); checkManual() }}>重试</button>
+    return <span className="arrow">›</span>
+  })()
+
+  return (
+    <button
+      type="button"
+      className={`upd-card ${cardCls}`}
+      onClick={() => onClick && onClick()}
+      aria-label={`软件更新：${title}`}
+    >
+      <div className="upd-card-ico">{icon}</div>
+      <div className="upd-card-body">
+        <div className="upd-card-title">{title}</div>
+        <div className="upd-card-sub">{sub}</div>
+      </div>
+      <div className="upd-card-right">{right}</div>
+    </button>
+  )
+}
+
+// ============================================================================
+// UpdateFloat：tabbar 上方轻提示浮卡
+// ============================================================================
 export function UpdateFloat() {
   const u = useUpdate()
   if (!u || u.promptOpen) return null
   const { status, info, progress, errorMsg, openPrompt } = u
-  if (status === 'idle' || status === 'checking') return null
+  if (status === 'idle' || status === 'checking' || status === 'available') return null
+  // available 状态由卡片承载，浮卡只在下载/校验/就绪/错误时显示
 
   let body
-  if (status === 'available') {
-    body = (
-      <>
-        <span className="uf-ico">🎉</span>
-        <span className="uf-txt"><b>发现新版本 {info.tag}</b><i>点击查看更新内容并选择是否更新</i></span>
-        <span className="uf-go">查看</span>
-      </>
-    )
-  } else if (status === 'downloading') {
+  if (status === 'downloading') {
     body = (
       <>
         <span className="uf-ico">⬇️</span>
         <span className="uf-txt uf-progress">
-          <b>后台下载 {info.tag} · {progress}%</b>
+          <b>后台下载 {info?.tag || ''} · {progress}%</b>
           <span className="uf-bar"><i style={{ width: `${progress}%` }} /></span>
         </span>
       </>
@@ -213,7 +307,7 @@ export function UpdateFloat() {
     body = (
       <>
         <span className="uf-ico">✅</span>
-        <span className="uf-txt"><b>{info.tag} 安装包已就绪</b><i>点击查看并确认安装，数据不会丢失</i></span>
+        <span className="uf-txt"><b>{info?.tag || ''} 安装包已就绪</b><i>点击查看并确认安装</i></span>
         <span className="uf-go uf-go-ok">去安装</span>
       </>
     )
@@ -227,24 +321,21 @@ export function UpdateFloat() {
     )
   }
 
-  const onClick = () => {
-    // 所有状态都进入可视化组件；安装动作只在组件内由用户明确点击触发
-    openPrompt()
-  }
   return (
-    <button className="upd-float" onClick={onClick} type="button">
+    <button className="upd-float" onClick={openPrompt} type="button">
       {body}
     </button>
   )
 }
 
-// ---------- 可视化安装组件（居中卡片）：选择 → 静默下载（仅 APK）→ 用户点击安装 ----------
+// ============================================================================
+// UpdatePrompt：居中详情弹窗（从卡片点进去看更新日志 + 详细操作）
+// ============================================================================
 export function UpdatePrompt() {
   const u = useUpdate()
   if (!u || !u.promptOpen) return null
-  const { status, info, progress, errorMsg, closePrompt } = u
+  const { status, info, progress, errorMsg, closePrompt, native, autoDl } = u
 
-  // 下载/校验/就绪阶段允许遮罩收起（浮卡仍在），其余阶段点遮罩同样收起
   const hero = {
     checking: ['🔍', 'upd-hero-check'],
     available: ['🎉', 'upd-hero-new'],
@@ -299,7 +390,7 @@ export function UpdatePrompt() {
                     <p key={i} className={/^[一二三四五六七八九十\d]+[.、]/.test(line) || /^【.+】/.test(line) ? 'upd-note-h' : ''}>{line || ' '}</p>
                   )) : <p className="muted">本次更新暂无详细说明。</p>}
                 </div>
-                {u.native ? (
+                {native ? (
                   <button className="btn upd-main upd-main-grad" onClick={u.startDownload}>
                     ⬇️ 立即更新
                   </button>
@@ -309,9 +400,9 @@ export function UpdatePrompt() {
                   </button>
                 )}
                 <button className="upd-later" onClick={u.dismiss}>以后再说</button>
-                {u.native && (
-                  <div className="upd-autodl" onClick={() => u.setAutoDownload(!u.autoDl)}>
-                    <Switch on={u.autoDl} onChange={() => u.setAutoDownload(!u.autoDl)} />
+                {native && (
+                  <div className="upd-autodl" onClick={() => u.setAutoDownload(!autoDl)}>
+                    <Switch on={autoDl} onChange={() => u.setAutoDownload(!autoDl)} />
                     <span>
                       <b>有新版时自动后台下载</b>
                       <i>仅静默下载安装包，安装仍需你手动确认</i>

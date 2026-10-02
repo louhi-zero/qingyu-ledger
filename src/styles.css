@@ -1231,6 +1231,98 @@ span.ledger-switch-img {
   border-color: rgba(255, 255, 255, .12);
 }
 
+/* ============ v1.11.0 可视化更新卡片（设置页常驻） ============ */
+.upd-card {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 18px;
+  border: none; text-align: left; cursor: pointer;
+  background: linear-gradient(135deg, #eef3ff, #e8f0ff);
+  color: #1e3a7a;
+  box-shadow: 0 6px 18px -8px rgba(88, 120, 255, .35), inset 0 1px 0 rgba(255,255,255,.7);
+  transition: transform .12s ease, box-shadow .16s ease;
+  position: relative; overflow: hidden;
+}
+.upd-card:active { transform: scale(.98); }
+.upd-card-ico { font-size: 28px; flex-shrink: 0; line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.1)); }
+.upd-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.upd-card-title { font-size: 15px; font-weight: 800; letter-spacing: .2px; }
+.upd-card-sub { font-size: 12px; opacity: .75; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.upd-card-right { flex-shrink: 0; display: flex; align-items: center; }
+
+.upd-card-btn {
+  padding: 7px 16px; border-radius: 999px; border: none;
+  background: rgba(255,255,255,.85); color: #3d6eff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 2px 8px -2px rgba(61,110,255,.3);
+  transition: transform .12s ease;
+}
+.upd-card-btn:active { transform: scale(.94); }
+.upd-card-btn-ok { background: #fff; color: #16a34a;
+  box-shadow: 0 2px 8px -2px rgba(22,163,74,.35); }
+.upd-card-btn-ghost { background: transparent; color: inherit;
+  border: 1px solid currentColor; opacity: .6;
+  box-shadow: none; }
+
+.upd-card-idle {
+  background: linear-gradient(135deg, #f5f7ff, #edf2ff);
+  color: #4a5a8a;
+  box-shadow: 0 4px 14px -6px rgba(100,120,200,.25), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.upd-card-new {
+  background: linear-gradient(135deg, #6ea8ff, #6f6bff);
+  color: #fff;
+  box-shadow: 0 10px 24px -8px rgba(111, 107, 255, .55), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.upd-card-new .upd-card-sub { opacity: .85; }
+.upd-card-dl {
+  background: linear-gradient(135deg, #4cc9ff, #4c7dff);
+  color: #fff;
+  box-shadow: 0 10px 24px -8px rgba(76, 125, 255, .5), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.upd-card-dl .upd-card-sub { opacity: .85; }
+.upd-card-ready {
+  background: linear-gradient(135deg, #3ddc84, #16b364);
+  color: #fff;
+  box-shadow: 0 10px 24px -8px rgba(22, 179, 100, .5), inset 0 1px 0 rgba(255,255,255,.25);
+}
+.upd-card-ready .upd-card-sub { opacity: .85; }
+.upd-card-check {
+  background: linear-gradient(135deg, #9aa6ff, #6f6bff);
+  color: #fff;
+  box-shadow: 0 8px 22px -8px rgba(111, 107, 255, .45), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.upd-card-check .upd-card-sub { opacity: .85; }
+.upd-card-err {
+  background: linear-gradient(135deg, #ffb05c, #ff7a59);
+  color: #fff;
+  box-shadow: 0 8px 22px -8px rgba(255, 122, 89, .5), inset 0 1px 0 rgba(255,255,255,.2);
+}
+
+/* 小环形进度（卡片右侧） */
+.upd-card-ring { position: relative; width: 36px; height: 36px; }
+.upd-card-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ucr-track { fill: none; stroke: rgba(255,255,255,.25); stroke-width: 3; }
+.ucr-fill { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; transition: stroke-dasharray .3s ease; }
+.ucr-pct { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff; }
+
+.upd-card-spin {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  animation: upd-spin .8s linear infinite;
+}
+
+/* 深色模式适配 */
+:root[data-theme="dark"] .upd-card-idle {
+  background: linear-gradient(135deg, #1e2235, #252a40);
+  color: #a5b0d0;
+  box-shadow: 0 4px 14px -6px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+}
+:root[data-theme="dark"] .upd-card-idle .upd-card-btn-ghost { border-color: rgba(165,176,208,.3); }
+
 /* ============ v1.7.0 应用内更新 ============ */
 /* 底部浮卡：钉在 tabbar 上方（含安全区），玻璃材质跟随全局体系 */
 .upd-float {

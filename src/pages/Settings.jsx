@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿/* v1.5 设置主页：只留分组入口，点进二级子页（SettingsSections）后再做具体修改。
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿/* v1.5 设置主页：只留分组入口，点进二级子页（SettingsSections）后再做具体修改。
  * 各分组：个人资料 / 外观与个性化 / AI 助手 / 记账偏好 / 提醒与收支监控 / 数据与安全
  */
 import React from 'react'
@@ -7,16 +7,23 @@ import { useNav } from '../App.jsx'
 import { TopBar } from '../ui.jsx'
 import { AvatarFace } from '../theme.jsx'
 import { APP_VERSION } from '../update.js'
+import { UpdateCard, useUpdate } from '../update-ctx.jsx'
 
 export default function Settings({ nav }) {
   const { state } = useStore()
   const s = state.settings
+  const upd = useUpdate()
   const go = (section, title) => nav.push({ page: 'settingsSection', title, params: { section } })
 
   return (
     <>
       <TopBar title="设置" onBack={nav.pop} />
       <div className="page-body no-tab">
+        {/* v1.11.0 可视化更新卡片：常驻显示，任何状态都有反馈（不再是有更新才弹窗） */}
+        <div style={{ padding: '6px 16px 0' }}>
+          <UpdateCard onClick={() => upd?.openPrompt()} />
+        </div>
+
         <div className="group">
           <div className="gtitle">个人</div>
           <div className="cell" onClick={() => go('profile', '个人资料')}>

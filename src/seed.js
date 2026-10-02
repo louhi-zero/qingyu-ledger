@@ -118,6 +118,8 @@ export function emptyState() {
       // v1.7.1 应用内更新：默认发现新版先询问，由用户选择是否更新；
       // 开启后才静默后台下载（仅下载安装包，安装始终需用户确认）
       updateAutoDl: false,
+      // v1.11.0 坚果云同步开关：默认开启，关闭后自动同步停止、昵称恢复正常显示
+      cloudSyncOff: false,
     },
     categories: cats,
     accounts,
