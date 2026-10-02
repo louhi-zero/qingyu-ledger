@@ -16,9 +16,9 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { useStore } from './store.jsx'
 import { Switch } from './ui.jsx'
 import {
-  APP_VERSION, checkForUpdate, downloadApk, cancelApkDownload, installerInfo,
+  APP_VERSION, checkForUpdate, downloadWithFallback, cancelApkDownload, installerInfo,
   openInstallPermission, launchInstaller, openReleasePage, getUpdateBridge,
-  fetchSha256, markDismissed, dismissedTag,
+  fetchSha256WithFallback, markDismissed, dismissedTag,
 } from './update.js'
 
 const UpdateCtx = createContext(null)
@@ -36,27 +36,37 @@ export function UpdateProvider({ children }) {
   const [promptOpen, setPromptOpen] = useState(false)
   const [native, setNative] = useState(null)
   const [lastCheckAt, setLastCheckAt] = useState(0)
+  const [sourceLabel, setSourceLabel] = useState('')
   const statusRef = useRef('idle')
   statusRef.current = status
   const infoRef = useRef(null)
   const pathRef = useRef('')
   const progressRef = useRef(0)
   const autoDlRef = useRef(false)
+  const userCancelRef = useRef(false) // v2.0.2 用户取消出口（与看门狗换源的 CANCELLED 区分）
   autoDlRef.current = state.settings.updateAutoDl === true
 
   useEffect(() => { getUpdateBridge().then((b) => setNative(!!b)) }, [])
 
-  // 下载 + SHA-256 校验 + 落 ready
+  // v2.0.2 多源下载（加速镜像 → 官方直连）+ SHA-256 校验 + 落 ready
   const runDownload = useCallback(async (data) => {
     setStatus('downloading'); setErrorMsg(''); setProgress(0); progressRef.current = 0
+    userCancelRef.current = false
     try {
-      const res = await downloadApk(data, (pct) => {
+      const res = await downloadWithFallback(data, (pct) => {
         if (pct > progressRef.current) { progressRef.current = pct; setProgress(pct) }
+      }, {
+        shouldAbort: () => userCancelRef.current,
+        onSource: (_url, viaMirror) => {
+          progressRef.current = 0 // 换源=新源从头下载，进度重置（只涨不跌保护对新源重新生效）
+          setProgress(0)
+          setSourceLabel(viaMirror ? '加速通道' : '官方直连')
+        },
       })
       setProgress(100)
       if (data.sha256Url) {
         setStatus('verifying')
-        const expectSha = await fetchSha256(data.sha256Url)
+        const expectSha = await fetchSha256WithFallback(data.sha256Url)
         if (expectSha && expectSha !== res.sha256) {
           await cancelApkDownload()
           setStatus('error')
@@ -108,17 +118,21 @@ export function UpdateProvider({ children }) {
   }, [check])
 
   const cancelDownloading = useCallback(async (silent = false) => {
+    userCancelRef.current = true // v2.0.2 标记用户取消：多源循环不再自动换源
     await cancelApkDownload()
     setStatus('available')
     setProgress(0); progressRef.current = 0
+    setSourceLabel('')
     if (!silent) toast('已取消下载')
   }, [toast])
 
   const setAutoDownload = useCallback(async (on) => {
     set((d) => { d.settings.updateAutoDl = on })
     if (!on && status === 'downloading') {
+      userCancelRef.current = true
       await cancelApkDownload()
       setStatus('available'); setProgress(0); progressRef.current = 0
+      setSourceLabel('')
       toast('已关闭自动下载，当前任务已取消')
     }
   }, [set, status, toast])
@@ -147,7 +161,7 @@ export function UpdateProvider({ children }) {
   }, [])
 
   const value = {
-    status, info, progress, errorMsg, promptOpen, native, lastCheckAt,
+    status, info, progress, errorMsg, promptOpen, native, lastCheckAt, sourceLabel,
     openPrompt: () => setPromptOpen(true),
     closePrompt: () => setPromptOpen(false),
     checkManual: () => check({ manual: true }),
@@ -334,7 +348,7 @@ export function UpdateFloat() {
 export function UpdatePrompt() {
   const u = useUpdate()
   if (!u || !u.promptOpen) return null
-  const { status, info, progress, errorMsg, closePrompt, native, autoDl } = u
+  const { status, info, progress, errorMsg, closePrompt, native, autoDl, sourceLabel } = u
 
   const hero = {
     checking: ['🔍', 'upd-hero-check'],
@@ -425,10 +439,14 @@ export function UpdatePrompt() {
                   <span className="ur-pct">{status === 'verifying' ? '🔐' : `${progress}%`}</span>
                 </div>
                 <div className="upd-dltxt">
-                  {status === 'verifying' ? '正在校验安装包完整性（SHA-256）…' : '正在静默下载安装包…'}
+                  {status === 'verifying'
+                    ? '正在校验安装包完整性（SHA-256）…'
+                    : (sourceLabel === '加速通道' ? '正在经加速通道下载安装包…' : '正在下载安装包…')}
                 </div>
                 <div className="muted upd-dlsub">
-                  {status === 'verifying' ? '校验通过后才会出现安装按钮' : '只下载安装包，不会自动安装；可最小化到浮卡后台等待'}
+                  {status === 'verifying'
+                    ? '校验通过后才会出现安装按钮'
+                    : '速度慢会自动切换加速通道；只下载不安装，可最小化到浮卡后台等待'}
                 </div>
                 <div className="uf-bar uf-bar-lg"><i style={{ width: `${status === 'verifying' ? 100 : progress}%` }} /></div>
                 {status === 'downloading' && (

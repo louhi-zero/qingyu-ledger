@@ -51,7 +51,8 @@ public class UpdatePlugin extends Plugin {
     private static final int MAX_REDIRECTS = 5;
     private static final int CONNECT_TIMEOUT_MS = 15_000;
     private static final int READ_TIMEOUT_MS = 30_000;
-    private static final int BUFFER_SIZE = 64 * 1024;
+    private static final int BUFFER_SIZE = 256 * 1024; // v2.0.2 64KB→256KB：减少 syscall 提升吞吐
+    private static final long PROGRESS_BYTES_STEP = 256 * 1024; // 字节步进：慢速源也能持续收到进度事件
 
     @PluginMethod
     public void installerInfo(PluginCall call) {
@@ -138,6 +139,7 @@ public class UpdatePlugin extends Plugin {
                     byte[] buffer = new byte[BUFFER_SIZE];
                     long received = 0;
                     long lastEmitAt = 0L;
+                    long lastEmitBytes = 0L; // v2.0.2 字节步进：慢速源 pct 长期不变也持续 emit（配合 JS 侧看门狗判活）
                     int lastPct = -1;
                     int n;
                     while ((n = input.read(buffer)) != -1) {
@@ -156,8 +158,9 @@ public class UpdatePlugin extends Plugin {
 
                         int pct = total > 0 ? (int) Math.min(99, (received * 100) / total) : 0;
                         long now = System.currentTimeMillis();
-                        if (pct != lastPct && now - lastEmitAt >= 200) {
+                        if ((pct != lastPct || received - lastEmitBytes >= PROGRESS_BYTES_STEP) && now - lastEmitAt >= 200) {
                             lastPct = pct;
+                            lastEmitBytes = received;
                             lastEmitAt = now;
                             JSObject ev = new JSObject();
                             ev.put("received", received);

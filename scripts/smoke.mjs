@@ -634,7 +634,7 @@ app.whenReady().then(async () => {
     await sleep(400)
     assert('弹窗内：下载态显示进度环 30% 与「只下载不安装」说明',
       await run(`!!document.querySelector('.upd-ring') && document.querySelector('.ur-pct').textContent === '30%'
-        && document.querySelector('.upd-modal').textContent.includes('不会自动安装')`))
+        && document.querySelector('.upd-modal').textContent.includes('只下载不安装')`))
     await run(`document.querySelector('.upd-modal .upd-x').click()`) // 最小化到浮卡后台等待
     await sleep(300)
     const dlFloat = await pollTrue(run,

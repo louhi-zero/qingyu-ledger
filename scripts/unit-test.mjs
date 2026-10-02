@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 25 / 2.0.1', gradle.includes('versionCode 25') && gradle.includes('versionName "2.0.1"'))
+assert('版本 versionCode 26 / 2.0.2', gradle.includes('versionCode 26') && gradle.includes('versionName "2.0.2"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.0.1', pkgJson.version === '2.0.1')
+assert('package.json 版本 2.0.2', pkgJson.version === '2.0.2')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -358,8 +358,8 @@ assert('发现新版默认弹窗询问（autoDl 关/手动均打开 prompt）',
 assert('仅 autoDl 显式开启才静默预下载',
   updateCtxJsx.includes('autoDlRef.current') && updateCtxJsx.includes("=== true"))
 assert('用户点「立即更新」才开始下载', updateCtxJsx.includes('立即更新'))
-assert('静默边界文案：只下载安装包、不会自动安装',
-  updateCtxJsx.includes('不会自动安装') && updateCtxJsx.includes('仅静默下载安装包'))
+assert('静默边界文案：只下载不安装 + 停滞自动切换加速通道提示',
+  updateCtxJsx.includes('只下载不安装') && updateCtxJsx.includes('自动切换加速通道') && updateCtxJsx.includes('仅静默下载安装包'))
 assert('就绪态由用户点击「立即安装」触发（无 useEffect 自动安装）',
   updateCtxJsx.includes('立即安装')
   && !/useEffect\(\(\)\s*=>\s*\{?[^}]*install\(/.test(updateCtxJsx))
@@ -393,7 +393,31 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.0.1', APP_VERSION === '2.0.1')
+assert('update.js 版本单一源为 2.0.2', APP_VERSION === '2.0.2')
+
+// ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
+console.log('v2.0.2 更新下载加速：')
+const updateSrc = readFileSync(new URL('../src/update.js', import.meta.url), 'utf-8')
+const updateCtxSrc = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
+assert('下载多源加速：镜像候选生成（gh-proxy/ghfast → 官方直连兜底，仅 GitHub 域）',
+  updateSrc.includes("MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']")
+  && updateSrc.includes('if (!/^https:\\/\\/github\\.com\\//.test(u)) return [u]')
+  && updateSrc.includes('return [...MIRROR_PREFIXES.map((m) => m + u), u]'))
+assert('多源下载：停滞看门狗自动换源 + 用户取消出口区分（不误杀用户取消）',
+  updateSrc.includes('stallMs = 15_000') && updateSrc.includes('setInterval')
+  && updateSrc.includes('if (Date.now() - lastTick > stallMs) cancelApkDownload()')
+  && updateSrc.includes('if (shouldAbort()) throw new Error(\'CANCELLED\')'))
+assert('SHA-256 校验文本同样多源（镜像无 CORS 自动降级，最大努力）',
+  updateSrc.includes('fetchSha256WithFallback'))
+assert('更新上下文接线多源下载：换源重置进度 + 通道标签展示',
+  updateCtxSrc.includes('downloadWithFallback(data')
+  && updateCtxSrc.includes('shouldAbort: () => userCancelRef.current')
+  && updateCtxSrc.includes("viaMirror ? '加速通道' : '官方直连'")
+  && updateCtxSrc.includes('fetchSha256WithFallback(data.sha256Url)'))
+assert('原生下载提速：256KB 缓冲 + 进度字节步进（慢速源持续判活）',
+  updatePluginJava.includes('BUFFER_SIZE = 256 * 1024')
+  && updatePluginJava.includes('PROGRESS_BYTES_STEP')
+  && updatePluginJava.includes('received - lastEmitBytes >= PROGRESS_BYTES_STEP'))
 
 // ---------- 9. v1.8.0 AI 风格卡（纯函数 + 源码断言） ----------
 console.log('v1.8.0 AI 回复风格卡：')

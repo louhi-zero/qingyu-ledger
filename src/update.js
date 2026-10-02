@@ -11,7 +11,7 @@
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '2.0.1'
+export const APP_VERSION = '2.0.2'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -166,6 +166,59 @@ export async function fetchSha256(url) {
 
 export function releasePageUrl(tag) {
   return RELEASE_PAGE(tag)
+}
+
+// ---------- v2.0.2 下载加速：镜像候选 + 停滞看门狗（参考 NexBox 多源/探测思路） ----------
+// GitHub release 直链在国内下载极慢；加速镜像为前缀代理（原样回源 + 国内 CDN）。
+// 安全性：镜像内容不可控，但 APK 必须通过 SHA-256 校验（CI 随包发布 .sha256），
+// 校验失败自动删文件并换下一个候选（最终回落官方直连），速度与安全兼得。
+export const MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']
+
+// 仅对 GitHub 域直链生成镜像候选（镜像1 → 镜像2 → 官方直连）；其余 URL 原样单候选
+export function buildDownloadCandidates(url) {
+  const u = String(url || '')
+  if (!/^https:\/\/github\.com\//.test(u)) return [u]
+  return [...MIRROR_PREFIXES.map((m) => m + u), u]
+}
+
+// 多源顺序下载：单源停滞 stallMs 无任何进度 → 自动取消并换下一源；
+// shouldAbort() 为调用方（用户取消）出口，置位后抛 CANCELLED 不再换源。
+// onSource(url, viaMirror) 供 UI 展示当前通道。
+export async function downloadWithFallback(info, onProgress, opts = {}) {
+  const { stallMs = 15_000, shouldAbort = () => false, onSource } = opts
+  const candidates = buildDownloadCandidates(info.apkUrl)
+  let lastErr = null
+  for (let i = 0; i < candidates.length; i++) {
+    if (shouldAbort()) throw new Error('CANCELLED')
+    const url = candidates[i]
+    const viaMirror = i < MIRROR_PREFIXES.length
+    try { onSource?.(url, viaMirror) } catch { /* ignore */ }
+    let lastTick = Date.now()
+    const wrapped = (pct) => { lastTick = Date.now(); onProgress?.(pct) }
+    // 看门狗：每 2s 检查进度时间戳，停滞即取消当前源（原生 reject CANCELLED，非用户取消 → 换源）
+    const watchdog = setInterval(() => {
+      if (Date.now() - lastTick > stallMs) cancelApkDownload()
+    }, 2000)
+    try {
+      return await downloadApk({ ...info, apkUrl: url }, wrapped)
+    } catch (e) {
+      lastErr = e
+      if (shouldAbort()) throw new Error('CANCELLED')
+      continue // 看门狗切换或该源下载失败 → 下一个候选
+    } finally {
+      clearInterval(watchdog)
+    }
+  }
+  throw lastErr || new Error('ALL_SOURCES_FAILED')
+}
+
+// .sha256 校验文本同样走多源（镜像可能无 CORS 头 → fetch 失败自动换下一个，最大努力）
+export async function fetchSha256WithFallback(url) {
+  for (const u of buildDownloadCandidates(url)) {
+    const v = await fetchSha256(u)
+    if (v) return v
+  }
+  return ''
 }
 
 // ---------- 原生桥（AppUpdate Capacitor 插件，动态注册；非 Android 静默降级） ----------
