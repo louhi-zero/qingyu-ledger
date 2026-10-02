@@ -12,7 +12,20 @@ import http from 'node:http'
 import os from 'os'
 import path from 'path'
 
-app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'qy-smoke-v16-')))
+// v1.10.1 测试产物一律落 E 盘（C 盘已满）：userData/temp/cache/crashDumps 全部挂到 TEMP 下的临时目录，
+// TEMP 持久化到 E:\Temp 后（setx），Electron 测试不再触碰 C 盘 Roaming/LocalAppData
+// 启动时清扫上次残留（退出瞬间 Chromium 可能仍锁文件，will-quit 清理会失败，故退出清理只做兜底）
+try {
+  for (const d of fs.readdirSync(os.tmpdir())) {
+    if (d.startsWith('qy-smoke-v16-')) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true })
+  }
+} catch { /* 清理失败忽略 */ }
+const smokeTmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'qy-smoke-v16-'))
+app.setPath('userData', smokeTmpRoot)
+app.setPath('temp', smokeTmpRoot)
+app.setPath('cache', path.join(smokeTmpRoot, 'cache'))
+app.setPath('crashDumps', path.join(smokeTmpRoot, 'crash'))
+app.on('will-quit', () => { try { fs.rmSync(smokeTmpRoot, { recursive: true, force: true }) } catch { /* 清理失败忽略 */ } })
 // Windows 下窗口被遮挡会被 Chromium 判定为隐藏而停帧（transition 不推进），禁用原生遮挡检测
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 
@@ -963,6 +976,15 @@ app.whenReady().then(async () => {
     // cloudReady 渲染时求值：开/关一次改名 Sheet 强制重渲染，让头像点击分流生效
     await run(`document.querySelector('.me-name').click()`)
     await sleep(400)
+    await run(`(() => { const b = [...document.querySelectorAll('.sheet .sx')].pop(); if (b) b.click(); return 'ok' })()`)
+    await sleep(300)
+    // v1.10.1 未登录徽标：昵称旁琥珀色「未登录」胶囊，点击同样直达登录引导
+    assert('未登录徽标：我的页显示「未登录」胶囊',
+      await run(`(() => { const c = document.querySelector('.me-cloud'); return !!c && c.textContent.includes('未登录') })()`))
+    await run(`document.querySelector('.me-cloud').click()`)
+    await sleep(500)
+    assert('未登录徽标：点击弹出坚果云登录引导',
+      await run(`(() => { const h = document.querySelector('.sheet-head'); return !!h && h.textContent.includes('登录坚果云') })()`))
     await run(`(() => { const b = [...document.querySelectorAll('.sheet .sx')].pop(); if (b) b.click(); return 'ok' })()`)
     await sleep(300)
     await run(`document.querySelector('.me-head .avatar-wrap').click()`)

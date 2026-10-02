@@ -86,7 +86,15 @@ export default function Profile() {
                 <span className="me-name-txt">{state.settings.nickname}</span>
                 <span className="me-edit">✏️</span>
               </div>
-              <span className="me-badge">🔥 已坚持 {days} 天</span>
+              {/* v1.10.1 云状态徽标：未登录（未配置坚果云）时可见，点击直达登录引导 */}
+              <div className="me-tags">
+                <span className="me-badge">🔥 已坚持 {days} 天</span>
+                {!cloudReady && (
+                  <button type="button" className="me-cloud" aria-label="坚果云未登录，点击登录" onClick={() => setLoginOpen(true)}>
+                    ☁️ 未登录
+                  </button>
+                )}
+              </div>
             </div>
             <button className={`punch ${checkedToday ? 'done' : ''}`} onClick={punch} disabled={checkedToday}>
               {checkedToday ? `🔥 连击 ${streak} 天` : '📋 打卡'}

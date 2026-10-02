@@ -194,6 +194,13 @@ assert('波形柱可视化（vib-bars + lit 点亮）', settingsJs.includes('vib
 assert('选中态勾选与品牌描边', css.includes('.vib-opt.on') && settingsJs.includes("vib-check"))
 assert('手动试震按钮', settingsJs.includes('vib-test') && settingsJs.includes('感受一下这个档位'))
 assert('旧 vibrate-cell 拥挤布局已移除', !settingsJs.includes('vibrate-cell') && !css.includes('.vibrate-cell'))
+// v1.10.1 防拥挤：2×2 网格（每格 ~150px 挤压描述省略）改单列全宽，描述完整展示
+assert('震动档位单列全宽布局（防拥挤，描述不再省略）',
+  css.includes(".vib-opts { display: grid; grid-template-columns: 1fr; gap: 8px; }")
+  && !css.includes('grid-template-columns: 1fr 1fr; gap: 8px'))
+assert('描述字号回到可读范围（11.5px，无省略号截断）',
+  css.includes('font-size: 11.5px; line-height: 1.4; color: var(--ink3);')
+  && !/\.vib-meta i[^}]*text-overflow/.test(css))
 
 const themeJs2 = readFileSync(new URL('../src/theme.jsx', import.meta.url), 'utf-8')
 assert('发现图标存储动作（144 裁切，不做白底拦截）',
@@ -209,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 22 / 1.10.0', gradle.includes('versionCode 22') && gradle.includes('versionName "1.10.0"'))
+assert('版本 versionCode 23 / 1.10.1', gradle.includes('versionCode 23') && gradle.includes('versionName "1.10.1"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -268,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 1.10.0', pkgJson.version === '1.10.0')
+assert('package.json 版本 1.10.1', pkgJson.version === '1.10.1')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -386,7 +393,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 1.10.0', APP_VERSION === '1.10.0')
+assert('update.js 版本单一源为 1.10.1', APP_VERSION === '1.10.1')
 
 // ---------- 9. v1.8.0 AI 风格卡（纯函数 + 源码断言） ----------
 console.log('v1.8.0 AI 回复风格卡：')
@@ -713,6 +720,12 @@ assert('未登录点头像 → 坚果云登录引导 Sheet',
   && profileSrc11.includes('title="登录坚果云"') && profileSrc11.includes('同步账单，换机不丢数据'))
 assert('登录引导：打开坚果云登录页 + 去应用内配置',
   profileSrc11.includes('jianguoyun.com/d/login') && profileSrc11.includes("nav.push({ page: 'cloud' })"))
+// v1.10.1 未登录徽标：昵称旁琥珀色「未登录」胶囊（me-cloud），点击同样直达登录引导
+assert('未登录徽标：me-cloud 胶囊仅未登录时显示，点击弹登录引导',
+  profileSrc11.includes("className=\"me-cloud\"") && profileSrc11.includes('aria-label="坚果云未登录，点击登录"')
+  && profileSrc11.includes('!cloudReady && (') && profileSrc11.includes('onClick={() => setLoginOpen(true)}'))
+assert('未登录徽标样式：me-tags 并排 + 琥珀色警示（不影响已登录态）',
+  css.includes('.me-tags') && css.includes('.me-cloud') && css.includes('#ff9f43'))
 assert('关于文案：数据可自选同步到坚果云', profileSrc11.includes('可自选同步到你的坚果云'))
 assert('runAutoSync 顺带对齐资料档案（syncProfileArchive silent）',
   autoSrc.includes('syncProfileArchive(result.data, { toast, silent: true })'))

@@ -501,13 +501,24 @@ textarea.input { resize: none; min-height: 90px; }
 .me-name { display: flex; align-items: center; gap: 6px; font-size: 21px; font-weight: 800; cursor: pointer; min-width: 0; }
 .me-name-txt { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-edit { font-size: 12px; opacity: .8; background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 8px; padding: 2px 5px; }
+.me-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .me-badge {
-  display: inline-flex; align-items: center; gap: 3px; margin-top: 7px;
+  display: inline-flex; align-items: center; gap: 3px;
   font-size: 11px; font-weight: 700; padding: 3.5px 10px; border-radius: 999px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 13%, #fff), color-mix(in srgb, var(--brand2) 12%, #fff));
   color: var(--brand);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 14%, transparent);
 }
+/* v1.10.1 云状态徽标：未登录琥珀色胶囊，点击弹登录引导 */
+.me-cloud {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700; padding: 3.5px 10px; border-radius: 999px;
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg, color-mix(in srgb, #ff9f43 20%, var(--card2)), color-mix(in srgb, #ff6b6b 14%, var(--card2)));
+  color: #e8853d;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff9f43 26%, transparent);
+}
+.me-cloud:active { transform: scale(.95); transition: transform .12s; }
 /* v1.6.6 统计带：单容器三列，细分隔线（iOS 数据带风格），数字在上
    v1.6.8 数字用品牌深蓝，更聚焦 */
 .me-stats {
@@ -1070,10 +1081,11 @@ input[type="range"]::-moz-range-thumb {
   display: block; margin-top: 2px; font-style: normal;
   font-size: 11.5px; line-height: 1.5; color: var(--ink3);
 }
-.vib-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* v1.10.1 防拥挤：2×2 网格每格仅 ~150px（波形柱+文字+勾选圈挤压描述省略），改单列全宽 */
+.vib-opts { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .vib-opt {
-  display: flex; align-items: center; gap: 9px; text-align: left;
-  padding: 10px; border-radius: 13px; cursor: pointer;
+  display: flex; align-items: center; gap: 11px; text-align: left;
+  padding: 11px 12px; border-radius: 13px; cursor: pointer;
   border: 1.5px solid var(--line); background: var(--card);
   transition: border-color .16s, background .16s;
 }
@@ -1093,13 +1105,12 @@ input[type="range"]::-moz-range-thumb {
 .vib-meta { flex: 1; min-width: 0; }
 .vib-meta b {
   display: flex; align-items: baseline; gap: 5px;
-  font-size: 13.5px; font-weight: 700; color: var(--ink);
+  font-size: 14px; font-weight: 700; color: var(--ink);
 }
-.vib-meta b em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--brand); }
+.vib-meta b em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--brand); }
 .vib-meta i {
-  display: block; margin-top: 2px; font-style: normal;
-  font-size: 10.5px; line-height: 1.35; color: var(--ink3);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; margin-top: 3px; font-style: normal;
+  font-size: 11.5px; line-height: 1.4; color: var(--ink3);
 }
 .vib-check {
   flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%;
