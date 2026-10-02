@@ -869,10 +869,16 @@ app.whenReady().then(async () => {
     }
     await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
     await sleep(500)
-    // 改名 helper：点 .me-name → Sheet 输入 → 保存修改
+    // 改名 helper：点 .me-name → （未登录态弹登录引导时点「暂不登录，先改个昵称」）→ Sheet 输入 → 保存修改
     const renameTo = async (name) => {
       await run(`document.querySelector('.me-name').click()`)
       await sleep(400)
+      await run(`(() => {
+        const b = [...document.querySelectorAll('.sheet button')].find((x) => x.textContent.includes('暂不登录，先改个昵称'))
+        if (b) b.click()
+        return 'ok'
+      })()`)
+      await sleep(300)
       await run(`(() => {
         const i = document.querySelector('.sheet input.input')
         const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set

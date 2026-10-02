@@ -127,6 +127,23 @@ assert.equal(B.local.assetsMeta.avatar.hash, 'avatar-hash-a')
 assert.deepEqual(B.local.assetsMeta.wallpaper, { at: null, hash: null })
 ok('AI 报告缓存与头像/壁纸资产元数据随同步下发到另一台设备')
 
+// v2.0.1：先记账后登录——本机资料出厂默认态时，登录后昵称/头像确定性采纳云端（不再与云端不确定打架）
+A.local.settings.nickname = '云端老用户'
+A.local.settings.avatar = '😎'
+await devSync(A, tA)
+const C = new Device('dev-c', emptyState())
+addTx(C.local, 'c-tx1', 12.34) // 有一笔账 → 非 pristine，走 merge
+const rc = await devSync(C, tA) // 无 base 首次同步
+assert.equal(rc.mode, 'merge')
+assert.equal(C.local.settings.nickname, '云端老用户', '默认态昵称应确定性采纳云端')
+assert.equal(C.local.settings.avatar, '😎', '默认态头像应确定性采纳云端')
+ok('先记账后登录：本机资料默认态确定性采纳云端昵称/头像')
+// 本机改过昵称则尊重本机修改（不受预处理影响）
+C.local.settings.nickname = '我自己改的'
+await devSync(C, tA)
+assert.equal(C.local.settings.nickname, '我自己改的')
+ok('本机改过昵称时尊重本机修改')
+
 // v1.2：tags / reimburse / attachAt / templates 跨端同步（行内新字段随整行三向合并）
 A.local.templates = A.local.templates || []
 A.local.templates.push({ id: 'tpl1', name: '午餐模板', type: 'expense', amount: 22, categoryId: 'c1', accountId: 'a1', note: '', at: '2026-10-01T00:00:00Z' })

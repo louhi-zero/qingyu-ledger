@@ -49,6 +49,13 @@ export default function Profile() {
   const loggedIn = cloudReady && !syncOff
   const displayName = loggedIn ? state.settings.nickname : '未登录'
   const onAvatarClick = () => (loggedIn ? setAvatarOpen(true) : setLoginOpen(true))
+  // v2.0.1 未登录点昵称 → 登录引导（不再直达改名）；改名保留在引导 Sheet 的次级入口
+  const onNameClick = () => (loggedIn ? (setName(state.settings.nickname), setNameOpen(true)) : setLoginOpen(true))
+  const openRename = () => {
+    setLoginOpen(false)
+    setName(state.settings.nickname)
+    setNameOpen(true)
+  }
   // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
   const { palette } = useTheme()
   const headGlows = palette.length ? palette : ['#5b8cff', '#7a6bff', '#42a5f5']
@@ -85,7 +92,7 @@ export default function Profile() {
               <span className="cam" aria-hidden="true">📷</span>
             </div>
             <div className="me-id" style={{ flex: 1, minWidth: 0 }}>
-              <div className="me-name" onClick={() => { setName(state.settings.nickname); setNameOpen(true) }}>
+              <div className="me-name" onClick={onNameClick}>
                 <span className="me-name-txt">{displayName}</span>
                 <span className="me-edit">✏️</span>
               </div>
@@ -170,6 +177,8 @@ export default function Profile() {
         <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setLoginOpen(false); nav.push({ page: 'cloud' }) }}>
           已有账号？去应用内配置
         </button>
+        {/* v2.0.1 未登录也想先起昵称：引导 Sheet 保留改名次级入口 */}
+        <button className="upd-later" style={{ marginTop: 6 }} onClick={openRename}>暂不登录，先改个昵称</button>
       </Sheet>
 
       {/* 换头像（v1.6 支持任意背景颜色图片） */}

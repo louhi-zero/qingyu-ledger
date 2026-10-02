@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 24 / 2.0.0', gradle.includes('versionCode 24') && gradle.includes('versionName "2.0.0"'))
+assert('版本 versionCode 25 / 2.0.1', gradle.includes('versionCode 25') && gradle.includes('versionName "2.0.1"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.0.0', pkgJson.version === '2.0.0')
+assert('package.json 版本 2.0.1', pkgJson.version === '2.0.1')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -393,7 +393,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.0.0', APP_VERSION === '2.0.0')
+assert('update.js 版本单一源为 2.0.1', APP_VERSION === '2.0.1')
 
 // ---------- 9. v1.8.0 AI 风格卡（纯函数 + 源码断言） ----------
 console.log('v1.8.0 AI 回复风格卡：')
@@ -727,9 +727,15 @@ assert('未登录徽标：me-cloud 胶囊仅未登录时显示，点击弹登录
   && profileSrc11.includes('!loggedIn && (') && profileSrc11.includes('onClick={() => setLoginOpen(true)}'))
 assert('未登录徽标样式：me-tags 并排 + 琥珀色警示（不影响已登录态）',
   css.includes('.me-tags') && css.includes('.me-cloud') && css.includes('#ff9f43'))
-assert('昵称直接显示「未登录」：未登录态 displayName 为「未登录」，点昵称仍可改名',
+assert('昵称直接显示「未登录」：未登录态点昵称弹登录引导（不直达改名）',
   profileSrc11.includes("displayName = loggedIn ? state.settings.nickname : '未登录'")
-  && profileSrc11.includes("setName(state.settings.nickname); setNameOpen(true)"))
+  && profileSrc11.includes("onNameClick = () => (loggedIn ? (setName(state.settings.nickname), setNameOpen(true)) : setLoginOpen(true))"))
+assert('登录引导保留改名次级入口（暂不登录，先改个昵称）',
+  profileSrc11.includes('暂不登录，先改个昵称') && profileSrc11.includes('const openRename'))
+const syncSrc = readFileSync(new URL('../src/sync.js', import.meta.url), 'utf-8')
+assert('sync.js 登录后自动拉齐资料：本机默认态采纳云端昵称/头像（消除不确定冲突）',
+  syncSrc.includes('isDefaultProfileSettings(local.settings) && remote.data.settings')
+  && syncSrc.includes("localEff.settings.nickname = remote.data.settings.nickname"))
 assert('云备份页有开启云同步开关（cloudSyncOff）',
   cloudSrc.includes('开启云同步') && cloudSrc.includes('cloudSyncOff'))
 assert('runAutoSync 尊重 cloudSyncOff 用户开关：关闭时 user-disabled 跳过',

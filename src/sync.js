@@ -309,6 +309,12 @@ export function isPristineState(s) {
   return true
 }
 
+// v2.0.1 本机资料默认态识别：昵称/头像/头像照片都还是出厂值
+// （先记账后登录的场景：资料三字段不应被当作「本机修改」与云端打架）
+export function isDefaultProfileSettings(s) {
+  return !!s && s.nickname === '轻语用户' && (s.avatar || '') === '🐣' && !s.avatarPhotoAt
+}
+
 // ---------- 一次完整同步（纯逻辑，不碰 DOM/localStorage） ----------
 // transport: { get() -> {env|null, etag}, put(text, etag) -> {status}, mkcol? }
 // 返回 { data, conflicts, uploaded, mode, remoteAt }
@@ -331,7 +337,17 @@ export async function syncOnce({ local, base, remoteText, remoteEtag, remoteInfo
     merged = { data: deepClone(local), conflicts: [] }
     mode = base ? 'local' : 'first-upload'
   } else {
-    merged = mergeStates(base, local, remote.data, {
+    // v2.0.1 登录后自动拉齐用户资料：本机资料还是出厂默认（先记账后登录场景）时，
+    // 先把云端昵称/头像预置进本机再合并——避免默认值被当成「本机修改」与云端不确定打架，
+    // 保证登录后昵称/头像确定性跟云端走（账单/总结数据本就走行级/LWW 合并，无需处理）
+    let localEff = local
+    if (isDefaultProfileSettings(local.settings) && remote.data.settings) {
+      localEff = deepClone(local)
+      localEff.settings.nickname = remote.data.settings.nickname
+      localEff.settings.avatar = remote.data.settings.avatar || '🐣'
+      localEff.settings.avatarPhotoAt = remote.data.settings.avatarPhotoAt ?? null
+    }
+    merged = mergeStates(base, localEff, remote.data, {
       localDevice,
       remoteDevice: remote.deviceId || 'remote',
     })
