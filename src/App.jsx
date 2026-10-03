@@ -19,8 +19,8 @@ import NotifyCatchSheet from './NotifyCatchSheet.jsx'
 import NoticeModal from './NoticeModal.jsx'
 import { UpdateProvider, UpdateFloat, UpdatePrompt } from './update-ctx.jsx'
 import { getNotice, importantPending, loadConfirmed, noticeKey, addConfirmed } from './notice.js'
-import { startNotifyCatch, stopNotifyCatch } from './notifyCatch.js'
-import { parseMoneyNotify } from './utils.js'
+import { startNotifyCatch, stopNotifyCatch, makeNotifyHandler, fetchPendingNotifies, removePendingNotifies } from './notifyCatch.js'
+import { startA11yCatch, stopA11yCatch, makeA11yHandler, fetchPendingPages, removePendingPages } from './a11ycatch.js'
 import CategoryManage from './pages/CategoryManage.jsx'
 import CloudBackup from './pages/CloudBackup.jsx'
 import AddTx from './pages/AddTx.jsx'
@@ -189,29 +189,96 @@ function Shell() {
   const tabImgs = useTabIconImgs()
 
   // v1.5 收支监控：Android 原生通知监听 → 解析 → 弹确认窗（Web/桌面静默禁用）
-  const [caught, setCaught] = useState(null)
-  const seenRef = useRef(new Map())
+  // v2.0.2 重构：弹窗队列化（多条通知排队处理）+ 启动/回前台消费离线暂存队列
+  //   （App 被杀期间收到的支付通知不再蒸发，下次打开自动补弹）
+  const [caughtQueue, setCaughtQueue] = useState([])
+  const pushCaught = useCallback((item) => {
+    if (item) setCaughtQueue((q) => [...q, item])
+  }, [])
+  const notifyHandlerRef = useRef(null)
+  if (!notifyHandlerRef.current) notifyHandlerRef.current = makeNotifyHandler(pushCaught)
+  // v2.1 无障碍通道复用同一管线（跨通道金额去重依赖同一实例）
+  const a11yHandlerRef = useRef(null)
+  if (!a11yHandlerRef.current) a11yHandlerRef.current = makeA11yHandler(pushCaught, { notifyHandler: notifyHandlerRef.current })
+  // 处理完弹窗（确认/忽略）→ 移除离线副本，防止下次启动重复弹
+  const caughtQueueRef = useRef([])
+  caughtQueueRef.current = caughtQueue
+  const closeCaught = useCallback(() => {
+    const head = caughtQueueRef.current[0]
+    if (head?.key) removePendingNotifies([head.key])
+    setCaughtQueue((q) => q.slice(1))
+  }, [])
   useEffect(() => {
     if (!state.settings.notifyCatch) return undefined
     let alive = true
     startNotifyCatch((n) => {
       if (!alive || !n) return
-      // 同签名通知 15 秒内去重（系统会重复 post 分组通知）；带原生 ts 时并入签名
-      const sig = `${n.title || ''}|${n.text || ''}`
-      const last = seenRef.current.get(sig) || 0
-      const now = n.ts || Date.now()
-      if (now - last < 15000) return
-      seenRef.current.set(sig, now)
-      if (seenRef.current.size > 50) seenRef.current.clear()
-      const p = parseMoneyNotify(n.title, n.text, n.pkg)
-      if (p) setCaught(p)
+      notifyHandlerRef.current(n)
     }).catch(() => {})
     return () => {
       alive = false
       stopNotifyCatch()
-      setCaught(null)
     }
   }, [state.settings.notifyCatch])
+  // 离线补弹：启动 + 每次 App 回前台（resume）+ 设置页触发（自定义事件）
+  // v2.1 同时消费通知队列与无障碍页面队列
+  useEffect(() => {
+    const catchOn = state.settings.notifyCatch || state.settings.accessibilityCatch
+    if (!catchOn) return undefined
+    let alive = true
+    const consume = async () => {
+      try {
+        if (state.settings.notifyCatch) {
+          const items = await fetchPendingNotifies()
+          if (!alive) return
+          for (const it of items) {
+            await notifyHandlerRef.current({ key: it.key, title: it.title, text: it.text, pkg: it.pkg, ts: it.ts })
+          }
+        }
+        if (state.settings.accessibilityCatch) {
+          const pages = await fetchPendingPages()
+          if (!alive) return
+          for (const it of pages) {
+            await a11yHandlerRef.current({ key: it.key, sig: it.sig, pkg: it.pkg, ts: it.ts, texts: it.texts })
+          }
+        }
+      } catch { /* 消费失败不影响实时链路 */ }
+    }
+    consume()
+    let resumeHandle = null
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core')
+        if (!Capacitor.isNativePlatform()) return
+        const { App } = await import('@capacitor/app')
+        if (cancelled) return
+        resumeHandle = await App.addListener('resume', consume)
+      } catch { /* 非原生环境静默 */ }
+    })()
+    window.addEventListener('qy-consume-pending', consume)
+    return () => {
+      alive = false
+      cancelled = true
+      resumeHandle?.remove?.().catch(() => {})
+      window.removeEventListener('qy-consume-pending', consume)
+    }
+  }, [state.settings.notifyCatch, state.settings.accessibilityCatch])
+
+  // v2.1 无障碍交易捕获：实时监听微信/支付宝支付页（服务由系统「无障碍」开关控制，
+  // 此处只负责 WebView 侧事件接线；App 被杀时原生侧持久化入队，回来由上面的消费 effect 补弹）
+  useEffect(() => {
+    if (!state.settings.accessibilityCatch) return undefined
+    let alive = true
+    startA11yCatch((page) => {
+      if (!alive || !page) return
+      a11yHandlerRef.current(page)
+    }).catch(() => {})
+    return () => {
+      alive = false
+      stopA11yCatch()
+    }
+  }, [state.settings.accessibilityCatch])
 
   // v1.6.5 公告：启动 2 秒后拉取 notice.json（仓库即 CMS，无后台服务器）。
   // 重要且未确认的公告 → 强弹窗队列。受「接收公告」开关控制——
@@ -307,7 +374,7 @@ function Shell() {
           />
 
           {/* v1.5 收支监控确认弹窗：仅 Android 原生且开启监控时才会触发 */}
-          <NotifyCatchSheet caught={caught} onClose={() => setCaught(null)} />
+          <NotifyCatchSheet caught={caughtQueue[0] || null} queueLen={caughtQueue.length} onClose={closeCaught} />
 
           {/* v1.6.5 重要公告强弹窗：队列逐条展示，开关关闭或全部确认时不渲染 */}
           {noticeQueue.length > 0 && (

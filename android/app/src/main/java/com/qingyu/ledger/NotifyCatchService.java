@@ -17,10 +17,11 @@ import java.util.Set;
  * 权限由系统 BIND_NOTIFICATION_LISTENER_SERVICE 保护；用户需在系统设置
  * 「通知使用权」中手动授权。金额解析与弹窗在 JS 层完成。
  *
- * v1.6.8 健壮性增强：
- * - 文本提取覆盖 EXTRA_TEXT / EXTRA_BIG_TEXT / EXTRA_SUB_TEXT 与 MessagingStyle
- *   （微信/支付宝支付通知常在大文本或会话消息里，只读 EXTRA_TEXT 会漏）
- * - onListenerDisconnected 主动 requestRebind，被系统解绑后自动恢复
+ * v2.0.2 漏单修复（重构核心）：
+ * - 旧实现 App 进程死亡时 emit 直接丢弃（instance==null）→ 支付通知蒸发，监控"不起作用"
+ * - 现实现：收到目标通知【先持久化入队】（SharedPreferences，无论 App 死活），
+ *   插件活着才额外实时 emit。App 下次启动/回前台经 pendingList() 补弹，
+ *   处理完 pendingRemove() 删除 —— App 被杀也不漏单
  */
 public class NotifyCatchService extends NotificationListenerService {
 
@@ -66,7 +67,10 @@ public class NotifyCatchService extends NotificationListenerService {
                     str(n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
             );
             if (title.isEmpty() && text.isEmpty()) return;
-            NotifyCatchPlugin.emit(title, text, pkg);
+            // v2.0.2 统一时间戳：postTime 贯通入队与实时链路（同一条通知同签名，JS 端精确去重）
+            long postTime = sbn.getPostTime();
+            NotifyCatchPlugin.enqueue(this, title, text, pkg, postTime);
+            NotifyCatchPlugin.emit(title, text, pkg, postTime);
         } catch (Exception ignored) {
             // 单条通知处理异常不影响服务存活
         }

@@ -4,4 +4,8 @@
     <string name="title_activity_main">轻语记账</string>
     <string name="package_name">com.qingyu.ledger</string>
     <string name="custom_url_scheme">com.qingyu.ledger</string>
+    <!-- v2.1 无障碍交易捕获服务（系统设置页展示） -->
+    <string name="a11y_label">轻语记账 · 收支自动捕获</string>
+    <string name="a11y_summary">自动识别微信/支付宝支付结果页，弹窗帮你记一笔</string>
+    <string name="a11y_desc">仅用于读取微信和支付宝支付结果页的文字内容（金额、收款方、交易类型），帮助快速记账。不读取聊天内容，不采集密码，所有数据仅保存在本机，不会上传。若关闭此功能，轻语记账将无法自动捕获收支。</string>
 </resources>

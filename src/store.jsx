@@ -42,6 +42,8 @@ export function migrateState(s) {
   if (typeof s.settings.updateAutoDl !== 'boolean') s.settings.updateAutoDl = false
   // v1.11.0 坚果云同步开关：默认开启（已配置就同步），用户可手动关闭后昵称恢复正常显示
   if (typeof s.settings.cloudSyncOff !== 'boolean') s.settings.cloudSyncOff = false
+  // v2.1 无障碍交易捕获开关：默认关闭，开启后需在系统「无障碍」中授权服务
+  if (typeof s.settings.accessibilityCatch !== 'boolean') s.settings.accessibilityCatch = false
   // v1.8.0 AI 风格：自定义参数表与角色名归一（角色卡本体只存本机 localStorage）
   if (!s.settings.aiStyleAttrs || typeof s.settings.aiStyleAttrs !== 'object' || Array.isArray(s.settings.aiStyleAttrs)) {
     s.settings.aiStyleAttrs = { tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' }

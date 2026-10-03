@@ -638,3 +638,96 @@ export async function parseReceiptImage(cfg, dataUrl, state, { signal } = {}) {
     source: 'ocr',
   }
 }
+
+// ---------- v2.0.2 收支监控 AI 兜底：通知文本解析（本地规则认不出时调用） ----------
+// 场景：微信「你收到一条转账消息」这类不含金额/不含标准支付词的通知，
+// parseMoneyNotify 返回 null 后交给模型判断 isPay/方向/金额，避免漏单。
+const NOTIFY_PARSE_SYS = [
+  '你是支付通知解析助手。判断一条手机通知是否为微信/支付宝的收付款通知，严格只输出一个 JSON 对象，不要 markdown 代码块，格式：',
+  '{"isPay":true或false,"kind":"expense|income|null","amount":数字(元,识别不出为0),"note":"不超过16字摘要"}',
+  '规则：收款/到账/收钱/红包/退款/返现/收益/转入 → income；支付/付款/消费/扣款/转出/充值成功 → expense；',
+  '聊天消息/验证码/物流/系统通知等非收支内容 isPay=false。通知里没有金额时 amount=0，绝不猜金额。',
+].join('\n')
+
+export async function aiParseNotify(cfg, title, text, { signal } = {}) {
+  const body = JSON.stringify({
+    model: cfg.model,
+    messages: [
+      { role: 'system', content: NOTIFY_PARSE_SYS },
+      { role: 'user', content: `通知标题：${String(title || '').slice(0, 40)}\n通知内容：${String(text || '').slice(0, 120)}` },
+    ],
+    stream: false,
+    temperature: 0.1,
+    response_format: { type: 'json_object' },
+    max_tokens: 120,
+  })
+  const r = await postText(cfg, body, { signal })
+  if (!r.ok) throw new AiHttpError(r.status, r.text)
+  let parsed
+  try { parsed = JSON.parse(r.text) } catch { return null }
+  const content = parsed?.choices?.[0]?.message?.content || ''
+  const start = content.indexOf('{')
+  const end = content.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  let j
+  try { j = JSON.parse(content.slice(start, end + 1)) } catch { return null }
+  if (j.isPay !== true) return null
+  const kind = j.kind === 'income' ? 'income' : j.kind === 'expense' ? 'expense' : null
+  if (!kind) return null
+  const amount = round2(Number(j.amount))
+  return {
+    // 金额识别不出 → null：弹空金额确认窗由用户补填（方向已可信，优于完全漏单）
+    amount: amount > 0 ? amount : null,
+    kind,
+    note: typeof j.note === 'string' ? j.note.trim().slice(0, 16) : '',
+    source: 'ai',
+  }
+}
+
+// ---------- v2.0.2 收支监控视觉兜底：GLM-4V 识别支付截图（弹窗内手动选图触发） ----------
+// 场景：通知里根本没有金额（如「你收到一条转账消息」），用户在确认弹窗里点
+// 「截图识别」→ 选支付详情页截图 → 视觉模型提取金额与方向。
+// 模型固定 glm-4v-flash（多模态，独立于文本模型配置，价格低）。
+const PAY_SHOT_SYS = [
+  '你是支付截图识别助手。识别微信/支付宝的支付成功页、转账记录、收款记录截图，严格只输出一个 JSON 对象，不要 markdown 代码块，格式：',
+  '{"kind":"expense|income","amount":数字(元),"note":"不超过16字摘要（对方或商家名）"}',
+  '付款/消费/转账给他人 → expense；收款/收钱/红包/退款 → income。',
+  '金额取「支付金额/实付金额/转账金额/收款金额」，不要把账户余额、零钱明细当成交易金额。识别不出金额输出 {"amount":0}。',
+].join('\n')
+
+export async function aiParsePayScreenshot(cfg, dataUrl, { signal } = {}) {
+  const body = JSON.stringify({
+    model: 'glm-4v-flash',
+    messages: [
+      { role: 'system', content: PAY_SHOT_SYS },
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: dataUrl } },
+          { type: 'text', text: '识别这张支付截图并按要求输出 JSON' },
+        ],
+      },
+    ],
+    stream: false,
+    temperature: 0.1,
+    max_tokens: 150,
+  })
+  const r = await postText(cfg, body, { signal })
+  if (!r.ok) throw new AiHttpError(r.status, r.text)
+  let parsed
+  try { parsed = JSON.parse(r.text) } catch { return null }
+  const content = parsed?.choices?.[0]?.message?.content || ''
+  const start = content.indexOf('{')
+  const end = content.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  let j
+  try { j = JSON.parse(content.slice(start, end + 1)) } catch { return null }
+  const amount = round2(Number(j.amount))
+  if (!(amount > 0)) return null
+  return {
+    kind: j.kind === 'income' ? 'income' : 'expense',
+    amount,
+    note: typeof j.note === 'string' ? j.note.trim().slice(0, 16) : '',
+    source: 'vision',
+  }
+}

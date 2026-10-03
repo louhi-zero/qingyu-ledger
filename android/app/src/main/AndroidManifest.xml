@@ -38,6 +38,21 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- v2.1 收支监控：无障碍交易捕获服务（替代截图记录方式），需用户在系统「无障碍」中开启；
+             packageNames 锁定微信/支付宝，BIND 权限保证仅系统可绑定 -->
+        <service
+            android:name=".QyA11yService"
+            android:label="@string/a11y_label"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/a11y_service_config" />
+        </service>
     </application>
 
     <!-- Permissions -->

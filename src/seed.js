@@ -120,6 +120,8 @@ export function emptyState() {
       updateAutoDl: false,
       // v1.11.0 坚果云同步开关：默认开启，关闭后自动同步停止、昵称恢复正常显示
       cloudSyncOff: false,
+      // v2.1 无障碍交易捕获：默认关闭，开启后走系统「无障碍」授权 + 支付页自动捕获
+      accessibilityCatch: false,
     },
     categories: cats,
     accounts,

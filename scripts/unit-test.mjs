@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 26 / 2.0.2', gradle.includes('versionCode 26') && gradle.includes('versionName "2.0.2"'))
+assert('版本 versionCode 27 / 2.1', gradle.includes('versionCode 27') && gradle.includes('versionName "2.1"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -229,7 +229,7 @@ assert('服务提取 EXTRA_BIG_TEXT / MessagingStyle',
   notifyJava.includes('EXTRA_BIG_TEXT') && notifyJava.includes('lastMessagingText') && notifyJava.includes('android.messages'))
 assert('断开后主动 requestRebind 自愈', notifyJava.includes('requestRebind'))
 const pluginJava = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/NotifyCatchPlugin.java', import.meta.url), 'utf-8')
-assert('插件提供 testEmit 端到端测试方法', pluginJava.includes('public void testEmit') && pluginJava.includes('emit(title, text, pkg)'))
+assert('插件提供 testEmit 端到端测试方法', pluginJava.includes('public void testEmit') && pluginJava.includes('emit(title, text, pkg, System.currentTimeMillis())'))
 assert('连接状态变化推 listening 事件', pluginJava.includes('notifyListeners("listening"'))
 assert('caught 事件不做滞留投递（避免打开 App 弹旧账）', pluginJava.includes('notifyListeners("caught", data, false)'))
 const notifyJs = readFileSync(new URL('../src/notifyCatch.js', import.meta.url), 'utf-8')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.0.2', pkgJson.version === '2.0.2')
+assert('package.json 版本 2.1', pkgJson.version === '2.1')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -393,7 +393,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.0.2', APP_VERSION === '2.0.2')
+assert('update.js 版本单一源为 2.1', APP_VERSION === '2.1')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -772,6 +772,201 @@ assert('更新卡片样式齐备（7 种状态 + 环形进度 + 深色适配）'
 assert('关于文案：数据可自选同步到坚果云', profileSrc11.includes('可自选同步到你的坚果云'))
 assert('runAutoSync 顺带对齐资料档案（syncProfileArchive silent）',
   autoSrc.includes('syncProfileArchive(result.data, { toast, silent: true })'))
+
+// ---------- 12. v2.0.2 收支监控重构（离线暂存队列 + AI 兜底 + 视觉识别） ----------
+console.log('v2.0.2 收支监控重构：')
+const ncSheetSrc = readFileSync(new URL('../src/NotifyCatchSheet.jsx', import.meta.url), 'utf-8')
+const appNotifySrc = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+assert('Java 离线暂存：Service 先入队（SharedPreferences）再实时 emit，postTime 贯通双轨',
+  notifyJava.includes('NotifyCatchPlugin.enqueue(this, title, text, pkg, postTime)')
+  && notifyJava.includes('NotifyCatchPlugin.emit(title, text, pkg, postTime)'))
+assert('Java 队列：pendingList/pendingRemove/pendingEnqueueSample + 50 条上限 + 10s 去重',
+  pluginJava.includes('public void pendingList') && pluginJava.includes('public void pendingRemove')
+  && pluginJava.includes('public void pendingEnqueueSample')
+  && pluginJava.includes('MAX_PENDING = 50') && pluginJava.includes('ENQUEUE_DEDUP_MS = 10_000'))
+assert('JS 队列消费：fetchPendingNotifies/removePendingNotifies + 启动/resume/自定义事件三触发',
+  appNotifySrc.includes('fetchPendingNotifies()') && appNotifySrc.includes("App.addListener('resume', consume)")
+  && appNotifySrc.includes("addEventListener('qy-consume-pending', consume)"))
+assert('弹窗队列化：caughtQueue + closeCaught 移除离线副本 + 队列长度提示',
+  appNotifySrc.includes('caughtQueue') && appNotifySrc.includes('removePendingNotifies([head.key])')
+  && ncSheetSrc.includes('待处理'))
+assert('AI 文本兜底接线：makeNotifyHandler（本地规则→AI 兜底→支付语境门控）',
+  notifyJs.includes('parseMoneyNotify(n.title, n.text, n.pkg)')
+  && notifyJs.includes('aiParseNotify') && notifyJs.includes('QY_NOTIFY_AI_GATE'))
+assert('跨启动去重：已处理签名持久化（seenHas/seenMark，精确 sig 防重复弹）',
+  notifyJs.includes("LS_SEEN = 'qingyu_notify_seen_v1'") && notifyJs.includes('seenHas(sig)') && notifyJs.includes('seenMark(sig)'))
+assert('弹窗截图识别入口：GLM-4V 视觉模型 + 压缩上传 + 无 Key 引导',
+  ncSheetSrc.includes('aiParsePayScreenshot') && ncSheetSrc.includes('shotToDataUrl')
+  && ncSheetSrc.includes('MAX = 1280') && ncSheetSrc.includes('请先在「AI 助手」里配置智谱 API Key'))
+assert('AI 无金额通知：方向可信金额缺失 → 弹空金额窗由用户补填（不静默漏单）',
+  aiSrc.includes('amount: amount > 0 ? amount : null')
+  && ncSheetSrc.includes("caught.amount == null || !(caught.amount > 0) ? '' : caught.amount.toFixed(2)"))
+
+// 行为测试：mock fetch 直测 AI 解析函数（node 环境 browser 路径）
+console.log('v2.0.2 AI 解析行为（mock HTTP）：')
+const realFetch = globalThis.fetch
+const aiResp = (content) => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+try {
+  const { aiParseNotify, aiParsePayScreenshot } = await import('../src/ai.js')
+  // 1) 文本兜底：转账消息 → income + 金额
+  globalThis.fetch = async () => aiResp('{"isPay":true,"kind":"income","amount":88.8,"note":"张三转账"}')
+  const r1 = await aiParseNotify({ key: 'k', model: 'm', baseUrl: 'https://x' }, '微信支付', '你收到一条转账消息')
+  assert('aiParseNotify：转账消息 → income 88.8（AI 兜底）',
+    !!r1 && r1.kind === 'income' && r1.amount === 88.8 && r1.source === 'ai')
+  // 2) 无金额 → null（弹空窗补填）
+  globalThis.fetch = async () => aiResp('{"isPay":true,"kind":"expense","amount":0,"note":""}')
+  const r2 = await aiParseNotify({ key: 'k', model: 'm', baseUrl: 'https://x' }, '微信支付', '微信支付凭证')
+  assert('aiParseNotify：无金额 → amount=null（弹空窗补填，不漏单）', !!r2 && r2.amount === null && r2.kind === 'expense')
+  // 3) 非收支通知 → null
+  globalThis.fetch = async () => aiResp('{"isPay":false,"kind":null,"amount":0,"note":""}')
+  const r3 = await aiParseNotify({ key: 'k', model: 'm', baseUrl: 'https://x' }, '张三', '明天一起吃饭啊')
+  assert('aiParseNotify：聊天消息 → isPay=false → 静默跳过', r3 === null)
+  // 4) 截图识别：GLM-4V 提取金额
+  globalThis.fetch = async () => aiResp('{"kind":"expense","amount":25.5,"note":"午餐"}')
+  const r4 = await aiParsePayScreenshot({ key: 'k', model: 'm', baseUrl: 'https://x' }, 'data:image/jpeg;base64,xx')
+  assert('aiParsePayScreenshot：截图 → expense 25.5（GLM-4V）', !!r4 && r4.amount === 25.5 && r4.kind === 'expense')
+  // 5) 截图无金额 → null
+  globalThis.fetch = async () => aiResp('{"kind":"expense","amount":0,"note":""}')
+  const r5 = await aiParsePayScreenshot({ key: 'k', model: 'm', baseUrl: 'https://x' }, 'data:image/jpeg;base64,xx')
+  assert('aiParsePayScreenshot：识别不出金额 → null（引导换截图）', r5 === null)
+
+  // 6) makeNotifyHandler 端到端（mock AI + 注入 cfg）：本地规则命中 / AI 兜底 / 门控跳过 / 去重
+  const { makeNotifyHandler } = await import('../src/notifyCatch.js')
+  const caught = []
+  const h = makeNotifyHandler((x) => caught.push(x), {
+    aiFallback: true,
+    loadCfg: () => ({ key: 'test-key', model: 'm', baseUrl: 'https://x' }),
+  })
+  // 本地规则命中（不走 AI）
+  globalThis.fetch = async () => { throw new Error('不应发起 AI 请求') }
+  await h({ title: '微信支付', text: '微信支付-9.90', pkg: 'com.tencent.mm', ts: 1000 })
+  assert('统一处理器：标准支付通知走本地规则（0 AI 调用）',
+    caught.length === 1 && caught[0].amount === 9.9 && caught[0].source === 'wechat')
+  // 普通聊天（无支付语境门控）→ 不弹不调用
+  await h({ title: '张三', text: '明天见', pkg: 'com.tencent.mm', ts: 2000 })
+  assert('统一处理器：普通聊天被 AI 门控跳过', caught.length === 1)
+  // 无金额转账消息 → AI 兜底弹窗
+  globalThis.fetch = async () => aiResp('{"isPay":true,"kind":"income","amount":200,"note":"李四转账"}')
+  await h({ title: '微信支付', text: '你收到一条转账消息', pkg: 'com.tencent.mm', ts: 3000 })
+  assert('统一处理器：无金额转账 → AI 兜底 income 200',
+    caught.length === 2 && caught[1].amount === 200 && caught[1].kind === 'income')
+  // 同一条通知（实时 + 队列副本同 ts）→ 精确去重只弹一次
+  await h({ title: '微信支付', text: '你收到一条转账消息', pkg: 'com.tencent.mm', ts: 3000, key: 'k1' })
+  assert('统一处理器：实时/离线副本同签名精确去重', caught.length === 2)
+} finally {
+  globalThis.fetch = realFetch
+}
+
+// ---------- v2.1 无障碍支付页捕获（pageToNotifyEntry 提取算法 + makeA11yHandler + 源码断言） ----------
+console.log('v2.1 无障碍支付页捕获：')
+const { pageToNotifyEntry, makeA11yHandler } = await import('../src/a11ycatch.js')
+const { makeNotifyHandler: mkHandler } = await import('../src/notifyCatch.js')
+assert('accessibilityCatch 默认关闭', es.settings.accessibilityCatch === false)
+
+// 真实页面样本：微信付款成功页（主金额 + 支付方式 + 收款方 + 交易时间，含噪声行）
+const wxPay = pageToNotifyEntry(
+  ['支付成功', '¥25.00', '支付方式 零钱', '收款方 瑞幸咖啡', '交易时间 2026-10-03 12:30:45', '广告 领红包'],
+  'com.tencent.mm')
+assert('微信付款页：expense 25.00 + 收款方 + 时间（噪声行过滤，秒→分）',
+  !!wxPay && wxPay.kind === 'expense' && wxPay.amount === 25 && wxPay.source === 'wechat'
+  && wxPay.counterparty === '瑞幸咖啡' && wxPay.txDate === '2026-10-03' && wxPay.txTime === '12:30'
+  && wxPay.text === '微信支付-25.00 瑞幸咖啡')
+assert('「收款方」是支出页对方字段，不误判为收入', wxPay.kind === 'expense')
+
+// 微信收款页：无标签行 → 金额行邻找名字（「收款成功」标签词不得误取为对方）
+const wxIn = pageToNotifyEntry(['微信支付', '收款成功', '¥100.00', '张三', '2026-10-02 09:05:11'], 'com.tencent.mm')
+assert('微信收款页：income 100 + 邻近名字（跳过标签词）+ 合成收款文本',
+  !!wxIn && wxIn.kind === 'income' && wxIn.amount === 100 && wxIn.counterparty === '张三'
+  && wxIn.text === '微信支付收款100.00元 张三' && wxIn.txTime === '09:05')
+
+// 支付宝付款页：￥ 符号 + 商户行 + 来源判定
+const aliPay = pageToNotifyEntry(['付款成功', '￥8.80', '付款方式 余额', '商户 便利蜂'], 'com.eg.android.AlipayGphone')
+assert('支付宝付款页：expense 8.80 + source=alipay + 商户提取',
+  !!aliPay && aliPay.kind === 'expense' && aliPay.amount === 8.8 && aliPay.source === 'alipay'
+  && aliPay.counterparty === '便利蜂' && aliPay.title === '支付宝')
+
+// 红包收入 / 转账支出
+const red = pageToNotifyEntry(['已领取红包', '￥6.66', '李四的红包'], 'com.tencent.mm')
+assert('红包领取页：income 6.66 + 对方提取', !!red && red.kind === 'income' && red.amount === 6.66 && red.counterparty === '李四的红包')
+const tr = pageToNotifyEntry(['转账成功', '¥200.00', '转账给 王五'], 'com.tencent.mm')
+assert('转账给：expense 200 + 对方 王五', !!tr && tr.kind === 'expense' && tr.amount === 200 && tr.counterparty === '王五')
+
+// 非支付页 / 缺要素 → null（不弹窗）
+assert('聊天页不识别', pageToNotifyEntry(['张三', '明天一起吃饭啊'], 'com.tencent.mm') === null)
+assert('只有金额无收支关键词 → null', pageToNotifyEntry(['¥25.00'], 'com.tencent.mm') === null)
+assert('空文本 → null', pageToNotifyEntry([], 'com.tencent.mm') === null)
+
+// 金额归一精确到分
+const fen = pageToNotifyEntry(['支付成功', '¥0.1'], 'com.tencent.mm')
+assert('金额归一精确到分（¥0.1 → 0.10）', !!fen && fen.amount === 0.1 && fen.text === '微信支付-0.10')
+
+// 行为测试：makeA11yHandler（页面签名去重 + 共享管线跨通道金额去重）
+const a11yLS = new Map()
+const prevLS = globalThis.localStorage
+globalThis.localStorage = {
+  getItem: (k) => (a11yLS.has(k) ? a11yLS.get(k) : null),
+  setItem: (k, v) => { a11yLS.set(k, String(v)) },
+  removeItem: (k) => { a11yLS.delete(k) },
+}
+try {
+  const caughtA = []
+  const sharedH = mkHandler((x) => caughtA.push(x), { loadCfg: () => ({ key: '', model: '', baseUrl: '' }) })
+  const a11yH = makeA11yHandler((x) => caughtA.push(x), { notifyHandler: sharedH })
+  const NOW = Date.now()
+  // 支付页 → 合成条目进管线 → 弹窗（交易要素透传）
+  await a11yH({ key: 'p1', sig: 'sig-1', pkg: 'com.tencent.mm', ts: NOW, texts: ['支付成功', '¥25.00', '支付方式 零钱', '收款方 瑞幸咖啡'] })
+  assert('a11y 处理器：支付页 → 弹窗 expense 25 + 交易要素透传',
+    caughtA.length === 1 && caughtA[0].amount === 25 && caughtA[0].kind === 'expense' && caughtA[0].counterparty === '瑞幸咖啡')
+  // 同 sig 页面（停留重发/重复打开）→ 24h 只处理一次
+  await a11yH({ key: 'p2', sig: 'sig-1', pkg: 'com.tencent.mm', ts: NOW + 1000, texts: ['支付成功', '¥25.00', '收款方 瑞幸咖啡'] })
+  assert('a11y 处理器：同签名页面去重（只弹一次）', caughtA.length === 1)
+  // 非支付页 → 静默
+  await a11yH({ key: 'p3', sig: 'sig-2', pkg: 'com.tencent.mm', ts: NOW + 2000, texts: ['张三', '明天见'] })
+  assert('a11y 处理器：聊天页静默', caughtA.length === 1)
+  // 跨通道金额去重：同一笔支付先通知后支付页（30s 同 pkg/金额/方向）→ 只弹一次
+  await sharedH({ title: '微信支付', text: '微信支付-30.00', pkg: 'com.tencent.mm', ts: NOW + 3000 })
+  assert('跨通道：通知通道先弹（expense 30）', caughtA.length === 2 && caughtA[1].amount === 30)
+  await a11yH({ key: 'p4', sig: 'sig-3', pkg: 'com.tencent.mm', ts: NOW + 4000, texts: ['支付成功', '¥30.00', '收款方 全家便利店'] })
+  assert('跨通道：同笔支付 30s 内通知+支付页只弹一次', caughtA.length === 2)
+} finally {
+  if (prevLS === undefined) delete globalThis.localStorage
+  else globalThis.localStorage = prevLS
+}
+
+// 源码断言：Android 侧服务/插件/配置与前端接线
+const a11ySvc = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/QyA11yService.java', import.meta.url), 'utf-8')
+const a11yPlg = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/QyA11yPlugin.java', import.meta.url), 'utf-8')
+const a11yCfgX = readFileSync(new URL('../android/app/src/main/res/xml/a11y_service_config.xml', import.meta.url), 'utf-8')
+const gradleVars = readFileSync(new URL('../android/variables.gradle', import.meta.url), 'utf-8')
+const a11yStrX = readFileSync(new URL('../android/app/src/main/res/values/strings.xml', import.meta.url), 'utf-8')
+const sectionsSrc = readFileSync(new URL('../src/pages/SettingsSections.jsx', import.meta.url), 'utf-8')
+const seedSrc = readFileSync(new URL('../src/seed.js', import.meta.url), 'utf-8')
+assert('A11y 配置：packageNames 锁定微信/支付宝 + canRetrieveWindowContent + 窗口事件类型',
+  a11yCfgX.includes('com.tencent.mm') && a11yCfgX.includes('com.eg.android.AlipayGphone')
+  && a11yCfgX.includes('canRetrieveWindowContent')
+  && a11yCfgX.includes('typeWindowStateChanged') && a11yCfgX.includes('typeWindowContentChanged'))
+assert('Manifest：QyA11yService 声明 + BIND_ACCESSIBILITY_SERVICE + config meta-data',
+  manifest.includes('.QyA11yService') && manifest.includes('BIND_ACCESSIBILITY_SERVICE')
+  && manifest.includes('@xml/a11y_service_config'))
+assert('A11y 插件：权限检测/引导跳转/端到端注入/离线队列（30 条上限 + 10s 去重）',
+  a11yPlg.includes('isA11yEnabled') && a11yPlg.includes('openA11ySettings')
+  && a11yPlg.includes('testA11yEmit') && a11yPlg.includes('pendingList') && a11yPlg.includes('pendingRemove')
+  && a11yPlg.includes('MAX_PENDING = 30') && a11yPlg.includes('ENQUEUE_DEDUP_MS = 10_000'))
+assert('A11y 服务采集安全：节点数/文本长度/DFS 深度三上限 + 节点回收',
+  a11ySvc.includes('MAX_NODES = 400') && a11ySvc.includes('MAX_TEXT_LEN = 300')
+  && a11ySvc.includes('MAX_DEPTH = 30') && a11ySvc.includes('node.recycle()'))
+assert('minSdkVersion = 24（Android 7.0+ 兼容基线）', gradleVars.includes('minSdkVersion = 24'))
+assert('系统无障碍页隐私声明（不读聊天/不采集密码/仅存本机）',
+  a11yStrX.includes('不读取聊天内容') && a11yStrX.includes('不采集密码') && a11yStrX.includes('仅保存在本机'))
+assert('开关接线：seed 默认关闭 + store 迁移兜底',
+  seedSrc.includes('accessibilityCatch: false') && storeSrc.includes('accessibilityCatch'))
+assert('App 双通道：共享管线实例 + 实时监听 + 双队列离线消费',
+  appNotifySrc.includes('makeA11yHandler(pushCaught, { notifyHandler: notifyHandlerRef.current })')
+  && appNotifySrc.includes('startA11yCatch') && appNotifySrc.includes('fetchPendingPages()'))
+assert('设置页：捕获开关/权限状态/两个测试入口 + 分步引导 Sheet（去开启）',
+  sectionsSrc.includes('微信 / 支付宝支付页捕获') && sectionsSrc.includes('无障碍权限')
+  && sectionsSrc.includes('runA11yTest') && sectionsSrc.includes('runA11yPendingTest')
+  && sectionsSrc.includes('开启收支自动捕获') && sectionsSrc.includes('openA11ySettings'))
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

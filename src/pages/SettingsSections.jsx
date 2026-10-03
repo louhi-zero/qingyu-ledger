@@ -10,7 +10,8 @@ import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
 import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs, useTheme } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { DISCOVER_TOOLS } from './Discover.jsx'
-import { getNotifyCatch, isNotifyListening, openNotifySettings, testNotifyEmit } from '../notifyCatch.js'
+import { getNotifyCatch, isNotifyListening, openNotifySettings, testNotifyEmit, enqueuePendingSample } from '../notifyCatch.js'
+import { getA11yStatus, openA11ySettings, testA11yEmit, enqueuePendingSample as enqueueA11ySample } from '../a11ycatch.js'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify } from '../utils.js'
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
@@ -457,9 +458,17 @@ function NotifySection({ ctx }) {
   const [listening, setListening] = useState(false)
   const [sandbox, setSandbox] = useState('微信支付收款0.01元')
   const [sandboxState, setSandboxState] = useState({ status: 'none' })
+  // v2.1 无障碍交易捕获：权限状态 + 分步引导（deniedRef 供回前台闭包判定，state 仅渲染）
+  const [a11y, setA11y] = useState({ enabled: false, connected: false })
+  const [a11yGuide, setA11yGuide] = useState(false)
+  const [a11yDenied, setA11yDenied] = useState(false)
+  const a11yDeniedRef = useRef(false)
 
   const refreshListening = () => {
     isNotifyListening().then(setListening).catch(() => {})
+  }
+  const refreshA11y = () => {
+    getA11yStatus().then(setA11y).catch(() => {})
   }
 
   // 检测原生插件与通知使用权连接状态；回前台/从系统设置返回时自动刷新
@@ -468,9 +477,28 @@ function NotifySection({ ctx }) {
     getNotifyCatch().then((p) => {
       if (!alive) return
       setNativeOk(!!p)
-      if (p) isNotifyListening().then((v) => { if (alive) setListening(v) }).catch(() => {})
+      if (p) {
+        isNotifyListening().then((v) => { if (alive) setListening(v) }).catch(() => {})
+        getA11yStatus().then((st) => { if (alive) setA11y(st) }).catch(() => {})
+      }
     }).catch(() => {})
-    const onVis = () => { if (document.visibilityState === 'visible') refreshListening() }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        refreshListening()
+        // v2.1 无障碍状态回前台刷新；用户去过系统设置但没开 → 标记被拒，状态行标红 + toast 重引导
+        getA11yStatus().then((st) => {
+          setA11y(st)
+          if (s.accessibilityCatch && !st.enabled) {
+            a11yDeniedRef.current = true
+            setA11yDenied(true)
+          } else if (st.enabled && a11yDeniedRef.current) {
+            a11yDeniedRef.current = false
+            setA11yDenied(false)
+            toast('无障碍权限已开启，收支捕获生效', 'ok')
+          }
+        }).catch(() => {})
+      }
+    }
     document.addEventListener('visibilitychange', onVis)
     let resumeHandle = null
     let cancelled = false
@@ -514,10 +542,49 @@ function NotifySection({ ctx }) {
     toast(ok ? '已发送测试通知，应弹出确认记账窗' : '原生通道不可用', ok ? 'ok' : 'err')
   }
 
+  // v2.0.2 离线补弹测试：模拟 App 被杀时收到的通知（写入持久化队列）→ 立即触发消费补弹
+  const runPendingTest = async () => {
+    const ok = await enqueuePendingSample({ title: '支付宝', text: '支付宝消费成功，实付8.80元', pkg: 'com.eg.android.AlipayGphone' })
+    if (!ok) { toast('原生通道不可用', 'err'); return }
+    toast('已写入暂存队列，正在触发补弹…', 'ok')
+    setTimeout(() => window.dispatchEvent(new Event('qy-consume-pending')), 600)
+  }
+
   // 解析沙盒：任意环境可用，验证文案识别规则
   const runSandbox = () => {
     const p = parseMoneyNotify('通知测试', sandbox, '')
     setSandboxState(p ? { status: 'ok', p } : { status: 'fail' })
+  }
+
+  // v2.1 支付页捕获开关：开启且尚未授权时，自动弹出分步引导 Sheet
+  const toggleA11y = () => {
+    const next = !s.accessibilityCatch
+    set((d) => { d.settings.accessibilityCatch = next })
+    if (next) {
+      toast('已开启支付页捕获')
+      getA11yStatus().then((st) => {
+        setA11y(st)
+        if (!st.enabled) setTimeout(() => setA11yGuide(true), 300)
+      }).catch(() => {})
+    } else {
+      a11yDeniedRef.current = false
+      setA11yDenied(false)
+      toast('已关闭支付页捕获')
+    }
+  }
+
+  // v2.1 端到端测试：原生注入一次模拟支付页事件 → a11y 事件通道 → 解析 → 确认弹窗
+  const runA11yTest = async () => {
+    const ok = await testA11yEmit()
+    toast(ok ? '已注入模拟支付页（瑞幸咖啡 ¥25.00），应弹出确认记账窗' : '原生通道不可用', ok ? 'ok' : 'err')
+  }
+
+  // v2.1 支付页补弹测试：模拟 App 被杀时捕获的页面（写入持久化队列）→ 触发消费补弹
+  const runA11yPendingTest = async () => {
+    const ok = await enqueueA11ySample()
+    if (!ok) { toast('原生通道不可用', 'err'); return }
+    toast('已写入暂存队列，正在触发补弹…', 'ok')
+    setTimeout(() => window.dispatchEvent(new Event('qy-consume-pending')), 600)
   }
 
   return (
@@ -555,7 +622,7 @@ function NotifySection({ ctx }) {
           <div className="cico">👁️</div>
           <div className="cmain">
             <div className="ctitle">微信 / 支付宝收支监控</div>
-            <div className="cdesc">检测到收支通知自动弹窗，确认后入账；不静默记账</div>
+            <div className="cdesc">实时弹窗确认入账；App 被杀不漏单（下次启动补弹）；配置 AI 后自动智能解析</div>
           </div>
           <div className="cright"><Switch on={s.notifyCatch} onChange={() => set((d) => { d.settings.notifyCatch = !d.settings.notifyCatch })} /></div>
         </div>
@@ -580,6 +647,65 @@ function NotifySection({ ctx }) {
             <div className="cmain">
               <div className="ctitle">发送测试通知</div>
               <div className="cdesc">注入一条 0.01 元模拟收款，验证监听→解析→弹窗全链路</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
+        )}
+        {/* v2.0.2 离线补弹测试：验证 App 被杀场景的漏单修复 */}
+        {s.notifyCatch && nativeOk && (
+          <div className="cell" onClick={runPendingTest}>
+            <div className="cico">📬</div>
+            <div className="cmain">
+              <div className="ctitle">离线补弹测试</div>
+              <div className="cdesc">模拟 App 被杀时收到通知，验证暂存队列自动补弹</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
+        )}
+        {/* v2.1 无障碍支付页捕获：替代截图方式，直接读取支付结果页文字 */}
+        <div className="cell" onClick={() => toggleA11y()}>
+          <div className="cico">🤖</div>
+          <div className="cmain">
+            <div className="ctitle">微信 / 支付宝支付页捕获</div>
+            <div className="cdesc">读取支付结果页文字，金额/收款方自动填好，无需截图</div>
+          </div>
+          <div className="cright"><Switch on={s.accessibilityCatch} onChange={() => toggleA11y()} /></div>
+        </div>
+        {s.accessibilityCatch && nativeOk && (
+          <div className="cell" onClick={() => setA11yGuide(true)}>
+            <div className="cico">♿</div>
+            <div className="cmain">
+              <div className="ctitle">无障碍权限</div>
+              <div className="cdesc">
+                {a11y.enabled
+                  ? (a11y.connected ? '已开启，正在捕获微信/支付宝支付页' : '已开启，等待系统连接服务')
+                  : '未开启，点击查看开启指引'}
+              </div>
+            </div>
+            <div className="cright">
+              <span className="tag" style={{ color: a11y.enabled && a11y.connected && !a11yDenied ? 'var(--income)' : 'var(--expense)' }}>
+                {a11y.enabled ? (a11y.connected ? '● 已连接' : '○ 连接中') : '待授权'}
+              </span>
+              <span className="arrow">›</span>
+            </div>
+          </div>
+        )}
+        {s.accessibilityCatch && nativeOk && (
+          <div className="cell" onClick={runA11yTest}>
+            <div className="cico">🧪</div>
+            <div className="cmain">
+              <div className="ctitle">支付页捕获测试</div>
+              <div className="cdesc">注入一次模拟支付页事件，验证捕获→解析→弹窗全链路</div>
+            </div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
+        )}
+        {s.accessibilityCatch && nativeOk && (
+          <div className="cell" onClick={runA11yPendingTest}>
+            <div className="cico">📮</div>
+            <div className="cmain">
+              <div className="ctitle">支付页补弹测试</div>
+              <div className="cdesc">模拟 App 被杀时捕获的支付页，验证暂存队列自动补弹</div>
             </div>
             <div className="cright"><span className="arrow">›</span></div>
           </div>
@@ -633,6 +759,49 @@ function NotifySection({ ctx }) {
           </div>
         </div>
       </div>
+
+      {/* v2.1 无障碍权限分步引导：价值展示 → 通俗解释 → 四步指引 → 隐私承诺 */}
+      <Sheet open={a11yGuide} onClose={() => setA11yGuide(false)} title="开启收支自动捕获">
+        <div className="center-box" style={{ padding: '6px 0 10px' }}>
+          <div style={{ fontSize: 40, lineHeight: 1 }}>⚡</div>
+          <div style={{ fontWeight: 700, marginTop: 8 }}>付完钱，自动弹窗帮你记账</div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.7 }}>
+            微信/支付宝支付成功后，轻语记账自动读取结果页文字，
+            金额、收款方、收支方向都已填好，点一下确认即可入账 —— 不用截图、不用手填。
+          </div>
+        </div>
+        <div className="field">
+          <label>为什么需要你亲自授权？</label>
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
+            安卓系统规定：读取其他应用界面文字的能力（无障碍），必须由你在系统设置里亲自打开，
+            任何 App 都不能替你点 —— 这正是系统在保护你的隐私。
+          </div>
+        </div>
+        <div className="field">
+          <label>四步开启（约 20 秒）</label>
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 2 }}>
+            ① 点下方「去开启」，进入系统无障碍设置<br />
+            ② 在列表中找到「轻语记账 · 收支自动捕获」<br />
+            ③ 打开它的开关（部分手机在：设置 → 无障碍 → 已下载的应用）<br />
+            ④ 返回轻语记账，看到「● 已连接」即生效
+          </div>
+        </div>
+        <div className="field">
+          <label>隐私承诺</label>
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.7 }}>
+            只读支付结果页的文字（金额、收款方、交易类型），不读聊天内容、不采集密码，
+            所有数据仅保存在本机，不会上传。
+          </div>
+        </div>
+        <div className="btnrow">
+          <button className="btn ghost" onClick={() => setA11yGuide(false)}>暂不开通</button>
+          <button className="btn" onClick={async () => {
+            setA11yGuide(false)
+            const ok = await openA11ySettings()
+            toast(ok ? '请找到「轻语记账 · 收支自动捕获」并打开开关' : '无法打开系统设置页', ok ? 'ok' : 'err')
+          }}>去开启</button>
+        </div>
+      </Sheet>
     </>
   )
 }
