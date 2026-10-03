@@ -17,7 +17,7 @@
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '2.3'
+export const APP_VERSION = '2.4'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -103,6 +103,51 @@ export function markDismissed(tag) {
   try { localStorage.setItem(LS_DISMISSED, tag) } catch { /* ignore */ }
 }
 
+// ---------- v2.4 更新日志（内存 ring + localStorage 持久化，排障可导出） ----------
+const LS_UPDATE_LOG = 'qingyu_update_log_v1'
+const LOG_MAX = 120
+const logBuf = []
+
+function logLoad() {
+  if (logBuf.length) return
+  try {
+    const arr = JSON.parse(localStorage.getItem(LS_UPDATE_LOG) || '[]')
+    if (Array.isArray(arr)) logBuf.push(...arr.slice(-LOG_MAX))
+  } catch { /* ignore */ }
+}
+function logFlush() {
+  try { localStorage.setItem(LS_UPDATE_LOG, JSON.stringify(logBuf.slice(-LOG_MAX))) } catch { /* ignore */ }
+}
+/** 记录更新模块日志：level: debug|info|warn|error；extra 尽量小（会被 JSON 序列化） */
+export function updLog(level, event, extra = null) {
+  try {
+    logBuf.push({ t: Date.now(), level: String(level), event: String(event), extra: extra == null ? '' : extra })
+    if (logBuf.length > LOG_MAX) logBuf.splice(0, logBuf.length - LOG_MAX)
+    logFlush()
+  } catch { /* 日志永不影响主流程 */ }
+}
+/** 读取最近 n 条日志（新→旧），排障展示用 */
+export function getUpdateLogs(n = 8) {
+  logLoad()
+  return logBuf.slice(-n).reverse()
+}
+export function clearUpdateLogs() {
+  logBuf.length = 0
+  try { localStorage.removeItem(LS_UPDATE_LOG) } catch { /* ignore */ }
+}
+
+// ---------- v2.4 硬超时双保险 ----------
+// 实测教训：部分 WebView（如雷电模拟器）fetch 在连接挂起阶段不响应 AbortController.abort()，
+// await 永不返回 → 状态机卡死在「检查中…」。Promise.race 与 abort 并存：
+// abort 生效则走 abort 错误；不生效也必然在 ms 后 reject TIMEOUT —— 永不挂死。
+export function raceTimeout(promise, ms, code = 'CHECK_TIMEOUT') {
+  let timer = null
+  const timeout = new Promise((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(code)), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
+}
+
 // ---------- 网络检查（缓存：内存 → localStorage → 网络） ----------
 
 let memCache = null // { at, info }
@@ -123,13 +168,23 @@ function writeCache(info) {
 async function fetchLatest() {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT)
+  const t0 = Date.now()
+  updLog('info', 'fetch:start', { url: API_LATEST.slice(0, 80) })
   try {
     const res = await fetch(API_LATEST, {
       headers: { Accept: 'application/vnd.github+json' },
       signal: ctrl.signal,
     })
-    if (!res.ok) throw new Error(`HTTP_${res.status}`)
-    return await res.json()
+    if (!res.ok) {
+      updLog('warn', 'fetch:http', { status: res.status, ms: Date.now() - t0 })
+      throw new Error(`HTTP_${res.status}`)
+    }
+    const json = await res.json()
+    updLog('info', 'fetch:ok', { ms: Date.now() - t0 })
+    return json
+  } catch (e) {
+    updLog('warn', 'fetch:fail', { error: String(e && e.message).slice(0, 60), ms: Date.now() - t0 })
+    throw e
   } finally {
     clearTimeout(timer)
   }
@@ -149,21 +204,36 @@ export function setActiveCheckStrategy(id) {
 registerCheckStrategy('github-release', fetchLatest) // 默认策略：GitHub Releases 公开 API
 
 // 检查更新。force=true 跳过缓存（手动检查，失败抛错给 UI 友好提示）；自动检查失败回落缓存返回 null。
-export async function checkForUpdate(currentVersion = APP_VERSION, { force = false } = {}) {
-  if (!force && memCache && Date.now() - memCache.at < CHECK_TTL) return memCache.info
+// v2.4：raceTimeout 硬超时（fetch 挂起且 abort 失效时也必然在 timeoutMs 内返回，绝不挂死）；
+// timeoutMs 可注入（测试用），默认 FETCH_TIMEOUT + 2s 冗余。
+export async function checkForUpdate(currentVersion = APP_VERSION, { force = false, timeoutMs = FETCH_TIMEOUT + 2000 } = {}) {
+  updLog('info', 'check:start', { force, strategy: activeStrategy, cur: currentVersion })
+  if (!force && memCache && Date.now() - memCache.at < CHECK_TTL) {
+    updLog('debug', 'check:cache-hit', { where: 'mem', found: !!memCache.info })
+    return memCache.info
+  }
   if (!force) {
     const disk = readDiskCache()
-    if (disk && Date.now() - disk.at < CHECK_TTL) { memCache = disk; return disk.info }
+    if (disk && Date.now() - disk.at < CHECK_TTL) {
+      memCache = disk
+      updLog('debug', 'check:cache-hit', { where: 'disk', found: !!disk.info })
+      return disk.info
+    }
   }
   const fetchFn = checkStrategies.get(activeStrategy) || checkStrategies.get('github-release')
   let info = null
   try {
-    info = parseRelease(await fetchFn(), currentVersion)
+    const raw = await raceTimeout(fetchFn(), timeoutMs, 'CHECK_TIMEOUT')
+    info = parseRelease(raw, currentVersion)
+    updLog('info', 'check:done', { found: !!info, tag: info?.tag || '', version: info?.version || '' })
   } catch (e) {
+    updLog('error', 'check:fail', { code: String(e && e.message).slice(0, 60), force })
     // 自动检查：网络失败回落最近缓存（可能为 null），绝不阻断主流程；
     // 手动检查：抛给调用方显示友好错误（「已是最新」不能掩盖网络故障）
     if (force) throw e
-    return memCache?.info ?? readDiskCache()?.info ?? null
+    const fallback = memCache?.info ?? readDiskCache()?.info ?? null
+    updLog('info', 'check:fallback-cache', { found: !!fallback })
+    return fallback
   }
   writeCache(info)
   return info
@@ -243,6 +313,7 @@ export async function downloadWithFallback(info, onProgress, opts = {}) {
 // ---------- v2.2 友好错误提示：把底层错误码/网络异常映射为用户能懂的中文 ----------
 export function friendlyUpdateError(e) {
   const msg = String((e && e.message) || e || '')
+  if (msg === 'CHECK_TIMEOUT') return '检查更新超时（网络不通或被拦截），请稍后重试'
   if (msg === 'CANCELLED') return '下载已取消'
   if (msg === 'BUSY') return '已有下载任务进行中，请稍后再试'
   if (msg === 'NO_NATIVE_BRIDGE') return '当前环境不支持应用内下载，请前往下载页手动下载'

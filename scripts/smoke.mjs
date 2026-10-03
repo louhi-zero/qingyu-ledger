@@ -1154,6 +1154,43 @@ app.whenReady().then(async () => {
         const s = JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null')
         return !!document.querySelector('.tabbar') && !!s && s.settings.welcomed === true
       })()`, 6000))
+
+    // ============ v2.4 更新检测重构：fetch 永挂场景不卡死（模拟雷电 WebView 缺陷） ============
+    // 场景 J：mock fetch 对 releases/latest 永挂（AbortController 失效复现）→ 手动检查
+    // → raceTimeout 12s 硬超时 → 错误视图（检查更新失败 + 超时文案 + 最近日志展示）→ 按钮可重试
+    await run(`(() => {
+      localStorage.removeItem('qingyu_update_check_v1')
+      localStorage.removeItem('qingyu_update_log_v1')
+      localStorage.removeItem('qingyu_update_dismissed_v1')
+      window.__qyUpdateBridge = null // Web 路径
+      window.fetch = (u) => {
+        const url = String(u)
+        if (url.includes('/releases/latest')) return new Promise(() => {}) // 永挂：abort 也不 resolve
+        return Promise.resolve(new Response('{}', { status: 200 }))
+      }
+      return 'ok'
+    })()`)
+    await run(`[...document.querySelectorAll('.tab')].find((b) => b.textContent.includes('我的')).click()`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.cell')].find((e) => e.textContent.includes('关于轻语记账')).click()`)
+    await sleep(400)
+    await run(`[...document.querySelectorAll('.sheet button')].find((b) => b.textContent.includes('检查更新')).click()`)
+    await sleep(500)
+    assert('永挂场景：进入「检查中…」状态（复现卡死前奏）',
+      await run(`document.querySelector('.upd-modal') && document.querySelector('.upd-modal').textContent.includes('正在检查更新')`))
+    // raceTimeout 默认 12s + 冗余：18s 内必然离开 checking，出现失败视图
+    const recovered = await pollTrue(run,
+      `(() => { const m = document.querySelector('.upd-modal'); return !!m && m.textContent.includes('检查更新失败') && m.textContent.includes('重试检查') })()`,
+      20000)
+    assert('永挂场景：12s raceTimeout 硬超时生效，状态机离开 checking（不卡死）', recovered)
+    assert('永挂场景：错误视图展示检查超时文案',
+      await run(`document.querySelector('.upd-modal').textContent.includes('检查更新超时')`))
+    assert('永挂场景：错误视图尾部展示更新日志（check:fail 可见）',
+      await run(`(() => { const logs = document.querySelector('.upd-logs'); return !!logs && logs.textContent.includes('check:fail') })()`))
+    assert('永挂场景：日志已持久化 localStorage（qingyu_update_log_v1）',
+      await run(`(localStorage.getItem('qingyu_update_log_v1') || '').includes('check:fail')`))
+    await run(`document.querySelector('.upd-modal .upd-x').click()`) // 关闭弹窗收尾
+    await sleep(300)
   } catch (e) {
     results.push(['FAIL', '异常: ' + (e && e.message)])
     console.log('FAIL  异常: ' + (e && e.message))

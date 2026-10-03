@@ -683,6 +683,17 @@ textarea.input { resize: none; min-height: 90px; }
   margin: 14px 0 40px; cursor: pointer; letter-spacing: .3px;
 }
 
+/* ---------- v2.4 更新日志展示（检查失败视图尾部，排障自助） ---------- */
+.upd-logs {
+  margin: 12px 0 4px; padding: 8px 10px; border-radius: 10px; text-align: left;
+  background: var(--card2); max-height: 132px; overflow-y: auto;
+  font-size: 10.5px; line-height: 1.75; color: var(--ink3);
+  font-variant-numeric: tabular-nums; word-break: break-all;
+}
+.upd-log.lv-error { color: var(--expense, #d9534f); }
+.upd-log.lv-warn { color: #c77c1e; }
+
+
 
 /* ---------- 周期/其他 ---------- */
 .muted { color: var(--ink3); font-size: 12px; }

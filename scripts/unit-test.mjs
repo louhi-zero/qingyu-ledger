@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 29 / 2.3', gradle.includes('versionCode 29') && gradle.includes('versionName "2.3"'))
+assert('版本 versionCode 30 / 2.4', gradle.includes('versionCode 30') && gradle.includes('versionName "2.4"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.3', pkgJson.version === '2.3')
+assert('package.json 版本 2.4', pkgJson.version === '2.4')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.3', APP_VERSION === '2.3')
+assert('update.js 版本单一源为 2.4', APP_VERSION === '2.4')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -1084,6 +1084,78 @@ assert('App 接线：Splash/Intro 状态机 + welcomed 分流 + qingyu_splash_of
 assert('旧欢迎页样式移除、新样式齐备（splash/intro 关键类）',
   !cssV3.includes('.wlogo') && cssV3.includes('.splash-icon') && cssV3.includes('@keyframes splashBar')
   && cssV3.includes('.intro-track') && cssV3.includes('.intro-blob') && cssV3.includes('.intro-skip'))
+
+// ---------- v2.4 更新检测重构（硬超时/看门狗/日志，修复 WebView fetch 挂起卡死） ----------
+console.log('v2.4 更新检测重构：')
+assert('硬超时双保险：raceTimeout 导出 + checkForUpdate 接线 + timeoutMs 可注入',
+  upd2.raceTimeout instanceof Function
+  && updateSrc.includes("await raceTimeout(fetchFn(), timeoutMs, 'CHECK_TIMEOUT')")
+  && updateSrc.includes('timeoutMs = FETCH_TIMEOUT + 2000'))
+assert('状态机看门狗：checking 15s 强制恢复错误态（双保险，永不卡死）',
+  updateCtxJsx.includes('ctx:watchdog') && updateCtxJsx.includes('15_000')
+  && updateCtxJsx.includes("if (status !== 'checking') return undefined"))
+assert('错误分类补全：CHECK_TIMEOUT → 检查超时文案',
+  upd2.friendlyUpdateError(new Error('CHECK_TIMEOUT')).includes('检查更新超时'))
+assert('日志模块导出 + 错误视图展示最近日志（排障自助）',
+  upd2.updLog instanceof Function && upd2.getUpdateLogs instanceof Function && upd2.clearUpdateLogs instanceof Function
+  && updateCtxJsx.includes('getUpdateLogs(4)') && cssV3.includes('.upd-logs'))
+assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail）',
+  updateSrc.includes("'check:start'") && updateSrc.includes("'fetch:start'")
+  && updateSrc.includes("'check:done'") && updateSrc.includes("'check:fail'"))
+
+// 行为测试：raceTimeout 超时 reject / 正常 resolve 先到
+{
+  const t0 = Date.now()
+  let threw = null
+  try { await upd2.raceTimeout(new Promise(() => {}), 400, 'CHECK_TIMEOUT') } catch (e) { threw = e }
+  const ms = Date.now() - t0
+  assert('raceTimeout：挂起 promise 在 400ms 后 reject CHECK_TIMEOUT（abort 失效也必然返回）',
+    threw && threw.message === 'CHECK_TIMEOUT' && ms >= 350 && ms < 1500)
+  const v = await upd2.raceTimeout(Promise.resolve(42), 1000, 'X')
+  assert('raceTimeout：正常 resolve 优先于超时（不吞成功结果）', v === 42)
+}
+// 行为测试：检查超时不挂死（注入永挂策略 + 短 timeoutMs）
+{
+  const ls = new Map()
+  const prev = globalThis.localStorage
+  globalThis.localStorage = {
+    getItem: (k) => (ls.has(k) ? ls.get(k) : null),
+    setItem: (k, v) => { ls.set(k, String(v)) },
+    removeItem: (k) => { ls.delete(k) },
+  }
+  try {
+    // 先用可控策略写入缓存（自洽：不依赖前序区块的模块状态）
+    upd2.registerCheckStrategy('seed-cache', async () => ({
+      tag_name: 'v9.8.0', name: 'seed', draft: false, prerelease: false, body: 'n',
+      assets: [{ name: 'qingyu-v9.8.0-android.apk', size: 123, browser_download_url: 'https://example.com/a.apk', created_at: '' }],
+    }))
+    upd2.setActiveCheckStrategy('seed-cache')
+    const seeded = await upd2.checkForUpdate('2.2', { force: true, timeoutMs: 3000 })
+    assert('缓存种子：可控策略写入 v9.8.0', !!seeded && seeded.version === '9.8.0')
+    upd2.registerCheckStrategy('hang-forever', () => new Promise(() => {}))
+    upd2.setActiveCheckStrategy('hang-forever')
+    const t0 = Date.now()
+    let err = null
+    try { await upd2.checkForUpdate('2.2', { force: true, timeoutMs: 600 }) } catch (e) { err = e }
+    assert('checkForUpdate：fetch 永挂 + raceTimeout 600ms → force 抛 CHECK_TIMEOUT（不挂死）',
+      err && err.message === 'CHECK_TIMEOUT' && Date.now() - t0 < 2000)
+    // 非 force：超时回落刚写入的缓存（静默，不挂死）
+    const fb = await upd2.checkForUpdate('2.2', { force: false, timeoutMs: 600 })
+    assert('checkForUpdate：自动检查超时回落缓存（返回缓存 v9.8.0）',
+      !!fb && fb.version === '9.8.0')
+    const logs = upd2.getUpdateLogs(6)
+    assert('日志记录检查失败（check:fail，error 级）',
+      logs.some((l) => l.event === 'check:fail' && l.level === 'error'))
+    assert('日志持久化到 localStorage（qingyu_update_log_v1）',
+      (ls.get('qingyu_update_log_v1') || '').includes('check:fail'))
+    upd2.clearUpdateLogs()
+    assert('clearUpdateLogs 清空内存与磁盘', upd2.getUpdateLogs(4).length === 0 && !ls.has('qingyu_update_log_v1'))
+    upd2.setActiveCheckStrategy('github-release')
+  } finally {
+    if (prev === undefined) delete globalThis.localStorage
+    else globalThis.localStorage = prev
+  }
+}
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

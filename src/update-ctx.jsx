@@ -26,6 +26,7 @@ import {
   openInstallPermission, launchInstaller, openReleasePage, getUpdateBridge,
   fetchSha256WithFallback, markDismissed, dismissedTag,
   friendlyUpdateError, partialInfo, removeDownloadedFile, PERIODIC_CHECK_MS,
+  updLog, getUpdateLogs,
 } from './update.js'
 
 const UpdateCtx = createContext(null)
@@ -137,11 +138,13 @@ export function UpdateProvider({ children }) {
     if (statusRef.current === 'checking') return
     if (manual) setPromptOpen(true)
     setStatus('checking'); setErrorMsg(''); setErrorKind('')
+    updLog('info', 'ctx:check', { manual })
     let data = null
     try {
       data = await checkForUpdate(APP_VERSION, { force: manual })
     } catch (e) {
       // v2.2 手动检查失败 → 友好错误提示（不再误报「已是最新版本」）；自动检查失败静默回落缓存
+      updLog('error', 'ctx:check-error', { manual, code: String(e && e.message).slice(0, 60) })
       if (manual) {
         setStatus('error'); setErrorKind('check')
         setErrorMsg(friendlyUpdateError(e))
@@ -168,6 +171,20 @@ export function UpdateProvider({ children }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runDownload, refreshPartial])
+
+  // v2.4 checking 看门狗（双保险）：checkForUpdate 已有 raceTimeout 硬超时，理论上必返回；
+  // 极端情况（渲染异常/策略实现缺陷）导致状态滞留 checking 时，15s 后强制恢复为错误态——永不卡死。
+  useEffect(() => {
+    if (status !== 'checking') return undefined
+    const t = setTimeout(() => {
+      if (statusRef.current === 'checking') {
+        updLog('error', 'ctx:watchdog', { note: 'checking 超过 15s，强制恢复' })
+        setStatus('error'); setErrorKind('check')
+        setErrorMsg('检查更新超时，请稍后重试')
+      }
+    }, 15_000)
+    return () => clearTimeout(t)
+  }, [status])
 
   // 启动后自动检查一次（与公告 2s 错开）
   useEffect(() => {
@@ -468,11 +485,20 @@ export function UpdatePrompt() {
         )}
 
         {/* v2.2 检查失败：友好错误 + 重试，不再误报「已是最新版本」；
-            条件用 errorKind 而非 !info——上次检查留下的 info 会让弹窗出现空洞头部 */}
+            条件用 errorKind 而非 !info——上次检查留下的 info 会让弹窗出现空洞头部。
+            v2.4：尾部展示最近更新日志（排障自助，无需连接电脑） */}
         {status === 'error' && errorKind === 'check' && (
           <div className="upd-modal-body upd-center">
             <div className="upd-title">检查更新失败</div>
             <div className="sandbox-fail" style={{ marginTop: 10 }}>{errorMsg}</div>
+            <div className="upd-logs" aria-label="最近更新日志">
+              {getUpdateLogs(4).map((l, i) => (
+                <div key={i} className={`upd-log lv-${l.level}`}>
+                  {new Date(l.t).toLocaleTimeString('zh-CN', { hour12: false })} [{l.level}] {l.event}
+                  {l.extra ? ` ${typeof l.extra === 'object' ? JSON.stringify(l.extra) : l.extra}` : ''}
+                </div>
+              ))}
+            </div>
             <button className="btn upd-main" onClick={u.checkManual}>重试检查</button>
             <button className="upd-later" onClick={closePrompt}>关闭</button>
           </div>
