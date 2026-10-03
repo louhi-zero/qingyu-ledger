@@ -17,6 +17,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,17 +25,20 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * v1.7.0 应用内更新插件（安卓模式，对标 NexBox Tauri 下载器但按 Android 重写）：
  * - installerInfo(): 平台/SDK/是否允许安装未知来源应用
  * - openInstallSettings(): 跳转「安装未知应用」系统授权页（API 26+）
- * - download({url, fileName}): 后台线程流式下载 APK 到 app-specific Download 目录
+ * - download({url, fileName, resume}): 后台线程流式下载 APK 到 app-specific Download 目录
  *     · 手动跟随最多 5 跳重定向（GitHub release 会 302 到对象存储）
- *     · 每 chunk 检查取消标志；进度事件 200ms 且有前进才 emit（防数字跳闪）
+ *     · v2.2 断点续传：存在半成品时发 Range 请求，206 则续传（摘要补算已下载部分）；200 回落全量
+ *     · 每 chunk 检查取消标志 + 代数令牌；进度事件 200ms 且有前进才 emit（防数字跳闪）
  *     · 边下边算 SHA-256；Content-Length 与实际字节数双校验（防把限流错误页写成安装包）
  *     · sync() 强制刷盘后再返回
- * - cancelDownload(): 置取消标志并删除半成品文件
+ * - cancelDownload(): 置取消标志并递增代数令牌（半成品保留供续传）
+ * - partialInfo()/removeFile(): 断点查询与删除（SHA-256 校验失败清理，带路径穿越防护）
  * - install({path}): FileProvider 授 URI 权限 + ACTION_VIEW 拉起系统安装器
  *     未获「未知来源」授权时返回 needPermission，由 JS 引导用户去设置（安卓无法静默安装）
  *
@@ -45,6 +49,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class UpdatePlugin extends Plugin {
 
     private static final AtomicBoolean CANCEL = new AtomicBoolean(false);
+    // v2.2 代数令牌：每次新下载/取消都递增；旧线程发现代数不一致立即退出（防取消后立刻重下时双线程并发写同一文件）
+    private static final AtomicLong GENERATION = new AtomicLong(0);
     private static volatile boolean downloading = false;
     private static volatile String currentPath = null;
 
@@ -87,13 +93,48 @@ public class UpdatePlugin extends Plugin {
     @PluginMethod
     public void cancelDownload(PluginCall call) {
         CANCEL.set(true);
-        String p = currentPath;
-        if (p != null) {
-            //noinspection ResultOfMethodCallIgnored
-            new File(p).delete();
-        }
+        GENERATION.incrementAndGet(); // 使可能存活的旧下载线程立即失效
+        // v2.2 半成品文件保留（断点续传）：用户取消/看门狗换源后，重试可从断点继续；
+        // 只有用 removeFile()（SHA-256 校验失败清理）才真正删除
         downloading = false;
         call.resolve();
+    }
+
+    /** v2.2 查询半成品（断点续传）：{ exists, bytes } */
+    @PluginMethod
+    public void partialInfo(PluginCall call) {
+        String fileName = call.getString("fileName", "");
+        if (!fileName.matches("[A-Za-z0-9._-]+") || !fileName.toLowerCase().endsWith(".apk")) {
+            call.reject("BAD_FILE_NAME");
+            return;
+        }
+        File dir = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        File f = dir == null ? null : new File(dir, fileName);
+        JSObject r = new JSObject();
+        r.put("exists", f != null && f.exists() && f.length() > 0);
+        r.put("bytes", f != null && f.exists() ? f.length() : 0L);
+        call.resolve(r);
+    }
+
+    /** v2.2 删除已下载文件（SHA-256 校验失败清理损坏包）；canonical 路径必须仍在下载目录内 */
+    @PluginMethod
+    public void removeFile(PluginCall call) {
+        String path = call.getString("path", "");
+        if (path.isEmpty()) { call.reject("NO_PATH"); return; }
+        try {
+            Context ctx = getContext();
+            File dir = ctx.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            File file = new File(path);
+            if (dir == null || !file.getCanonicalPath().startsWith(dir.getCanonicalPath() + File.separator)) {
+                call.reject("FILE_NOT_FOUND");
+                return;
+            }
+            JSObject r = new JSObject();
+            r.put("deleted", file.delete());
+            call.resolve(r);
+        } catch (Exception e) {
+            call.reject("REMOVE_FAILED", e);
+        }
     }
 
     @PluginMethod
@@ -115,6 +156,8 @@ public class UpdatePlugin extends Plugin {
         }
         downloading = true;
         CANCEL.set(false);
+        final long gen = GENERATION.incrementAndGet(); // v2.2 代数令牌：旧线程据此自行退出
+        final boolean resume = call.getBoolean("resume", true);
 
         new Thread(new Runnable() {
             @Override
@@ -130,23 +173,50 @@ public class UpdatePlugin extends Plugin {
                     outFile = new File(dir, fileName);
                     currentPath = outFile.getAbsolutePath();
 
-                    conn = openWithRedirects(url, MAX_REDIRECTS);
-                    final long total = conn.getContentLengthLong();
-                    input = new BufferedInputStream(conn.getInputStream(), BUFFER_SIZE);
-                    output = new FileOutputStream(outFile, false);
+                    // v2.2 断点续传：存在同名半成品 → 发 Range 请求从断点继续；
+                    // 服务器不支持 Range 时返回 200 全量，自动回落从头下载
+                    long base = 0;
+                    if (resume && outFile.exists() && outFile.length() > 0) {
+                        base = outFile.length();
+                    }
+                    conn = openWithRedirects(url, MAX_REDIRECTS, base > 0 ? "bytes=" + base + "-" : null);
+                    final int code = conn.getResponseCode();
+                    final boolean appending = base > 0 && code == HttpURLConnection.HTTP_PARTIAL; // 206
+                    long total;
+                    if (appending) {
+                        total = base + conn.getContentLengthLong(); // 206 的 Content-Length 是剩余字节数
+                    } else {
+                        base = 0; // 200 = 服务器忽略 Range，从头下载
+                        total = conn.getContentLengthLong();
+                    }
+
                     MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                    if (appending) {
+                        // 续传先对已下载部分补算摘要，使最终 SHA-256 覆盖完整文件
+                        FileInputStream seed = null;
+                        try {
+                            seed = new FileInputStream(outFile);
+                            byte[] sb = new byte[BUFFER_SIZE];
+                            int sn;
+                            while ((sn = seed.read(sb)) != -1) digest.update(sb, 0, sn);
+                        } finally {
+                            safeClose(seed);
+                        }
+                    }
+
+                    input = new BufferedInputStream(conn.getInputStream(), BUFFER_SIZE);
+                    output = new FileOutputStream(outFile, appending);
 
                     byte[] buffer = new byte[BUFFER_SIZE];
-                    long received = 0;
+                    long received = base;
                     long lastEmitAt = 0L;
                     long lastEmitBytes = 0L; // v2.0.2 字节步进：慢速源 pct 长期不变也持续 emit（配合 JS 侧看门狗判活）
                     int lastPct = -1;
                     int n;
                     while ((n = input.read(buffer)) != -1) {
-                        if (CANCEL.get()) {
+                        if (CANCEL.get() || GENERATION.get() != gen) {
                             safeClose(output);
-                            //noinspection ResultOfMethodCallIgnored
-                            outFile.delete();
+                            // v2.2 半成品保留（断点续传），不删除
                             currentPath = null;
                             downloading = false;
                             call.reject("CANCELLED");
@@ -179,8 +249,6 @@ public class UpdatePlugin extends Plugin {
 
                     // 完整性校验①：字节数必须与 Content-Length 一致（防截断/错误页）
                     if (total > 0 && received != total) {
-                        //noinspection ResultOfMethodCallIgnored
-                        outFile.delete();
                         throw new IOException("SIZE_MISMATCH " + received + "/" + total);
                     }
 
@@ -190,6 +258,7 @@ public class UpdatePlugin extends Plugin {
                     r.put("path", outFile.getAbsolutePath());
                     r.put("sha256", sha);
                     r.put("bytes", received);
+                    r.put("resumed", appending);
                     currentPath = null;
                     downloading = false;
                     call.resolve(r);
@@ -197,11 +266,9 @@ public class UpdatePlugin extends Plugin {
                     safeClose(output);
                     safeClose(input);
                     if (conn != null) conn.disconnect();
-                    boolean cancelled = CANCEL.get();
-                    if (outFile != null && !cancelled) {
-                        //noinspection ResultOfMethodCallIgnored
-                        outFile.delete();
-                    }
+                    // v2.2 半成品保留（断点续传）：网络中断/超时不删文件，重试自动从断点继续；
+                    // 只有不通过 SHA-256 校验（JS 侧 removeFile）才真正删除
+                    boolean cancelled = CANCEL.get() || GENERATION.get() != gen;
                     currentPath = null;
                     downloading = false;
                     call.reject(cancelled ? "CANCELLED" : "DOWNLOAD_FAILED", e);
@@ -249,13 +316,15 @@ public class UpdatePlugin extends Plugin {
     }
 
     // 手动跟随重定向（HttpURLConnection 对跨域/部分 307 场景处理不一致，GitHub release 必 302）
-    private HttpURLConnection openWithRedirects(String urlStr, int hopsLeft) throws IOException {
+    // v2.2 rangeHeader 非空时透传 Range 头（断点续传；镜像代理一般原样转发，不支持 Range 的源返回 200 由调用方回落）
+    private HttpURLConnection openWithRedirects(String urlStr, int hopsLeft, String rangeHeader) throws IOException {
         HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
         conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
         conn.setReadTimeout(READ_TIMEOUT_MS);
         conn.setInstanceFollowRedirects(false);
         conn.setRequestProperty("User-Agent", "qingyu-ledger-android");
         conn.setRequestProperty("Accept", "application/vnd.android.package-archive, application/octet-stream");
+        if (rangeHeader != null) conn.setRequestProperty("Range", rangeHeader);
         int code = conn.getResponseCode();
         if (code == HttpURLConnection.HTTP_MOVED_PERM
                 || code == HttpURLConnection.HTTP_MOVED_TEMP
@@ -265,7 +334,7 @@ public class UpdatePlugin extends Plugin {
             conn.disconnect();
             if (hopsLeft <= 0 || location == null) throw new IOException("REDIRECT_EXHAUSTED");
             URL next = new URL(new URL(urlStr), location);
-            return openWithRedirects(next.toString(), hopsLeft - 1);
+            return openWithRedirects(next.toString(), hopsLeft - 1, rangeHeader);
         }
         if (code < 200 || code >= 300) {
             conn.disconnect();

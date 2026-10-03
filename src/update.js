@@ -7,11 +7,17 @@
  * - 完整性：NexBox 只有 Content-Length 防截断；本模块在其之上加 SHA-256 校验（CI 随包上传 .sha256）
  * - Web/Electron：无原生桥，一律降级为「打开 Release 下载页」外链
  *
- * 触发时机（同 NexBox 克制策略）：仅启动后自动检查一次（当天不重复）+ 关于页手动，无轮询。
+ * 触发时机：启动后自动检查一次 + 运行期每 PERIODIC_CHECK_MS 定期检查（网络节流仍为 1h）+ 手动按需。
+ *
+ * v2.2 重构（可扩展性 + 断点续传 + 友好错误）：
+ * - 版本检测策略注册表 registerCheckStrategy/setActiveCheckStrategy（默认 github-release，可扩展自建服务器等）
+ * - 断点续传：原生 Range 请求 + 206 续传（跨镜像源共享半成品）；取消/失败保留半成品，重试自动续传
+ * - friendlyUpdateError：网络异常/服务器不可用/校验失败等错误统一映射为友好中文提示
+ * - 下载协议可注入：downloadWithFallback opts.transport（默认原生流式下载，未来可加分片协议等）
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '2.1'
+export const APP_VERSION = '2.2'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -22,6 +28,8 @@ const LS_CHECK_CACHE = 'qingyu_update_check_v1' // { at, info }
 const LS_DISMISSED = 'qingyu_update_dismissed_v1' // 用户点「稍后」的 tag
 const CHECK_TTL = 60 * 60 * 1000 // 检查结果内存/磁盘缓存 1 小时
 const FETCH_TIMEOUT = 10_000
+// 定期检查间隔（运行期定时器；真正打网络仍受 CHECK_TTL 1h 节流——克制轮询，不骚扰服务器）
+export const PERIODIC_CHECK_MS = 30 * 60 * 1000
 
 // ---------- 纯函数（单元测试覆盖） ----------
 
@@ -127,19 +135,34 @@ async function fetchLatest() {
   }
 }
 
-// 检查更新。force=true 跳过缓存（手动检查）；无新版/失败返回 null。
+// ---------- 版本检测策略注册表（可扩展：未来可加自建服务器/应用市场等策略） ----------
+// 策略即一个 async () => release原始JSON 的函数；checkForUpdate 只负责缓存与解析，不关心来源。
+const checkStrategies = new Map()
+let activeStrategy = 'github-release'
+
+export function registerCheckStrategy(id, fetchFn) {
+  if (typeof fetchFn === 'function') checkStrategies.set(String(id), fetchFn)
+}
+export function setActiveCheckStrategy(id) {
+  if (checkStrategies.has(String(id))) activeStrategy = String(id)
+}
+registerCheckStrategy('github-release', fetchLatest) // 默认策略：GitHub Releases 公开 API
+
+// 检查更新。force=true 跳过缓存（手动检查，失败抛错给 UI 友好提示）；自动检查失败回落缓存返回 null。
 export async function checkForUpdate(currentVersion = APP_VERSION, { force = false } = {}) {
   if (!force && memCache && Date.now() - memCache.at < CHECK_TTL) return memCache.info
   if (!force) {
     const disk = readDiskCache()
     if (disk && Date.now() - disk.at < CHECK_TTL) { memCache = disk; return disk.info }
   }
+  const fetchFn = checkStrategies.get(activeStrategy) || checkStrategies.get('github-release')
   let info = null
   try {
-    info = parseRelease(await fetchLatest(), currentVersion)
-  } catch {
-    // 网络失败：手动场景也回落最近缓存（可能为 null），绝不阻断主流程
-    if (!force) return memCache?.info ?? readDiskCache()?.info ?? null
+    info = parseRelease(await fetchFn(), currentVersion)
+  } catch (e) {
+    // 自动检查：网络失败回落最近缓存（可能为 null），绝不阻断主流程；
+    // 手动检查：抛给调用方显示友好错误（「已是最新」不能掩盖网络故障）
+    if (force) throw e
     return memCache?.info ?? readDiskCache()?.info ?? null
   }
   writeCache(info)
@@ -184,8 +207,11 @@ export function buildDownloadCandidates(url) {
 // 多源顺序下载：单源停滞 stallMs 无任何进度 → 自动取消并换下一源；
 // shouldAbort() 为调用方（用户取消）出口，置位后抛 CANCELLED 不再换源。
 // onSource(url, viaMirror) 供 UI 展示当前通道。
+// 断点续传：半成品文件跨候选源共享（同一 APK 内容），原生 206 续传；服务器不支持 Range 自动回落全量。
+// 可扩展：opts.transport 可注入自定义下载协议实现（默认原生流式下载）。
 export async function downloadWithFallback(info, onProgress, opts = {}) {
-  const { stallMs = 15_000, shouldAbort = () => false, onSource } = opts
+  const { stallMs = 15_000, shouldAbort = () => false, onSource, transport, resume = true } = opts
+  const doDownload = transport || downloadApk
   const candidates = buildDownloadCandidates(info.apkUrl)
   let lastErr = null
   for (let i = 0; i < candidates.length; i++) {
@@ -194,22 +220,40 @@ export async function downloadWithFallback(info, onProgress, opts = {}) {
     const viaMirror = i < MIRROR_PREFIXES.length
     try { onSource?.(url, viaMirror) } catch { /* ignore */ }
     let lastTick = Date.now()
-    const wrapped = (pct) => { lastTick = Date.now(); onProgress?.(pct) }
+    const wrapped = (pct, ev) => { lastTick = Date.now(); onProgress?.(pct, ev) }
     // 看门狗：每 2s 检查进度时间戳，停滞即取消当前源（原生 reject CANCELLED，非用户取消 → 换源）
     const watchdog = setInterval(() => {
       if (Date.now() - lastTick > stallMs) cancelApkDownload()
     }, 2000)
     try {
-      return await downloadApk({ ...info, apkUrl: url }, wrapped)
+      return await doDownload({ ...info, apkUrl: url }, wrapped, { resume })
     } catch (e) {
       lastErr = e
       if (shouldAbort()) throw new Error('CANCELLED')
+      // 半成品保留（断点续传）；稍候片刻让被取消的下载线程退出（原生代数令牌兜底防并发写）
+      await new Promise((r) => setTimeout(r, 80))
       continue // 看门狗切换或该源下载失败 → 下一个候选
     } finally {
       clearInterval(watchdog)
     }
   }
   throw lastErr || new Error('ALL_SOURCES_FAILED')
+}
+
+// ---------- v2.2 友好错误提示：把底层错误码/网络异常映射为用户能懂的中文 ----------
+export function friendlyUpdateError(e) {
+  const msg = String((e && e.message) || e || '')
+  if (msg === 'CANCELLED') return '下载已取消'
+  if (msg === 'BUSY') return '已有下载任务进行中，请稍后再试'
+  if (msg === 'NO_NATIVE_BRIDGE') return '当前环境不支持应用内下载，请前往下载页手动下载'
+  if (msg === 'BAD_URL' || msg === 'BAD_FILE_NAME') return '更新包地址无效，请稍后重试'
+  if (/^HTTP_4\d\d/.test(msg)) return `下载被服务器拒绝（${msg.slice(5)}），请稍后重试`
+  if (/^HTTP_5\d\d/.test(msg)) return '版本服务器暂时不可用，请稍后重试'
+  if (/timeout|timed?\s?out|abort/i.test(msg)) return '网络超时，请检查网络后重试'
+  if (/ECONN|ENET|INTERNET|UnknownHost|Unable\s+to\s+resolve|Network/i.test(msg)) return '网络不可用，请检查网络连接后重试'
+  if (/SIZE_MISMATCH/.test(msg)) return '下载不完整，已保留进度，重试将自动断点续传'
+  if (msg === 'ALL_SOURCES_FAILED') return '所有下载通道均失败，请检查网络后重试'
+  return '操作失败，请检查网络后重试'
 }
 
 // .sha256 校验文本同样走多源（镜像可能无 CORS 头 → fetch 失败自动换下一个，最大努力）
@@ -244,8 +288,9 @@ export async function getUpdateBridge() {
   return bridgePromise
 }
 
-// 下载 APK 到 app-specific 下载目录；onProgress(pct 0-100) 回调；返回 { path, sha256, bytes }
-export async function downloadApk(info, onProgress) {
+// 下载 APK 到 app-specific 下载目录；onProgress(pct 0-100, ev) 回调；返回 { path, sha256, bytes, resumed }
+// resume=true（默认）：存在同名半成品时向服务器发 Range 请求断点续传（206），不支持 Range 的源自动回落全量
+export async function downloadApk(info, onProgress, { resume = true } = {}) {
   const P = await getUpdateBridge()
   if (!P) throw new Error('NO_NATIVE_BRIDGE')
   let handle = null
@@ -256,10 +301,39 @@ export async function downloadApk(info, onProgress) {
     })
   }
   try {
-    const r = await P.download({ url: info.apkUrl, fileName: info.apkName })
-    return { path: r?.path || '', sha256: String(r?.sha256 || '').toLowerCase(), bytes: Number(r?.bytes) || 0 }
+    const r = await P.download({ url: info.apkUrl, fileName: info.apkName, resume })
+    return {
+      path: r?.path || '',
+      sha256: String(r?.sha256 || '').toLowerCase(),
+      bytes: Number(r?.bytes) || 0,
+      resumed: !!r?.resumed,
+    }
   } finally {
     try { handle?.remove?.() } catch { /* ignore */ }
+  }
+}
+
+// 查询半成品（断点续传）：{ exists, bytes }；非原生/无桥返回不存在
+export async function partialInfo(fileName) {
+  const P = await getUpdateBridge()
+  if (!P) return { exists: false, bytes: 0 }
+  try {
+    const r = await P.partialInfo({ fileName })
+    return { exists: !!r?.exists, bytes: Number(r?.bytes) || 0 }
+  } catch {
+    return { exists: false, bytes: 0 }
+  }
+}
+
+// 删除已下载文件（SHA-256 校验失败后清理损坏包；native 侧带路径穿越防护）
+export async function removeDownloadedFile(path) {
+  const P = await getUpdateBridge()
+  if (!P || !path) return false
+  try {
+    const r = await P.removeFile({ path })
+    return r?.deleted !== false
+  } catch {
+    return false
   }
 }
 

@@ -224,8 +224,9 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* v1.7.1 应用内更新：手动检查 + 自动后台下载开关（静默仅限下载，安装必由用户确认） */}
-        <button className="btn" style={{ marginTop: 4 }} onClick={upd?.checkManual}>
+        {/* v1.7.1 应用内更新：手动检查 + 自动后台下载开关（静默仅限下载，安装必由用户确认）
+            v2.2 视觉修复：先关「关于」Sheet 再弹更新弹窗——否则 Sheet 盖住 UpdatePrompt（层级冲突） */}
+        <button className="btn" style={{ marginTop: 4 }} onClick={() => { setAboutOpen(false); upd?.checkManual() }}>
           {upd?.status === 'checking' ? '检查中…' : '检查更新'}
         </button>
         {upd?.native && (

@@ -603,6 +603,8 @@ app.whenReady().then(async () => {
             return { path: '/data/Download/' + opts.fileName, sha256: window.__dlSha, bytes: 5242880 }
           },
           cancelDownload: async () => { window.__cancelCalled = true; window.__bridgeLog.push('cancel') },
+          partialInfo: async () => ({ exists: false, bytes: 0 }),
+          removeFile: async ({ path }) => { window.__removeCalled = path; window.__bridgeLog.push('remove'); return { deleted: true } },
           installerInfo: async () => ({ platform: 'android', sdkInt: 30, canInstall: true }),
           openInstallSettings: async () => {},
           install: async ({ path }) => { window.__installCalled = path; window.__bridgeLog.push('install'); return { launched: true } },
@@ -685,7 +687,8 @@ app.whenReady().then(async () => {
     const errFloat = await pollTrue(run,
       `!!document.querySelector('.upd-float') && document.querySelector('.upd-float').textContent.includes('失败')`, 8000)
     assert('SHA 不符：浮卡进入失败态', errFloat)
-    assert('SHA 不符：已调用原生 cancel 删除可疑安装包', await run(`window.__cancelCalled === true`))
+    assert('SHA 不符：已调用原生 removeFile 删除损坏安装包（v2.2 修复 cancel 删不到的隐患）',
+      await run(`String(window.__removeCalled || '').includes('.apk') && !window.__removeCalled.includes('..')`))
     await run(`[...document.querySelectorAll('.sheet-head .sx')].forEach((b) => b.click())`) // 关「关于」弹窗
     await sleep(300)
     await run(`document.querySelector('.upd-float').click()`) // error → 打开可视化组件

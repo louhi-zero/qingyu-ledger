@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 27 / 2.1', gradle.includes('versionCode 27') && gradle.includes('versionName "2.1"'))
+assert('版本 versionCode 28 / 2.2', gradle.includes('versionCode 28') && gradle.includes('versionName "2.2"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.1', pkgJson.version === '2.1')
+assert('package.json 版本 2.2', pkgJson.version === '2.2')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -337,13 +337,19 @@ assert('测试钩子 window.__qyUpdateBridge 可注入 mock 桥', updateJs.inclu
 const updateCtxJsx = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
 assert('更新状态机含 下载/校验/就绪/失败 全相位',
   ['downloading', 'verifying', 'ready', 'error'].every((s) => updateCtxJsx.includes(`'${s}'`)))
-assert('SHA-256 不符：取消并删除文件（不止字节数校验）',
-  updateCtxJsx.includes('fetchSha256') && updateCtxJsx.includes('cancelApkDownload()')
+assert('SHA-256 不符：真正删除损坏包（removeDownloadedFile，修旧版 cancel 删不到的隐患）',
+  updateCtxJsx.includes('fetchSha256') && updateCtxJsx.includes('removeDownloadedFile(res.path)')
   && updateCtxJsx.includes('SHA-256 不一致'))
-assert('无轮询定时器（启动一次 + 手动，同 NexBox 克制策略）', !updateCtxJsx.includes('setInterval'))
+assert('定期检查：30min 间隔定时器 + 网络节流仍 1h + 下载/校验中跳过',
+  updateCtxJsx.includes('PERIODIC_CHECK_MS') && updateCtxJsx.includes('setInterval')
+  && updateCtxJsx.includes("st === 'downloading' || st === 'verifying'"))
+assert('手动检查失败 → 友好错误（不再误报已是最新）+ errorKind 区分检查/下载失败',
+  updateCtxJsx.includes("setErrorKind('check')") && updateCtxJsx.includes("setErrorKind('download')")
+  && updateCtxJsx.includes('friendlyUpdateError(e)'))
 assert('「以后再说」按版本静默（dismissed tag）', updateCtxJsx.includes('markDismissed')
   && updateCtxJsx.includes('dismissedTag()'))
-assert('下载进度只涨不跌（Math.max）', updateCtxJsx.includes('pct > progressRef.current'))
+assert('下载进度只涨不跌 + 换源首事件直接采用（续传不回退）',
+  updateCtxJsx.includes('pct > progressRef.current') && updateCtxJsx.includes('resetNextRef'))
 assert('关闭自动下载开关立即取消进行中任务', updateCtxJsx.includes("status === 'downloading'"))
 assert('出厂默认 updateAutoDl=false（发现新版先询问）+ 迁移兜底',
   emptyState().settings.updateAutoDl === false
@@ -372,8 +378,20 @@ assert('弹窗样式齐备（遮罩/卡片/状态头像/进度环）',
 
 const updatePluginJava = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/UpdatePlugin.java', import.meta.url), 'utf-8')
 assert('原生下载：边下边算 SHA-256（MessageDigest）', updatePluginJava.includes('MessageDigest.getInstance("SHA-256")'))
-assert('原生下载：AtomicBoolean 可取消 + 取消删半成品',
-  updatePluginJava.includes('AtomicBoolean') && updatePluginJava.includes('CANCEL.set(true)') && updatePluginJava.includes('outFile.delete()'))
+assert('原生下载：AtomicBoolean 取消 + 代数令牌（防取消后重下双线程并发写）',
+  updatePluginJava.includes('AtomicBoolean') && updatePluginJava.includes('CANCEL.set(true)')
+  && updatePluginJava.includes('AtomicLong') && updatePluginJava.includes('GENERATION.get() != gen'))
+assert('v2.2 断点续传：Range 请求 + 206 判定 + 摘要补算 + 半成品保留（取消/失败不再删文件）',
+  updatePluginJava.includes('setRequestProperty("Range", rangeHeader)')
+  && updatePluginJava.includes('HTTP_PARTIAL')
+  && updatePluginJava.includes('new FileInputStream(outFile)')
+  && !updatePluginJava.includes('outFile.delete()'))
+assert('v2.2 断点查询/删除：partialInfo + removeFile（canonical 穿越防护）',
+  updatePluginJava.includes('public void partialInfo') && updatePluginJava.includes('public void removeFile')
+  && updatePluginJava.split('getCanonicalPath().startsWith').length >= 3)
+assert('v2.2 续传总量语义：206 的 Content-Length 是剩余字节（total = base + 剩余）',
+  updatePluginJava.includes('total = base + conn.getContentLengthLong()')
+  && updatePluginJava.includes('output = new FileOutputStream(outFile, appending)'))
 assert('原生下载：手动跟随重定向（GitHub release 302）',
   updatePluginJava.includes('setInstanceFollowRedirects(false)') && updatePluginJava.includes('openWithRedirects'))
 assert('原生下载：Content-Length 字节数校验 + sync 刷盘',
@@ -393,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.1', APP_VERSION === '2.1')
+assert('update.js 版本单一源为 2.2', APP_VERSION === '2.2')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -418,6 +436,74 @@ assert('原生下载提速：256KB 缓冲 + 进度字节步进（慢速源持续
   updatePluginJava.includes('BUFFER_SIZE = 256 * 1024')
   && updatePluginJava.includes('PROGRESS_BYTES_STEP')
   && updatePluginJava.includes('received - lastEmitBytes >= PROGRESS_BYTES_STEP'))
+
+// ---------- v2.2 更新模块重构（策略注册表 + 友好错误 + 断点续传接线） ----------
+console.log('v2.2 更新模块重构：')
+const upd2 = await import('../src/update.js')
+assert('定期检查常量：30 分钟（网络节流仍 1h）', upd2.PERIODIC_CHECK_MS === 30 * 60 * 1000)
+assert('下载协议/断点接线：transport 注入 + resume 透传 + partialInfo/removeDownloadedFile 导出',
+  upd2.downloadWithFallback instanceof Function && upd2.partialInfo instanceof Function
+  && upd2.removeDownloadedFile instanceof Function
+  && updateSrc.includes("P.download({ url: info.apkUrl, fileName: info.apkName, resume })")
+  && updateSrc.includes('const doDownload = transport || downloadApk'))
+assert('策略注册表导出', upd2.registerCheckStrategy instanceof Function && upd2.setActiveCheckStrategy instanceof Function)
+
+// 友好错误映射（纯函数行为测试）
+console.log('friendlyUpdateError 错误分类：')
+const fe = (m) => upd2.friendlyUpdateError(new Error(m))
+assert('业务码映射（取消/BUSY/无桥/坏地址）',
+  fe('CANCELLED') === '下载已取消'
+  && fe('BUSY').includes('已有下载任务')
+  && upd2.friendlyUpdateError(new Error('NO_NATIVE_BRIDGE')).includes('不支持应用内下载')
+  && fe('BAD_URL').includes('地址无效'))
+assert('HTTP 分类（4xx 拒绝 / 5xx 服务器不可用）',
+  fe('HTTP_403').includes('403') && fe('HTTP_503').includes('服务器暂时不可用'))
+assert('网络异常分类（超时/断网）',
+  upd2.friendlyUpdateError(new Error('timeout')).includes('网络超时')
+  && upd2.friendlyUpdateError(new Error('Unable to resolve host "github.com"')).includes('网络不可用'))
+assert('SIZE_MISMATCH → 断点续传提示；未知错误兜底',
+  upd2.friendlyUpdateError(new Error('SIZE_MISMATCH 100/200')).includes('断点续传')
+  && upd2.friendlyUpdateError(new Error('wtf')).includes('网络后重试'))
+
+// 检查策略可插拔 + 手动检查失败抛错（localStorage/fetch mock）
+const updLS = new Map()
+const prevUpdLS = globalThis.localStorage
+globalThis.localStorage = {
+  getItem: (k) => (updLS.has(k) ? updLS.get(k) : null),
+  setItem: (k, v) => { updLS.set(k, String(v)) },
+  removeItem: (k) => { updLS.delete(k) },
+}
+const realUpdFetch = globalThis.fetch
+try {
+  // 自定义策略：模拟未来自建版本服务器
+  upd2.registerCheckStrategy('self-hosted', async () => ({
+    tag_name: 'v99.0.0', name: '自建源', body: 'n', draft: false, prerelease: false,
+    assets: [{ name: 'qingyu-v99.0.0-android.apk', size: 1, browser_download_url: 'https://example.com/x.apk', created_at: '' }],
+  }))
+  upd2.setActiveCheckStrategy('self-hosted')
+  globalThis.fetch = async () => { throw new Error('HTTP_503') }
+  // 自建源不走 fetch → 正常解析出新版
+  const viaCustom = await upd2.checkForUpdate('2.1', { force: true })
+  assert('策略可插拔：切换自建策略后 checkForUpdate 走自定义源',
+    !!viaCustom && viaCustom.version === '99.0.0' && viaCustom.name === '自建源')
+  // 切回默认策略：网络失败 → 手动检查抛错（UI 显示友好错误），自动检查回落缓存
+  upd2.setActiveCheckStrategy('github-release')
+  let threw = false
+  try { await upd2.checkForUpdate('2.1', { force: true }) } catch { threw = true }
+  assert('手动检查失败抛错（不再误报已是最新）', threw)
+  const fellBack = await upd2.checkForUpdate('99.0.0', { force: false })
+  assert('自动检查失败回落缓存（上一场景已写入 v99.0.0）', !!fellBack && fellBack.version === '99.0.0')
+  // 非法策略名不生效（保持 github-release）
+  upd2.setActiveCheckStrategy('nonexistent')
+  globalThis.fetch = async () => { throw new Error('ECONNREFUSED') }
+  let threw2 = false
+  try { await upd2.checkForUpdate('2.1', { force: true }) } catch { threw2 = true }
+  assert('setActiveCheckStrategy 非法 id 忽略（仍是 github-release → fetch 失败抛错）', threw2)
+} finally {
+  globalThis.fetch = realUpdFetch
+  if (prevUpdLS === undefined) delete globalThis.localStorage
+  else globalThis.localStorage = prevUpdLS
+}
 
 // ---------- 9. v1.8.0 AI 风格卡（纯函数 + 源码断言） ----------
 console.log('v1.8.0 AI 回复风格卡：')
