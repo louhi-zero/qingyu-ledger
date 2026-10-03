@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 28 / 2.2', gradle.includes('versionCode 28') && gradle.includes('versionName "2.2"'))
+assert('版本 versionCode 29 / 2.3', gradle.includes('versionCode 29') && gradle.includes('versionName "2.3"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.2', pkgJson.version === '2.2')
+assert('package.json 版本 2.3', pkgJson.version === '2.3')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.2', APP_VERSION === '2.2')
+assert('update.js 版本单一源为 2.3', APP_VERSION === '2.3')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -1053,6 +1053,37 @@ assert('设置页：捕获开关/权限状态/两个测试入口 + 分步引导 
   sectionsSrc.includes('微信 / 支付宝支付页捕获') && sectionsSrc.includes('无障碍权限')
   && sectionsSrc.includes('runA11yTest') && sectionsSrc.includes('runA11yPendingTest')
   && sectionsSrc.includes('开启收支自动捕获') && sectionsSrc.includes('openA11ySettings'))
+
+// ---------- v2.3 启动页重构 + 功能介绍页（源码断言） ----------
+console.log('v2.3 启动流程：')
+const welcomeJs = readFileSync(new URL('../src/Welcome.jsx', import.meta.url), 'utf-8')
+const appSrcV3 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+const cssV3 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+assert('启动页：真实应用图标（icon-512.png）+ 品牌名 + 进度条 + 版本号',
+  welcomeJs.includes('src="./icon-512.png"') && welcomeJs.includes('splash-bar')
+  && welcomeJs.includes("APP_VERSION") && welcomeJs.includes('轻语记账'))
+assert('启动页时长 2200ms（延长展示）+ 点击跳过 + 自定义背景支持',
+  welcomeJs.includes('SPLASH_MS = 2200') && welcomeJs.includes('useWelcomeBg')
+  && /onClick=\{onDone\}/.test(welcomeJs))
+assert('启动页定时器用 ref 固定回调（父重渲染不重置计时）',
+  welcomeJs.includes('doneRef.current = onDone') && welcomeJs.includes('clearTimeout(t)'))
+assert('功能介绍页：五页价值轮播（含 AI 分析/高度自定义特色页）+ 圆点 + 跳过 + 开始使用 + 演示入口',
+  welcomeJs.includes('三秒记一笔') && welcomeJs.includes('看清每一分钱') && welcomeJs.includes('数据安全省心')
+  && welcomeJs.includes('AI 智能分析') && welcomeJs.includes('API Key') && welcomeJs.includes('智谱')
+  && welcomeJs.includes('高度自定义') && welcomeJs.includes('液态玻璃')
+  && welcomeJs.includes('intro-dots') && welcomeJs.includes('跳过')
+  && welcomeJs.includes('开始使用') && welcomeJs.includes('先随便看看'))
+assert('介绍页支持触屏滑动翻页（±40px 阈值）',
+  welcomeJs.includes('onTouchStart') && welcomeJs.includes('onTouchEnd') && welcomeJs.includes('dx < -40'))
+assert('App 接线：Splash/Intro 状态机 + welcomed 分流 + qingyu_splash_off 测试钩子',
+  appSrcV3.includes("import { Splash, Intro } from './Welcome.jsx'")
+  && appSrcV3.includes("phase === 'splash'") && appSrcV3.includes("phase === 'intro'")
+  && appSrcV3.includes("welcomed ? 'app' : 'intro'")
+  && appSrcV3.includes("localStorage.getItem('qingyu_splash_off') === '1'")
+  && !appSrcV3.includes('WelcomePage'))
+assert('旧欢迎页样式移除、新样式齐备（splash/intro 关键类）',
+  !cssV3.includes('.wlogo') && cssV3.includes('.splash-icon') && cssV3.includes('@keyframes splashBar')
+  && cssV3.includes('.intro-track') && cssV3.includes('.intro-blob') && cssV3.includes('.intro-skip'))
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)

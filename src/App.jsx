@@ -33,7 +33,8 @@ import Debts from './pages/Debts.jsx'
 import Goals from './pages/Goals.jsx'
 import ScanReceipt from './pages/ScanReceipt.jsx'
 import Trash from './pages/Trash.jsx'
-import { ThemeProvider, Backdrop, useWelcomeBg, useTabIconImgs } from './theme.jsx'
+import { ThemeProvider, Backdrop, useTabIconImgs } from './theme.jsx'
+import { Splash, Intro } from './Welcome.jsx'
 
 const NavCtx = createContext(null)
 export const useNav = () => useContext(NavCtx)
@@ -72,25 +73,6 @@ const SUB_PAGES = {
   goals: Goals,
   scan: ScanReceipt,
   trash: Trash,
-}
-
-// 欢迎页（启动页）：可自定义背景图（设置-外观-启动页背景）
-function WelcomePage({ onStart }) {
-  const bg = useWelcomeBg()
-  return (
-    <div className="phone">
-      <div className="welcome">
-        {bg && <img className="welcome-bg" src={bg} alt="" decoding="async" draggable={false} />}
-        {bg && <div className="welcome-veil" />}
-        <div className="wlogo">📖</div>
-        <h1>轻语记账</h1>
-        <p>花一分钟，记下今天的收支</p>
-        <button className="btn" onClick={onStart}>从零开始记</button>
-        <div style={{ height: 10 }} />
-        <button className="btn ghost" onClick={onStart}>先随便看看（稍后可在设置加载示例数据）</button>
-      </div>
-    </div>
-  )
 }
 
 // 底部导航：仅根级页面渲染；memo 化避免 Shell 其它状态变化引起重绘
@@ -334,10 +316,26 @@ function Shell() {
     }
   }, [])
 
-  // 欢迎页
-  if (!state.settings.welcomed) {
-    return <WelcomePage onStart={() => set((d) => { d.settings.welcomed = true })} />
-  }
+  // v2.3 启动流程：每次启动先展示启动页（真实图标 + 品牌动画 2.2s，可点击跳过）；
+  // 首次安装（welcomed=false）接着进功能介绍页，老用户直入主界面。
+  // 测试钩子：localStorage 'qingyu_splash_off'==='1' 跳过整个启动流程（冒烟/截图脚本用）
+  const [phase, setPhase] = useState(() => {
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('qingyu_splash_off') === '1') return 'app'
+    } catch { /* ignore */ }
+    return 'splash'
+  })
+  const welcomed = state.settings.welcomed
+  const splashDone = useCallback(() => {
+    setPhase(welcomed ? 'app' : 'intro')
+  }, [welcomed])
+  const startApp = useCallback(() => {
+    set((d) => { d.settings.welcomed = true })
+    setPhase('app')
+  }, [set])
+
+  if (phase === 'splash') return <Splash onDone={splashDone} />
+  if (phase === 'intro') return <Intro onStart={startApp} />
 
   const top = stack[stack.length - 1]
   let Page = null

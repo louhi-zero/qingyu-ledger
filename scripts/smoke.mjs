@@ -115,6 +115,7 @@ app.whenReady().then(async () => {
     const run = (js) => win.webContents.executeJavaScript(js)
 
     // 预置：跳过欢迎页 + 预置坏 WebDAV 配置（保护 v1.6 头像场景走原换头像弹层；坏地址让 v1.10.0 自动同步静默失败，不影响前面的功能断言）
+    // v2.3：qingyu_splash_off=1 跳过启动页/介绍页（启动流程由末尾专属场景测试）
     await run(`(() => {
       const k = 'qingyu_state_v3'
       const s = JSON.parse(localStorage.getItem(k) || 'null')
@@ -122,6 +123,7 @@ app.whenReady().then(async () => {
       s.settings.welcomed = true
       localStorage.setItem(k, JSON.stringify(s))
       localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: 'http://127.0.0.1:9/dav/qingyu/backup.json', username: '', password: '' }))
+      localStorage.setItem('qingyu_splash_off', '1')
       return 'ok'
     })()`)
     await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
@@ -1029,7 +1031,8 @@ app.whenReady().then(async () => {
     // 主进程直接种云端快照（新设备视角：云端已有老设备的数据）
     files.set('backup.json', { text: JSON.stringify({ app: 'qingyu', kind: 'qingyu-cloud-v1', appVersion: '1.9.0', at: new Date().toISOString(), deviceId: 'smoke-seed-device', data: JSON.parse(seedStateJson) }), etag: 'w-seed' })
     // 清空本机模拟换机 → 配置好坚果云（视为登录）→ 冷启动
-    await run(`localStorage.clear(); localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: '${stubUrl}', username: '', password: '' })); 'ok'`)
+    // v2.3：clear 会清掉跳过钩子，重设（该场景测同步，不测启动流程）
+    await run(`localStorage.clear(); localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: '${stubUrl}', username: '', password: '' })); localStorage.setItem('qingyu_splash_off', '1'); 'ok'`)
     await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
     await sleep(900)
     const restored = await pollTrue(run, `(() => {
@@ -1079,6 +1082,78 @@ app.whenReady().then(async () => {
       })()`))
     await run(`(() => { const b = [...document.querySelectorAll('.sheet .sx')].pop(); if (b) b.click(); return 'ok' })()`)
     await sleep(300)
+
+    // ============ v2.3 启动流程（启动页 → 功能介绍页 → 主界面） ============
+    // 场景 I：首次安装完整链路。welcomed=false + 移除跳过钩子 → 冷启动：
+    // 启动页（真实图标 + 品牌名）→ 点击跳过 → 介绍页 3 页轮播 →「开始使用」→ 主界面 + welcomed 持久化
+    await run(`(() => {
+      const k = 'qingyu_state_v3'
+      const s = JSON.parse(localStorage.getItem(k) || 'null')
+      if (s) { s.settings.welcomed = false; localStorage.setItem(k, JSON.stringify(s)) }
+      localStorage.removeItem('qingyu_splash_off')
+      return 'ok'
+    })()`)
+    await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
+    await sleep(700)
+    assert('启动页：展示真实应用图标 + 品牌名 + 进度条',
+      await run(`(() => {
+        const sp = document.querySelector('.splash')
+        const icon = document.querySelector('.splash-icon')
+        return !!sp && !!icon && (icon.getAttribute('src') || '').includes('icon-512')
+          && icon.naturalWidth > 0 && sp.textContent.includes('轻语记账')
+          && !!document.querySelector('.splash-bar')
+      })()`))
+    await run(`document.querySelector('.splash').click()`) // 点击跳过启动页
+    await sleep(500)
+    assert('介绍页：五页轮播 + 圆点指示器 + 跳过按钮（默认第 1 页）',
+      await run(`(() => {
+        const it = document.querySelector('.intro')
+        const dots = document.querySelectorAll('.intro-dots button')
+        return !!it && dots.length === 5 && dots[0].classList.contains('on')
+          && it.textContent.includes('三秒记一笔') && !!it.querySelector('.intro-skip')
+          && it.querySelector('.intro-next').textContent.includes('下一步')
+      })()`))
+    await run(`document.querySelector('.intro-next').click()`)
+    await sleep(600)
+    assert('介绍页：「下一步」翻到第 2 页（圆点同步）',
+      await run(`(() => {
+        const dots = document.querySelectorAll('.intro-dots button')
+        return dots[1].classList.contains('on') && document.querySelector('.intro').textContent.includes('看清每一分钱')
+      })()`))
+    // v2.3 特色功能页：AI 智能分析（API 接入）+ 高度自定义
+    await run(`document.querySelector('.intro-next').click()`)
+    await sleep(600)
+    assert('介绍页：第 3 页为「AI 智能分析」特色页（API 接入）',
+      await run(`(() => {
+        const it = document.querySelector('.intro')
+        const dots = document.querySelectorAll('.intro-dots button')
+        return dots[2].classList.contains('on') && it.textContent.includes('AI 智能分析')
+          && it.textContent.includes('API Key') && it.textContent.includes('智谱')
+      })()`))
+    await run(`document.querySelector('.intro-next').click()`)
+    await sleep(600)
+    assert('介绍页：第 4 页为「高度自定义」特色页',
+      await run(`(() => {
+        const it = document.querySelector('.intro')
+        const dots = document.querySelectorAll('.intro-dots button')
+        return dots[3].classList.contains('on') && it.textContent.includes('高度自定义')
+          && it.textContent.includes('液态玻璃') && it.textContent.includes('底部图标')
+      })()`))
+    await run(`document.querySelector('.intro-next').click()`)
+    await sleep(600)
+    assert('介绍页：末页显示「开始使用」与演示数据入口',
+      await run(`(() => {
+        const it = document.querySelector('.intro')
+        return it.querySelector('.intro-next').textContent.includes('开始使用')
+          && it.textContent.includes('先随便看看') && document.querySelectorAll('.intro-dots button')[4].classList.contains('on')
+      })()`))
+    await run(`document.querySelector('.intro-next').click()`) // 开始使用
+    await sleep(900)
+    assert('完成引导：进入主界面 + welcomed 持久化',
+      await pollTrue(run, `(() => {
+        const s = JSON.parse(localStorage.getItem('qingyu_state_v3') || 'null')
+        return !!document.querySelector('.tabbar') && !!s && s.settings.welcomed === true
+      })()`, 6000))
   } catch (e) {
     results.push(['FAIL', '异常: ' + (e && e.message)])
     console.log('FAIL  异常: ' + (e && e.message))

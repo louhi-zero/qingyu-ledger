@@ -592,23 +592,97 @@ textarea.input { resize: none; min-height: 90px; }
 /* ---------- 金额模糊 ---------- */
 .blur { filter: blur(7px); user-select: none; }
 
-/* ---------- 欢迎页 ---------- */
-.welcome {
-  position: fixed; inset: 0; z-index: 200; background: var(--grad);
+/* ---------- v2.3 启动页（真实应用图标 + 品牌动画，每次启动展示 2.2s） ---------- */
+.splash {
+  position: fixed; inset: 0; z-index: 400; background: var(--grad);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  color: #fff; padding: 30px; text-align: center;
+  color: #fff; padding: 30px; text-align: center; cursor: pointer; overflow: hidden;
 }
-.welcome::after {
+.splash::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 20% 15%, rgba(255,255,255,.14), transparent 42%),
-              radial-gradient(circle at 85% 85%, rgba(255,255,255,.1), transparent 40%);
+  background: radial-gradient(circle at 18% 12%, rgba(255,255,255,.16), transparent 44%),
+              radial-gradient(circle at 86% 88%, rgba(255,255,255,.12), transparent 42%);
 }
-.welcome .wlogo { font-size: 64px; animation: float 3s ease-in-out infinite; }
+.splash-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.splash-veil { position: absolute; inset: 0; background: rgba(22,27,46,.46); }
+.splash-core { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+.splash-icon {
+  width: 98px; height: 98px; border-radius: 25px; display: block;
+  box-shadow: 0 20px 48px rgba(12,17,38,.38), inset 0 0 0 1px rgba(255,255,255,.18);
+  animation: splashIcon .85s cubic-bezier(.2,.85,.3,1.15) both, float 3.4s ease-in-out 1s infinite;
+}
+@keyframes splashIcon { from { opacity: 0; transform: translateY(22px) scale(.84) } to { opacity: 1; transform: none } }
+.splash h1 { font-size: 27px; margin: 22px 0 7px; letter-spacing: 3px; animation: splashIn .7s .18s both; }
+.splash p { opacity: .88; font-size: 13.5px; margin: 0; letter-spacing: .5px; animation: splashIn .7s .32s both; }
+@keyframes splashIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+.splash-foot {
+  position: absolute; bottom: 44px; left: 0; right: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  animation: splashIn .7s .5s both;
+}
+.splash-bar { width: 132px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.24); overflow: hidden; }
+.splash-bar i { display: block; height: 100%; width: 4%; border-radius: 99px; background: #fff; animation: splashBar 2200ms linear forwards; }
+@keyframes splashBar { from { width: 4% } to { width: 100% } }
+.splash-ver { font-size: 11px; opacity: .7; letter-spacing: 1px; font-variant-numeric: tabular-nums; }
 @keyframes float { 50% { transform: translateY(-10px) } }
-.welcome h1 { font-size: 26px; margin: 18px 0 6px; letter-spacing: 2px; }
-.welcome p { opacity: .85; font-size: 14px; margin: 0 0 36px; }
-.welcome .btn { background: #fff; color: var(--brand); max-width: 260px; }
-.welcome .btn.ghost { background: rgba(255,255,255,.16); color: #fff; box-shadow: none; }
+
+/* ---------- v2.3 功能介绍页（首次启动 onboarding 轮播，对标主流水准） ---------- */
+.intro {
+  position: fixed; inset: 0; z-index: 390; background: var(--bg);
+  display: flex; flex-direction: column; overflow: hidden; touch-action: pan-y;
+}
+.intro::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 12% 8%, rgba(96,116,201,.1), transparent 42%),
+              radial-gradient(circle at 90% 16%, rgba(96,116,201,.07), transparent 36%),
+              radial-gradient(circle at 78% 92%, rgba(96,116,201,.09), transparent 40%);
+}
+.intro-skip {
+  position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px; z-index: 2;
+  border: none; cursor: pointer; padding: 7px 16px; border-radius: 99px;
+  background: var(--card); color: var(--ink3); font-size: 12.5px;
+  box-shadow: 0 4px 14px rgba(20,26,50,.1);
+}
+.intro-track {
+  flex: 1; display: flex; width: 100%;
+  transition: transform .45s cubic-bezier(.22,.8,.3,1);
+  position: relative; z-index: 1;
+}
+.intro-slide {
+  min-width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 30px 36px 0; text-align: center;
+}
+.intro-art { position: relative; width: 188px; height: 188px; margin-bottom: 30px; }
+.intro-blob {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 76px; border-radius: 48px; background: var(--grad); color: #fff;
+  box-shadow: 0 26px 52px rgba(85,97,151,.34);
+  animation: float 3.4s ease-in-out infinite;
+}
+.intro-chip {
+  position: absolute; width: 48px; height: 48px; border-radius: 17px;
+  display: flex; align-items: center; justify-content: center; font-size: 23px;
+  background: var(--card); box-shadow: 0 10px 26px rgba(20,26,50,.16);
+}
+.intro-chip.c1 { top: -12px; right: -20px; animation: float 2.8s ease-in-out .25s infinite; }
+.intro-chip.c2 { bottom: -12px; left: -18px; animation: float 3.1s ease-in-out .55s infinite; }
+.intro-slide.on h2, .intro-slide.on p { animation: introIn .55s .12s both; }
+.intro-slide h2 { font-size: 22px; margin: 0 0 12px; letter-spacing: 1px; }
+.intro-slide p { font-size: 13.5px; color: var(--ink2); line-height: 1.95; margin: 0; max-width: 282px; }
+@keyframes introIn { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: none } }
+.intro-foot { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 0 34px; }
+.intro-dots { display: flex; gap: 8px; justify-content: center; padding: 16px 0 4px; }
+.intro-dots button {
+  width: 8px; height: 8px; border-radius: 99px; border: none; padding: 0; cursor: pointer;
+  background: var(--line); transition: width .3s, background .3s;
+}
+.intro-dots button.on { width: 22px; background: var(--brand); }
+.intro-next { margin-top: 12px; width: 100%; max-width: 300px; height: 46px; border-radius: 14px; font-size: 15px; }
+.intro-demo {
+  background: none; border: none; color: var(--ink3); font-size: 12px;
+  margin: 14px 0 40px; cursor: pointer; letter-spacing: .3px;
+}
+
 
 /* ---------- 周期/其他 ---------- */
 .muted { color: var(--ink3); font-size: 12px; }
@@ -995,18 +1069,7 @@ input[type="range"]::-moz-range-thumb {
 .txitem .chip { display: inline-block; margin-top: 2px; }
 
 /* ─────────── v1.3 个性化与流畅度 ─────────── */
-/* 启动页自定义背景 */
-.welcome-bg {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;
-}
-.welcome-veil {
-  position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: linear-gradient(180deg, rgba(20, 26, 48, .38), rgba(20, 26, 48, .52));
-}
-.welcome > .wlogo,
-.welcome > h1,
-.welcome > p,
-.welcome > .btn { position: relative; z-index: 1; }
+/* v2.3 旧欢迎页样式已移除（启动页重构为 .splash，见上方；.welcome-preview 供设置页预览使用） */
 
 /* 启动页背景预览（设置 Sheet 内） */
 .welcome-preview {

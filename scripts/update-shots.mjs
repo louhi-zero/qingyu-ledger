@@ -37,10 +37,37 @@ app.whenReady().then(async () => {
     const k = 'qingyu_state_v3'
     const s = JSON.parse(localStorage.getItem(k) || 'null')
     if (s) { s.settings.welcomed = true; localStorage.setItem(k, JSON.stringify(s)) }
+    localStorage.setItem('qingyu_splash_off', '1')
     return 'ok'
   })()`)
   await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
   await sleep(900)
+
+  // ===== S0 启动页（真实图标 + 进度条）与 S8-S12 功能介绍页（首次安装链路，五页） =====
+  // 注意：调用放在 shot 等工具定义之后（见 try 前的 onboardingShots()）
+  const onboardingShots = async () => {
+    await run(`(() => {
+      const k = 'qingyu_state_v3'
+      const s = JSON.parse(localStorage.getItem(k) || 'null')
+      if (s) { s.settings.welcomed = false; localStorage.setItem(k, JSON.stringify(s)) }
+      localStorage.removeItem('qingyu_splash_off')
+      return 'ok'
+    })()`)
+    await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
+    await sleep(1750) // loadFile 后 React 挂载约 +0.3s：此时进度条已淡入完成并走到 ~43%
+    await shot('S0-splash')
+    await sleep(1500) // 等启动页自动结束（2.2s 总时长）→ 介绍页
+    const introShots = ['S8-intro-1', 'S9-intro-2', 'S10-intro-3-ai', 'S11-intro-4-custom', 'S12-intro-5']
+    for (let i = 0; i < introShots.length; i++) {
+      await shot(introShots[i])
+      if (i < introShots.length - 1) {
+        await run(`document.querySelector('.intro-next').click()`)
+        await sleep(650)
+      }
+    }
+    await run(`document.querySelector('.intro-next').click()`) // 开始使用
+    await sleep(900)
+  }
 
   const shot = async (name) => {
     if (!win.isVisible()) { win.show(); win.focus(); await sleep(400) }
@@ -117,6 +144,18 @@ app.whenReady().then(async () => {
     localStorage.removeItem('qingyu_update_check_v1')
     return 'ok'
   })()`)
+
+  // 启动页 + 介绍页截图（首次安装链路），完成后恢复跳过钩子供后续更新模块场景直入主界面
+  await onboardingShots()
+  await run(`(() => {
+    const k = 'qingyu_state_v3'
+    const s = JSON.parse(localStorage.getItem(k) || 'null')
+    if (s) { s.settings.welcomed = true; localStorage.setItem(k, JSON.stringify(s)) }
+    localStorage.setItem('qingyu_splash_off', '1')
+    return 'ok'
+  })()`)
+  await win.loadFile(path.join(process.cwd(), 'dist', 'index.html'))
+  await sleep(900)
 
   try {
     // ===== S1 设置页 UpdateCard（idle：已是最新版本） =====
