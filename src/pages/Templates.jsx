@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Seg, Sheet, Empty, Confirm, CatIcon } from '../ui.jsx'
@@ -34,7 +35,7 @@ export default function Templates({ nav }) {
   return (
     <>
       <TopBar
-        title="⚡ 记账模板"
+        title={<><Icon name="bolt" size="1em" className="qy-inline-icon" /> 记账模板</>}
         onBack={() => nav.pop()}
         right={<button className="iconbtn" onClick={() => setEditOpen({ type: 'expense' })} title="新建模板">＋</button>}
       />
@@ -46,7 +47,7 @@ export default function Templates({ nav }) {
 
         {list.length === 0 ? (
           <div className="card">
-            <Empty icon="⚡" text={'还没有模板\n点右上角 ＋ 新建一个'} />
+            <Empty icon="svg:bolt" text={'还没有模板\n点右上角 ＋ 新建一个'} />
           </div>
         ) : (
           <div className="txlist">
@@ -106,7 +107,7 @@ function TplEditor({ draft, onClose, onSave, onDelete }) {
     <div className="mask" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="sheet">
         <div className="sheet-head">
-          <button className="sx" onClick={onClose}>✕</button>
+          <button className="sx" onClick={onClose}><Icon name="close" size="1em" className="qy-inline-icon" /></button>
           <div className="st">{draft.id ? '编辑模板' : '新建模板'}</div>
           <div style={{ width: 30 }} />
         </div>

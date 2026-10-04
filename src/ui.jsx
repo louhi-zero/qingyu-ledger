@@ -1,3 +1,4 @@
+import { Icon } from "./ui/icons.jsx"
 import React, { useEffect } from 'react'
 import { useStore } from './store.jsx'
 import { fmt } from './utils.js'
@@ -46,7 +47,7 @@ export function Sheet({ open, onClose, title, children, center }) {
     <div className={`mask ${center ? 'center' : ''}`} onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}>
       <div className={`sheet ${center ? 'center' : ''}`}>
         <div className="sheet-head">
-          <button className="sx" onClick={onClose} aria-label="关闭">✕</button>
+          <button className="sx" onClick={onClose} aria-label="关闭"><Icon name="close" size="1em" className="qy-inline-icon" /></button>
           <div className="st">{title}</div>
           <div style={{ width: 30 }} />
         </div>
@@ -104,7 +105,7 @@ export function Cell({ icon, title, desc, right, onClick, children }) {
 }
 
 // 空状态
-export function Empty({ icon = '🍃', text, children }) {
+export function Empty({ icon = "svg:leaf", text, children }) {
   return (
     <div className="empty">
       <div className="eico">{icon}</div>
@@ -170,7 +171,7 @@ export function DatePicker({ value, onChange, label = '选择日期' }) {
 }
 
 // Emoji 选择器
-export const EMOJIS = ['🐣','😀','😎','🦊','🐼','🐱','🐶','🐰','🦁','🐯','🐨','🦄','🌙','⭐','🌸','🍀','💎','🚀','🎵','📖','🍜','🧋','💰','🏠','⚡','🔥','🧧','🎁','🪙','🌈']
+export const EMOJIS = ["svg:chick","svg:smile","svg:smile","svg:fox","svg:panda","svg:cat","svg:dog","svg:rabbit","svg:lion","svg:tiger","svg:koala","svg:unicorn","svg:moon","svg:star","svg:flower","svg:clover","svg:diamond","svg:rocket","svg:music","svg:book","svg:food","svg:cup","svg:salary","svg:home","svg:bolt","svg:fire","svg:envelope","svg:gift","svg:coin","svg:rainbow"]
 export function EmojiPicker({ value, onChange }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6 }}>

@@ -92,10 +92,10 @@ export function findCat(categories, id) {
   return null
 }
 export function catInfo(state, tx) {
-  if (tx.type === 'transfer') return { icon: '🔄', name: '转账', color: '#13b5a1', main: '转账' }
+  if (tx.type === 'transfer') return { icon: "svg:transfer", name: '转账', color: '#13b5a1', main: '转账' }
   const list = tx.type === 'income' ? state.categories.income : state.categories.expense
   const f = findCat(list, tx.categoryId)
-  if (!f) return { icon: '❓', name: '未分类', color: '#9aa1af', main: '未分类' }
+  if (!f) return { icon: "svg:question", name: '未分类', color: '#9aa1af', main: '未分类' }
   return {
     icon: (f.sub && f.sub.icon) || f.cat.icon,
     name: f.sub ? f.sub.name : f.cat.name,

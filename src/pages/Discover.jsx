@@ -152,7 +152,7 @@ export default function Discover() {
                 <div className="muted" style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>本月支出</span><span>¥{fmt(exp)}</span>
                 </div>
-                {usePct > 100 && <div className="muted" style={{ color: 'var(--expense)', marginTop: 6 }}>⚠ 已超支 ¥{fmt(exp - budget)}</div>}
+                {usePct > 100 && <div className="muted" style={{ color: 'var(--expense)', marginTop: 6 }}><Icon name="warning" size="1em" className="qy-inline-icon" /> 已超支 ¥{fmt(exp - budget)}</div>}
               </div>
             </div>
           ) : (

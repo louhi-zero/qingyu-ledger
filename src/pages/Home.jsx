@@ -82,9 +82,9 @@ export default function Home() {
         right={
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="iconbtn" onClick={() => setView(view === 'list' ? 'calendar' : 'list')} title="切换视图">
-              {view === 'list' ? '📅' : '📋'}
+              {view === 'list' ? "svg:calendar" : "svg:clipboard"}
             </button>
-            <button className="iconbtn" onClick={() => setSearchOpen(true)} title="搜索">🔍</button>
+            <button className="iconbtn" onClick={() => setSearchOpen(true)} title="搜索"><Icon name="search" size="1em" className="qy-inline-icon" /></button>
           </div>
         }
       />
@@ -161,7 +161,7 @@ export default function Home() {
               ))}
               {catFilter && (
                 <button className="chip on warn" onClick={() => setCatFilter(null)}>
-                  {catInfo(state, { type: 'expense', categoryId: catFilter }).main} ✕
+                  {catInfo(state, { type: 'expense', categoryId: catFilter }).main} <Icon name="close" size="1em" className="qy-inline-icon" />
                 </button>
               )}
               {allTags.length > 0 && (
@@ -174,7 +174,7 @@ export default function Home() {
 
             {groups.length === 0 ? (
               <div className="card">
-                <Empty icon="🌱" text={q ? '换个条件试试，没有匹配的账单' : '本月还没有记录\n账本不会自己长大，该记一笔啦'} />
+                <Empty icon="svg:sprout" text={q ? '换个条件试试，没有匹配的账单' : '本月还没有记录\n账本不会自己长大，该记一笔啦'} />
               </div>
             ) : groups.map(([date, list]) => {
               const dayExp = sumBy(list, 'expense')
@@ -197,8 +197,8 @@ export default function Home() {
                           <div className="txmain">
                             <div className="txname">
                               {t.type === 'transfer' ? `${accountName(state, t.accountId)} → ${accountName(state, t.toAccountId)}` : info.name}
-                              {t.reimburse === 'pending' && <span title="待报销" style={{ marginLeft: 4 }}>🧾</span>}
-                              {t.attachAt && <span title="有小票照片" style={{ marginLeft: 3, fontSize: 11 }}>📎</span>}
+                              {t.reimburse === 'pending' && <span title="待报销" style={{ marginLeft: 4 }}><Icon name="reimburse" size="1em" className="qy-inline-icon" /></span>}
+                              {t.attachAt && <span title="有小票照片" style={{ marginLeft: 3, fontSize: 11 }}><Icon name="attach" size="1em" className="qy-inline-icon" /></span>}
                             </div>
                             <div className="txnote">
                               {[
@@ -229,9 +229,9 @@ export default function Home() {
       {/* 搜索 */}
       <Sheet open={searchOpen} onClose={() => setSearchOpen(false)} title="搜索账单">
         <div className="searchbar" style={{ marginBottom: 10 }}>
-          <span>🔍</span>
+          <span><Icon name="search" size="1em" className="qy-inline-icon" /></span>
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜备注 / 分类 / 金额 / 账户" />
-          {q && <button className="iconbtn" style={{ width: 26, height: 26 }} onClick={() => setQ('')}>✕</button>}
+          {q && <button className="iconbtn" style={{ width: 26, height: 26 }} onClick={() => setQ('')}><Icon name="close" size="1em" className="qy-inline-icon" /></button>}
         </div>
         {q.trim() ? (
           filtered.length ? (
@@ -252,7 +252,7 @@ export default function Home() {
                 )
               })}
             </div>
-          ) : <Empty icon="🔍" text="没有匹配的账单，换个关键词试试" />
+          ) : <Empty icon="svg:search" text="没有匹配的账单，换个关键词试试" />
         ) : (
           <div className="muted" style={{ textAlign: 'center', padding: '20px 0' }}>支持搜索最近所有账单</div>
         )}
@@ -293,7 +293,7 @@ function DayList({ date }) {
   const list = state.transactions
     .filter((t) => t.ledgerId === state.currentLedgerId && t.date === date && !t.deletedAt)
     .sort((a, b) => b.time.localeCompare(a.time))
-  if (!list.length) return <Empty icon="🍃" text="这一天没有账单" />
+  if (!list.length) return <Empty icon="svg:leaf" text="这一天没有账单" />
   return (
     <div className="txlist">
       {list.map((t) => {

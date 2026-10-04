@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 32 / 2.6', gradle.includes('versionCode 32') && gradle.includes('versionName "2.6"'))
+assert('版本 versionCode 33 / 2.7', gradle.includes('versionCode 33') && gradle.includes('versionName "2.7"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.6', pkgJson.version === '2.6')
+assert('package.json 版本 2.6', pkgJson.version === '2.7')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.6', APP_VERSION === '2.6')
+assert('update.js 版本单一源为 2.6', APP_VERSION === '2.7')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -572,8 +572,8 @@ assert('ATTRS_TABLE 与 STYLE_ATTRS 提示词逐条一致',
   Object.entries(STYLE_ATTRS).every(([k, list]) => list.every((x) => aiSrc.includes(`${x.id}: '${x.prompt}'`))))
 assert('postText 已导出供风格卡生成复用', aiSrc.includes('export async function postText'))
 assert('平台钩子 __qyForceWeb 强制 web 路径（便于冒烟 mock）', aiSrc.includes('__qyForceWeb'))
-assert('AI 设置页：三模式切换 + 预设可视化卡片',
-  aiSettingsSrc.includes('🎭 预设') && aiSettingsSrc.includes('🎛️ 自定义') && aiSettingsSrc.includes('✨ 角色扮演')
+assert('AI 设置页：三模式切换（线性 Icon 标签，v2.6 去 emoji）+ 预设可视化卡片',
+  aiSettingsSrc.includes('name="masks"') && aiSettingsSrc.includes('name="sliders"') && aiSettingsSrc.includes('name="sparkles"')
   && aiSettingsSrc.includes('style-cards') && aiSettingsSrc.includes('stc-check'))
 assert('AI 设置页：角色两阶段进度与缓存徽标',
   aiSettingsSrc.includes('① 联网检索角色资料') && aiSettingsSrc.includes('② AI 合成风格卡')
@@ -1148,25 +1148,25 @@ assert('收款码资产入库', existsSync(new URL('../public/donate/wechat.png'
 // ---------- v2.6 分类线性图标库（28 枚） ----------
 console.log('v2.6 分类图标库：')
 const catIconsSrc = readFileSync(new URL('../src/catIcons.js', import.meta.url), 'utf-8')
-assert('catIcons.js：28 枚清单（支出 14 / 收入 6 / 功能 8）+ 白名单 isImgIcon',
-  (catIconsSrc.match(/\['[a-z]+', '[^']+'\]/g) || []).length === 28
-  && catIconsSrc.includes("expense: toList([") && catIconsSrc.includes("income: toList([") && catIconsSrc.includes("func: toList([")
-  && catIconsSrc.includes('export function isImgIcon(icon)'))
-// 图标文件全部实际入库
+assert('catIcons.js：v2.6 图标注册表派生（iconRegistry + ALL_CAT_ICONS + 白名单 isImgIcon）',
+  catIconsSrc.includes("from './iconRegistry.js'") && catIconsSrc.includes('ALL_CAT_ICONS')
+  && catIconsSrc.includes('isImgIcon'))
+// 图标文件全部实际入库（v2.6 codex：cat/func 目录 PNG 旁补齐同名 SVG）
 let libPngs = 0
 for (const d of ['cat', 'func']) {
   const dir = new URL(`../public/icons/${d}/`, import.meta.url)
   if (existsSync(dir)) libPngs += readdirSync(dir).filter((f) => f.endsWith('.png')).length
 }
 assert('图标库 PNG 全部落盘（cat + func 共 28 枚，单枚 ≤4KB）', libPngs === 28)
-assert('seed 默认分类接入线性图标（餐饮/购物/交通/居家/娱乐/医疗/教育/人情/宠物 + 工资/奖金/理财）',
-  seedSrc.includes("cat('餐饮', './icons/cat/food.png'") && seedSrc.includes("cat('购物', './icons/cat/shop.png'")
-  && seedSrc.includes("cat('交通出行', './icons/cat/transport.png'") && seedSrc.includes("cat('居家生活', './icons/cat/home.png'")
-  && seedSrc.includes("cat('娱乐休闲', './icons/cat/game.png'") && seedSrc.includes("cat('医疗健康', './icons/cat/medical.png'")
-  && seedSrc.includes("cat('教育学习', './icons/cat/edu.png'") && seedSrc.includes("cat('人情往来', './icons/cat/gift.png'")
-  && seedSrc.includes("cat('宠物', './icons/cat/pet.png'")
-  && seedSrc.includes("cat('工资', './icons/cat/salary.png'") && seedSrc.includes("cat('奖金', './icons/cat/bonus.png'")
-  && seedSrc.includes("cat('理财收益', './icons/cat/invest.png'"))
+assert('seed 默认分类接入 SVG 线性图标（v2.6 codex：svg 库 + svg: 子分类）',
+  seedSrc.includes('"./icons/cat/food.svg"') && seedSrc.includes('"./icons/cat/shop.svg"')
+  && seedSrc.includes('"./icons/cat/transport.svg"') && seedSrc.includes('"./icons/cat/home.svg"')
+  && seedSrc.includes('"./icons/cat/game.svg"') && seedSrc.includes('"./icons/cat/medical.svg"')
+  && seedSrc.includes('"./icons/cat/edu.svg"') && seedSrc.includes('"./icons/cat/gift.svg"')
+  && seedSrc.includes('"./icons/cat/pet.svg"')
+  && seedSrc.includes('"./icons/cat/salary.svg"') && seedSrc.includes('"./icons/cat/bonus.svg"')
+  && seedSrc.includes('"./icons/cat/invest.svg"')
+  && seedSrc.includes('"svg:croissant"'))
 assert('CatIcon 组件：图标库路径渲染图片 / emoji 回落（ui.jsx）',
   uiSrc.includes('export function CatIcon') && uiSrc.includes('isImgIcon(icon)'))
 assert('分类图标渲染点去 emoji 文本化（Home/AddTx/Templates/Budget/Charts/Recurring/Trash/Review/Import）',

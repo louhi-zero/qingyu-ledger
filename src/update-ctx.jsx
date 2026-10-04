@@ -1,3 +1,4 @@
+import { Icon } from "./ui/icons.jsx"
 /* v1.11.0 应用内更新 · 完全重构
  * - UpdateProvider：启动 2.5s 自动检查一次 + 运行期每 30min 定期检查（网络节流 1h）+ 手动按需
  * - UpdateCard：设置页内常驻可视化卡片（不是弹窗式），任何状态都展示
@@ -306,14 +307,14 @@ export function UpdateCard({ onClick }) {
   }[status] || 'upd-card-idle'
 
   const icon = {
-    idle: '✅',
-    checking: '🔍',
-    available: '🎉',
-    downloading: '⬇️',
-    verifying: '🔐',
-    ready: '📲',
-    error: '⚠️',
-  }[status] || '✅'
+    idle: "svg:checkCircle",
+    checking: "svg:search",
+    available: "svg:party",
+    downloading: "svg:download",
+    verifying: "svg:lock",
+    ready: "svg:tag",
+    error: "svg:warning",
+  }[status] || "svg:checkCircle"
 
   const title = {
     idle: '已是最新版本',
@@ -356,7 +357,7 @@ export function UpdateCard({ onClick }) {
             <circle className="ucr-fill" cx="22" cy="22" r="18"
               strokeDasharray={`${pct * 1.131} 113.1`} />
           </svg>
-          <span className="ucr-pct">{status === 'verifying' ? '🔐' : `${Math.round(pct)}%`}</span>
+          <span className="ucr-pct">{status === 'verifying' ? <><Icon name="lock" size="1em" className="qy-inline-icon" /></> : `${Math.round(pct)}%`}</span>
         </div>
       )
     }
@@ -402,7 +403,7 @@ export function UpdateFloat() {
   if (status === 'downloading') {
     body = (
       <>
-        <span className="uf-ico">⬇️</span>
+        <span className="uf-ico"><Icon name="download" size="1em" className="qy-inline-icon" /></span>
         <span className="uf-txt uf-progress">
           <b>后台下载 {info?.tag || ''} · {progress}%</b>
           <span className="uf-bar"><i style={{ width: `${progress}%` }} /></span>
@@ -412,14 +413,14 @@ export function UpdateFloat() {
   } else if (status === 'verifying') {
     body = (
       <>
-        <span className="uf-ico">🔐</span>
+        <span className="uf-ico"><Icon name="lock" size="1em" className="qy-inline-icon" /></span>
         <span className="uf-txt"><b>正在校验安装包…</b><i>SHA-256 完整性校验</i></span>
       </>
     )
   } else if (status === 'ready') {
     body = (
       <>
-        <span className="uf-ico">✅</span>
+        <span className="uf-ico"><Icon name="checkCircle" size="1em" className="qy-inline-icon" /></span>
         <span className="uf-txt"><b>{info?.tag || ''} 安装包已就绪</b><i>点击查看并确认安装</i></span>
         <span className="uf-go uf-go-ok">去安装</span>
       </>
@@ -427,7 +428,7 @@ export function UpdateFloat() {
   } else {
     body = (
       <>
-        <span className="uf-ico">⚠️</span>
+        <span className="uf-ico"><Icon name="warning" size="1em" className="qy-inline-icon" /></span>
         <span className="uf-txt"><b>更新下载失败</b><i>{errorMsg || '点击重试'}</i></span>
         <span className="uf-go">重试</span>
       </>
@@ -450,14 +451,14 @@ export function UpdatePrompt() {
   const { status, info, progress, errorMsg, closePrompt, native, autoDl, sourceLabel, errorKind, partial, receivedBytes, totalBytes } = u
 
   const hero = {
-    checking: ['🔍', 'upd-hero-check'],
-    available: ['🎉', 'upd-hero-new'],
-    downloading: ['⬇️', 'upd-hero-dl'],
-    verifying: ['🔐', 'upd-hero-check'],
-    ready: ['✅', 'upd-hero-ready'],
-    error: ['⚠️', 'upd-hero-err'],
-    idle: ['✔️', 'upd-hero-ready'],
-  }[status] || ['🎉', 'upd-hero-new']
+    checking: ["svg:search", 'upd-hero-check'],
+    available: ["svg:party", 'upd-hero-new'],
+    downloading: ["svg:download", 'upd-hero-dl'],
+    verifying: ["svg:lock", 'upd-hero-check'],
+    ready: ["svg:checkCircle", 'upd-hero-ready'],
+    error: ["svg:warning", 'upd-hero-err'],
+    idle: ["svg:check", 'upd-hero-ready'],
+  }[status] || ["svg:party", 'upd-hero-new']
   const [heroEmoji, heroCls] = hero
   const notes = info ? tinyMd(info.notes) : []
   const busy = status === 'downloading' || status === 'verifying'
@@ -465,7 +466,7 @@ export function UpdatePrompt() {
   return (
     <div className="upd-mask" onClick={(e) => { if (e.target === e.currentTarget) closePrompt() }}>
       <div className="upd-modal" role="dialog" aria-label="软件更新">
-        <button className="upd-x" onClick={closePrompt} aria-label="关闭">✕</button>
+        <button className="upd-x" onClick={closePrompt} aria-label="关闭"><Icon name="close" size="1em" className="qy-inline-icon" /></button>
 
         <div className={`upd-hero ${heroCls}`}><span>{heroEmoji}</span></div>
 
@@ -526,7 +527,7 @@ export function UpdatePrompt() {
                 {native ? (
                   <>
                     <button className="btn upd-main upd-main-grad" onClick={u.startDownload}>
-                      {partial.exists && partial.bytes > 0 ? '⬇️ 继续下载（断点续传）' : '⬇️ 立即更新'}
+                      {partial.exists && partial.bytes > 0 ? <><Icon name="download" size="1em" className="qy-inline-icon" /> 继续下载（断点续传）</> : <><Icon name="download" size="1em" className="qy-inline-icon" /> 立即更新</>}
                     </button>
                     {partial.exists && partial.bytes > 0 && (
                       <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
@@ -536,7 +537,7 @@ export function UpdatePrompt() {
                   </>
                 ) : (
                   <button className="btn upd-main upd-main-grad" onClick={u.goDownloadPage}>
-                    🌐 前往下载页
+                    <Icon name="globe" size="1em" className="qy-inline-icon" /> 前往下载页
                   </button>
                 )}
                 <button className="upd-later" onClick={u.dismiss}>以后再说</button>
@@ -562,7 +563,7 @@ export function UpdatePrompt() {
                       strokeDasharray={`${(status === 'verifying' ? 100 : progress) * 2.262} 226.2`}
                     />
                   </svg>
-                  <span className="ur-pct">{status === 'verifying' ? '🔐' : `${progress}%`}</span>
+                  <span className="ur-pct">{status === 'verifying' ? <><Icon name="lock" size="1em" className="qy-inline-icon" /></> : `${progress}%`}</span>
                 </div>
                 <div className="upd-dltxt">
                   {status === 'verifying'
@@ -587,7 +588,7 @@ export function UpdatePrompt() {
             {status === 'ready' && (
               <>
                 <div className="upd-readyline">安装包已下载并通过完整性校验</div>
-                <button className="btn upd-main upd-main-grad" onClick={u.install}>📲 立即安装</button>
+                <button className="btn upd-main upd-main-grad" onClick={u.install}><Icon name="tag" size="1em" className="qy-inline-icon" /> 立即安装</button>
                 <div className="upd-tip">系统将弹出安装确认界面；签名一致可直接覆盖安装，账本与设置不会丢失。</div>
                 <button className="upd-later" onClick={closePrompt}>稍后安装（浮卡保留入口）</button>
               </>

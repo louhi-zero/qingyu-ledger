@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 ﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿/* v1.5 设置主页：只留分组入口，点进二级子页（SettingsSections）后再做具体修改。
  * 各分组：个人资料 / 外观与个性化 / AI 助手 / 记账偏好 / 提醒与收支监控 / 数据与安全
  */
@@ -39,7 +40,7 @@ export default function Settings({ nav }) {
         <div className="group">
           <div className="gtitle">外观</div>
           <div className="cell" onClick={() => go('appearance', '外观与个性化')}>
-            <div className="cico">🎨</div>
+            <div className="cico"><Icon name="palette" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">外观与个性化</div>
               <div className="cdesc">液态玻璃 · 壁纸 · 启动页背景</div>
@@ -54,7 +55,7 @@ export default function Settings({ nav }) {
         <div className="group">
           <div className="gtitle">智能</div>
           <div className="cell" onClick={() => go('ai', 'AI 助手')}>
-            <div className="cico">🤖</div>
+            <div className="cico"><Icon name="robot" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">AI 助手</div>
               <div className="cdesc">助手形象 · 智谱账单分析 · 偏好</div>
@@ -66,7 +67,7 @@ export default function Settings({ nav }) {
         <div className="group">
           <div className="gtitle">记账</div>
           <div className="cell" onClick={() => go('prefs', '记账偏好')}>
-            <div className="cico">🧾</div>
+            <div className="cico"><Icon name="reimburse" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">记账偏好</div>
               <div className="cdesc">账期起始日 · 汇率 · 深色 · 金额模糊</div>
@@ -78,7 +79,7 @@ export default function Settings({ nav }) {
         <div className="group">
           <div className="gtitle">通知</div>
           <div className="cell" onClick={() => go('notify', '提醒与收支监控')}>
-            <div className="cico">🔔</div>
+            <div className="cico"><Icon name="bell" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">提醒与收支监控</div>
               <div className="cdesc">每日提醒 · 微信/支付宝收支弹窗记账</div>
@@ -93,7 +94,7 @@ export default function Settings({ nav }) {
         <div className="group">
           <div className="gtitle">数据</div>
           <div className="cell" onClick={() => go('data', '数据与安全')}>
-            <div className="cico">💾</div>
+            <div className="cico"><Icon name="save" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">数据与安全</div>
               <div className="cdesc">备份恢复 · 云同步 · 回收站 · 分类管理</div>

@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Empty } from '../ui.jsx'
@@ -71,7 +72,7 @@ export default function CreditCards({ nav }) {
       <div className="page-body no-tab">
         {cards.length === 0 && (
           <div className="card">
-            <Empty icon="🪪" text="还没有信用卡账户\n去资产管家添加一张信用卡，就能管理账单日与应还款">
+            <Empty icon="svg:id" text="还没有信用卡账户\n去资产管家添加一张信用卡，就能管理账单日与应还款">
               <button className="btn" onClick={() => nav.push({ page: 'assets' })}>＋ 去添加信用卡</button>
             </Empty>
           </div>
@@ -83,7 +84,7 @@ export default function CreditCards({ nav }) {
             <div className="card" key={c.id}>
               <div className="card-title">
                 <span style={{ marginRight: 6 }}>{c.icon}</span>{c.name}
-                <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setSettingCard({ ...c })}>⚙ 设置</button>
+                <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setSettingCard({ ...c })}><Icon name="settings" size="1em" className="qy-inline-icon" /> 设置</button>
               </div>
 
               <div className="stat3" style={{ marginTop: 10 }}>
@@ -123,7 +124,7 @@ export default function CreditCards({ nav }) {
                     </span>
                   ) : <span className="chip">未设还款日</span>}
                 </div>
-                {urgent && <div style={{ color: 'var(--warn)', fontSize: 12, marginTop: 8 }}>⚠ 还款日将近，记得按时还款，避免影响信用</div>}
+                {urgent && <div style={{ color: 'var(--warn)', fontSize: 12, marginTop: 8 }}><Icon name="warning" size="1em" className="qy-inline-icon" /> 还款日将近，记得按时还款，避免影响信用</div>}
               </div>
             </div>
           )
@@ -132,7 +133,7 @@ export default function CreditCards({ nav }) {
         {cards.length > 0 && (
           <div className="card" style={{ background: 'var(--grad-soft)' }}>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-              💡 本期应还 = 上个账单日至今的刷卡支出 − 退款/转入。还款会生成一笔转入卡的转账账单，可在明细中查看。
+              <Icon name="tag" size="1em" className="qy-inline-icon" /> 本期应还 = 上个账单日至今的刷卡支出 − 退款/转入。还款会生成一笔转入卡的转账账单，可在明细中查看。
             </div>
           </div>
         )}

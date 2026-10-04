@@ -242,26 +242,26 @@ export function useBookIconUrl(ledgerId) {
 export function BookIconImg({ ledgerId, icon, className = '' }) {
   const url = useBookIconUrl(ledgerId)
   if (url) return <img className={className} src={url} alt="" decoding="async" draggable={false} />
-  return <span className={className}>{icon || '📒'}</span>
+  return <span className={className}>{icon || <><Icon name="book" size="1em" className="qy-inline-icon" /></>}</span>
 }
 export function AiFace({ className = '', style }) {
   const { state } = useStore()
   const url = useAiFacePhoto()
   if (url) return <img className={`ai-face-img ${className}`} src={url} alt="AI 助手" style={style} draggable={false} />
   // v2.5 默认形象去 emoji：线性机器人图标（用户自定义照片/表情优先级不变）
-  if (state.settings.aiFace && state.settings.aiFace !== '🤖') {
+  if (state.settings.aiFace && state.settings.aiFace !== "svg:robot") {
     return <span className={className} style={style}>{state.settings.aiFace}</span>
   }
   return <Icon name="robot" size={26} color="var(--brand)" className={className} style={style} />
 }
 
-// 头像内容：照片优先，否则默认图标（v2.5 去 emoji；历史 emoji 数据仅 🐣 默认值弃用）
+// 头像内容：照片优先，否则默认图标（v2.5 去 emoji；历史 emoji 数据仅  默认值弃用）
 export function AvatarFace() {
   const { state } = useStore()
   const url = useAvatarPhoto()
   if (url) return <img className="avatar-img" src={url} alt="头像" draggable={false} />
   const legacy = state.settings.avatar
-  if (legacy && legacy !== '🐣') return <>{legacy}</>
+  if (legacy && legacy !== "svg:chick") return <>{legacy}</>
   return <Icon name="userCircle" size={30} color="var(--brand)" />
 }
 

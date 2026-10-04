@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Empty } from '../ui.jsx'
@@ -96,7 +97,7 @@ export default function ScanReceipt({ nav }) {
       <div className="page-body no-tab">
         {!cfg.key && (
           <div className="card">
-            <Empty icon="📸" text="识别小票需要智谱 GLM-4V 视觉模型，先去配置 API Key（识别在小票图上传后进行，原图只存你自己的设备）">
+            <Empty icon="svg:camera" text="识别小票需要智谱 GLM-4V 视觉模型，先去配置 API Key（识别在小票图上传后进行，原图只存你自己的设备）">
               <button className="btn" onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}>去配置 AI Key</button>
             </Empty>
           </div>
@@ -108,7 +109,7 @@ export default function ScanReceipt({ nav }) {
               className="btn" style={{ width: '100%', padding: '26px 0' }}
               disabled={busy} onClick={() => fileRef.current?.click()}
             >
-              {busy ? '识别中，请稍候…' : '📷 拍摄 / 选择小票'}
+              {busy ? '识别中，请稍候…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 拍摄 / 选择小票</>}
             </button>
             <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.8, marginTop: 12 }}>
               支持购物小票、发票、支付账单截图。识别出金额、日期与商家后可修改再入账，小票原图会自动作为账单附件保存。

@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Seg, Sheet, Empty, Confirm } from '../ui.jsx'
@@ -65,7 +66,7 @@ export default function Reimburse({ nav }) {
 
   return (
     <>
-      <TopBar title="💼 报销管理" onBack={() => nav.pop()} />
+      <TopBar title={<><Icon name="briefcase" size="1em" className="qy-inline-icon" /> 报销管理</>} onBack={() => nav.pop()} />
       <div className="page-body">
         {/* 合计卡 */}
         <div className="card" style={{ display: 'flex', gap: 12 }}>
@@ -89,7 +90,7 @@ export default function Reimburse({ nav }) {
         {list.length === 0 ? (
           <div className="card">
             <Empty
-              icon="🧾"
+              icon="svg:reimburse"
               text={tab === 'pending' ? '没有待报销的账单\n记一笔时点「报销」选待报销' : '这里还空空的'}
             />
           </div>

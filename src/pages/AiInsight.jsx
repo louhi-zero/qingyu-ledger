@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
@@ -122,7 +123,7 @@ export default function AiInsight({ params = {} }) {
         title="AI 账单分析"
         onBack={nav.pop}
         right={
-          <button className="iconbtn" onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}>⚙️</button>
+          <button className="iconbtn" onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}><Icon name="settings" size="1em" className="qy-inline-icon" /></button>
         }
       />
       <div className="page-body no-tab">
@@ -156,7 +157,7 @@ export default function AiInsight({ params = {} }) {
 
         {!hasKey && status === 'idle' && (
           <div className="card">
-            <Empty icon="🔑" text="还没有配置智谱 API Key">
+            <Empty icon="svg:key" text="还没有配置智谱 API Key">
               <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.8, marginBottom: 10 }}>
                 Key 只存在本机，新用户可在智谱开放平台领取免费额度。
               </div>
@@ -168,7 +169,7 @@ export default function AiInsight({ params = {} }) {
         {hasKey && status === 'idle' && !cached && (
           <div className="card">
             <Empty icon={<AiFace style={{ fontSize: 44 }} />} text={`让 AI 为你解读${label}的收支表现`}>
-              <button className="btn" onClick={generate}>✨ 生成{label}分析</button>
+              <button className="btn" onClick={generate}><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 生成{label}分析</button>
               {state.settings.aiIncludeNotes && (
                 <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
                   将上传本周期统计数据与账单备注原文，可在设置中关闭
@@ -180,7 +181,7 @@ export default function AiInsight({ params = {} }) {
 
         {err && (
           <div className="card">
-            <div className="ai-warn">✕ {err}</div>
+            <div className="ai-warn"><Icon name="close" size="1em" className="qy-inline-icon" /> {err}</div>
             <button className="btn" onClick={generate}>重试</button>
           </div>
         )}
@@ -202,8 +203,8 @@ export default function AiInsight({ params = {} }) {
           <>
             <div className="card">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <div className="card-title">📝 {label}解读</div>
-                <button className="chip" onClick={generate}>🔄 重新生成</button>
+                <div className="card-title"><Icon name="bill" size="1em" className="qy-inline-icon" /> {label}解读</div>
+                <button className="chip" onClick={generate}><Icon name="transfer" size="1em" className="qy-inline-icon" /> 重新生成</button>
               </div>
               <div className="ai-report">{narrative}</div>
               {atText && <div className="muted" style={{ marginTop: 10 }}>生成于 {atText}{cached?.model ? ` · ${cached.model}` : ''}</div>}
@@ -215,7 +216,7 @@ export default function AiInsight({ params = {} }) {
 
         {!busy && cached && !narrative && (
           <div className="card">
-            <Empty icon="📭" text="这份报告内容已丢失，重新生成一份吧">
+            <Empty icon="svg:mail" text="这份报告内容已丢失，重新生成一份吧">
               <button className="btn" onClick={generate}>重新生成</button>
             </Empty>
           </div>
@@ -236,16 +237,16 @@ function StructCard({ struct }) {
       )}
       {struct.highlights?.length > 0 && (
         <>
-          <h4 className="ai-struct-title" style={{ fontSize: 14, margin: '6px 0 8px' }}>✨ 亮点</h4>
-          {struct.highlights.map((t, i) => <div className="ai-hl" key={i}><span>🌟</span><span>{t}</span></div>)}
+          <h4 className="ai-struct-title" style={{ fontSize: 14, margin: '6px 0 8px' }}><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 亮点</h4>
+          {struct.highlights.map((t, i) => <div className="ai-hl" key={i}><span><Icon name="star" size="1em" className="qy-inline-icon" /></span><span>{t}</span></div>)}
         </>
       )}
       {struct.anomalies?.length > 0 && (
         <>
-          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}>⚠️ 值得注意</h4>
+          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}><Icon name="warning" size="1em" className="qy-inline-icon" /> 值得注意</h4>
           {struct.anomalies.map((a, i) => (
             <div className="ai-anom" key={i}>
-              <span>🔎</span>
+              <span><Icon name="search" size="1em" className="qy-inline-icon" /></span>
               <span><b>{a.target}</b>{a.target ? '：' : ''}{a.text}</span>
             </div>
           ))}
@@ -253,14 +254,14 @@ function StructCard({ struct }) {
       )}
       {struct.prediction && (
         <>
-          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}>📈 走势预测</h4>
+          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}><Icon name="invest" size="1em" className="qy-inline-icon" /> 走势预测</h4>
           <div className="ai-pred">{struct.prediction}</div>
         </>
       )}
       {struct.tips?.length > 0 && (
         <>
-          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}>💡 行动建议</h4>
-          {struct.tips.map((t, i) => <div className="ai-tip" key={i}><span>✅</span><span>{t}</span></div>)}
+          <h4 style={{ fontSize: 14, margin: '14px 0 8px' }}><Icon name="tag" size="1em" className="qy-inline-icon" /> 行动建议</h4>
+          {struct.tips.map((t, i) => <div className="ai-tip" key={i}><span><Icon name="checkCircle" size="1em" className="qy-inline-icon" /></span><span>{t}</span></div>)}
         </>
       )}
     </div>

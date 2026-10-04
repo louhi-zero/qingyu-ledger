@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm, Empty } from '../ui.jsx'
@@ -71,14 +72,14 @@ export default function Invoices({ nav }) {
       <div className="page-body no-tab">
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.7 }}>
-            🧾 保存常用发票抬头与税号，<br />
+            <Icon name="reimburse" size="1em" className="qy-inline-icon" /> 保存常用发票抬头与税号，<br />
             开票时点击即可一键复制，不用再翻聊天记录。
           </div>
         </div>
 
         {state.invoices.length === 0 ? (
           <div className="card">
-            <Empty icon="🧾" text="还没有保存发票抬头">
+            <Empty icon="svg:reimburse" text="还没有保存发票抬头">
               <button className="btn" onClick={() => setEdit(blankInv())}>＋ 添加抬头</button>
             </Empty>
           </div>
@@ -86,7 +87,7 @@ export default function Invoices({ nav }) {
           <div className="group">
             {state.invoices.map((inv) => (
               <div key={inv.id} className="cell" onClick={() => setView(inv)}>
-                <div className="cico">🧾</div>
+                <div className="cico"><Icon name="reimburse" size="1em" className="qy-inline-icon" /></div>
                 <div className="cmain">
                   <div className="ctitle">{inv.name}</div>
                   <div className="cdesc">税号 {inv.taxNo}</div>

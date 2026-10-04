@@ -134,7 +134,7 @@ export function validateStyleCard(card, wantName) {
   return {
     name,
     title: clip(card.title, 24),
-    emoji: clip(card.emoji, 4) || '🎭',
+    emoji: clip(card.emoji, 4) || "svg:masks",
     traits, speech, vocab,
     tone: clip(card.tone, 60),
     usage: clip(card.usage, 80),
@@ -292,12 +292,12 @@ export function activeStyleInfo(state) {
     if (card) {
       return { mode, name: card.name, emoji: card.emoji, desc: card.title || '角色风格', detail: card.tone }
     }
-    return { mode, name: s.aiCharName || '角色风格', emoji: '🎭', desc: '缓存已失效', detail: '' }
+    return { mode, name: s.aiCharName || '角色风格', emoji: "svg:masks", desc: '缓存已失效', detail: '' }
   }
   if (mode === 'custom') {
-    return { mode, name: '自定义', emoji: '🎛️', desc: styleAttrsDesc(s.aiStyleAttrs), detail: (s.aiCustomStyle || '').slice(0, 40) }
+    return { mode, name: '自定义', emoji: "svg:sliders", desc: styleAttrsDesc(s.aiStyleAttrs), detail: (s.aiCustomStyle || '').slice(0, 40) }
   }
   const preset = ['tender', 'sharp', 'pro', 'cute'].includes(mode) ? mode : 'tender'
-  const map = { tender: ['温柔鼓励', '🌷'], sharp: ['犀利毒舌', '🌶️'], pro: ['专业财务师', '💼'], cute: ['俏皮可爱', '🍭'] }
+  const map = { tender: ['温柔鼓励', "svg:flower"], sharp: ['犀利毒舌', "svg:pepper"], pro: ['专业财务师', "svg:briefcase"], cute: ['俏皮可爱', "svg:candy"] }
   return { mode: preset, name: map[preset][0], emoji: map[preset][1], desc: '预设风格', detail: '' }
 }

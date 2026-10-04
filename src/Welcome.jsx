@@ -1,3 +1,4 @@
+import { Icon } from "./ui/icons.jsx"
 /* v2.3 启动流程重构：Splash 启动页 + Intro 功能介绍页（对标主流 App onboarding）
  *
  * Splash 启动页：每次启动都展示（SPLASH_MS 2200ms，可点击跳过）
@@ -48,27 +49,27 @@ export function Splash({ onDone }) {
 // 功能介绍页：五页轮播（触屏滑动 + 圆点 + 按钮），结束进入主界面
 const SLIDES = [
   {
-    emoji: '⚡', deco: ['💸', '🏷️'],
+    emoji: "svg:bolt", deco: ["svg:cash", "svg:tag"],
     title: '三秒记一笔',
     desc: '极简表单 + 智能分类，随手记下每笔收支；账本、账户自动对齐，还能扫码识别票据',
   },
   {
-    emoji: '📊', deco: ['🎯', '🔁'],
+    emoji: "svg:stats", deco: ["svg:budget", "svg:repeat"],
     title: '看清每一分钱',
     desc: '图表趋势、预算预警、周期记账、资产负债，钱花在哪一目了然',
   },
   {
-    emoji: '🤖', deco: ['🧠', '✨'],
+    emoji: "svg:robot", deco: ["svg:brain", "svg:sparkles"],
     title: 'AI 智能分析',
     desc: '自己的 API Key 接入智谱大模型：账单一键点评、月度总结自动生成，回复风格与角色扮演随心定制',
   },
   {
-    emoji: '🎨', deco: ['🖼️', '🌈'],
+    emoji: "svg:palette", deco: ["svg:image", "svg:rainbow"],
     title: '高度自定义',
     desc: '壁纸、启动页、底部图标、账本封面随意换；液态玻璃浓度、震动反馈档位，都由你说了算',
   },
   {
-    emoji: '🛡️', deco: ['☁️', '🤳'],
+    emoji: "svg:shield", deco: ["svg:cloud", "svg:camera"],
     title: '数据安全省心',
     desc: '数据默认仅存本机，可自选同步坚果云；AI 智能解析，收支自动弹窗记账',
   },
@@ -111,7 +112,7 @@ export function Intro({ onStart }) {
           ))}
         </div>
         <button className="btn intro-next" onClick={next} type="button">
-          {idx === last ? '🚀 开始使用' : '下一步'}
+          {idx === last ? <><Icon name="rocket" size="1em" className="qy-inline-icon" /> 开始使用</> : '下一步'}
         </button>
         <button className="intro-demo" onClick={onStart} type="button">先随便看看（稍后可在设置加载示例数据）</button>
       </div>

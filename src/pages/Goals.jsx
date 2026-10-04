@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Seg, Empty, EmojiPicker, Switch } from '../ui.jsx'
@@ -5,7 +6,7 @@ import { Ring } from '../charts.jsx'
 import { fmt, parseD, uid, todayStr, nowTime, round2, addDays } from '../utils.js'
 
 function blankGoal() {
-  return { id: null, name: '', icon: '🎯', target: '', deadline: '', note: '' }
+  return { id: null, name: '', icon: "svg:budget", target: '', deadline: '', note: '' }
 }
 
 // 距截止日剩余整月数（至少 1）
@@ -35,9 +36,9 @@ export default function Goals({ nav }) {
     set((d) => {
       if (edit.id) {
         const g = d.goals.find((x) => x.id === edit.id)
-        Object.assign(g, { name: edit.name.trim(), icon: edit.icon || '🎯', target, deadline: edit.deadline || null, note: edit.note || '', at: new Date().toISOString() })
+        Object.assign(g, { name: edit.name.trim(), icon: edit.icon || "svg:budget", target, deadline: edit.deadline || null, note: edit.note || '', at: new Date().toISOString() })
       } else {
-        d.goals.push({ id: uid(), name: edit.name.trim(), icon: edit.icon || '🎯', target, saved: 0, deadline: edit.deadline || null, note: edit.note || '', at: new Date().toISOString() })
+        d.goals.push({ id: uid(), name: edit.name.trim(), icon: edit.icon || "svg:budget", target, saved: 0, deadline: edit.deadline || null, note: edit.note || '', at: new Date().toISOString() })
       }
     })
     toast(edit.id ? '目标已更新' : '目标已创建，开始攒钱吧！')
@@ -97,7 +98,7 @@ export default function Goals({ nav }) {
       <div className="page-body no-tab">
         {goals.length === 0 && (
           <div className="card">
-            <Empty icon="🎯" text="还没有储蓄目标\n旅行、新手机、应急备用金…攒钱更有动力">
+            <Empty icon="svg:budget" text="还没有储蓄目标\n旅行、新手机、应急备用金…攒钱更有动力">
               <button className="btn" onClick={() => setEdit(blankGoal())}>＋ 新建目标</button>
             </Empty>
           </div>
@@ -116,7 +117,7 @@ export default function Goals({ nav }) {
               <div className="card-title">
                 <span style={{ marginRight: 6 }}>{g.icon}</span>{g.name}
                 {done
-                  ? <span className="chip on" style={{ background: 'var(--green)', color: '#fff' }}>🎉 已达成</span>
+                  ? <span className="chip on" style={{ background: 'var(--green)', color: '#fff' }}><Icon name="party" size="1em" className="qy-inline-icon" /> 已达成</span>
                   : <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setEdit({ ...g, target: String(g.target), deadline: g.deadline || '' })}>编辑</button>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
@@ -147,7 +148,7 @@ export default function Goals({ nav }) {
                   )}
                 </div>
               </div>
-              {g.note && <div className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>📝 {g.note}</div>}
+              {g.note && <div className="muted" style={{ fontSize: 12.5, marginTop: 10 }}><Icon name="bill" size="1em" className="qy-inline-icon" /> {g.note}</div>}
               <div className="btnrow" style={{ marginTop: 12 }}>
                 <button className="btn" onClick={() => openMove(g, 'in')}>存一笔</button>
                 <button className="btn ghost" onClick={() => openMove(g, 'out')}>取出</button>
@@ -159,7 +160,7 @@ export default function Goals({ nav }) {
         {goals.length > 0 && (
           <div className="card" style={{ background: 'var(--grad-soft)' }}>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-              💡 存一笔时勾选「同时记一笔账」，会生成对应支出/收入账单并计入账户余额；不勾选则只更新目标进度。
+              <Icon name="tag" size="1em" className="qy-inline-icon" /> 存一笔时勾选「同时记一笔账」，会生成对应支出/收入账单并计入账户余额；不勾选则只更新目标进度。
             </div>
           </div>
         )}

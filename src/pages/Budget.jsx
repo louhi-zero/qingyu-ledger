@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Bar, Empty, CatIcon } from '../ui.jsx'
@@ -97,7 +98,7 @@ export default function Budget({ nav }) {
         {/* 分类预算 */}
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '14px 14px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="card-title">🎯 分类预算</div>
+            <div className="card-title"><Icon name="budget" size="1em" className="qy-inline-icon" /> 分类预算</div>
             <span className="muted">点击设置</span>
           </div>
           {stats.length === 0 && Object.keys(byCat).length === 0 ? (
@@ -146,7 +147,7 @@ export default function Budget({ nav }) {
         {total === 0 && (
           <div className="card" style={{ background: 'var(--grad-soft)', textAlign: 'center' }}>
             <div style={{ fontSize: 13, color: 'var(--ink2)', lineHeight: 1.8 }}>
-              💡 建议把月预算设为收入的 <b>60%~80%</b>，<br />
+              <Icon name="tag" size="1em" className="qy-inline-icon" /> 建议把月预算设为收入的 <b>60%~80%</b>，<br />
               留一部分储蓄，消费更从容。
             </div>
           </div>

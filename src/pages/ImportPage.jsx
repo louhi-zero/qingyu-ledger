@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Empty, CatIcon } from '../ui.jsx'
@@ -87,7 +88,7 @@ export default function ImportPage({ nav }) {
       <TopBar title="账单导入 / 导出" onBack={nav.pop} />
       <div className="page-body no-tab">
         <div className="card">
-          <div className="card-title">📥 导入支付宝 / 微信账单</div>
+          <div className="card-title"><Icon name="download" size="1em" className="qy-inline-icon" /> 导入支付宝 / 微信账单</div>
           <div className="card-sub">支持从支付宝、微信导出的 CSV 账单，自动识别日期、金额与收支方向，并按关键词猜测分类。重复账单会自动标记。</div>
           <div style={{ height: 12 }} />
           <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain" style={{ display: 'none' }}
@@ -105,7 +106,7 @@ export default function ImportPage({ nav }) {
         </div>
 
         <div className="card">
-          <div className="card-title">📤 导出当前账本</div>
+          <div className="card-title"><Icon name="upload" size="1em" className="qy-inline-icon" /> 导出当前账本</div>
           <div className="card-sub">导出为 UTF-8 编码 CSV，可用 Excel 打开，也可以重新导回本 App。</div>
           <div style={{ height: 12 }} />
           <button className="btn ghost" onClick={doExport}>导出 {txsOfLedger(state).length} 笔账单</button>
@@ -113,7 +114,7 @@ export default function ImportPage({ nav }) {
 
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-            💡 操作路径：<br />
+            <Icon name="tag" size="1em" className="qy-inline-icon" /> 操作路径：<br />
             支付宝 → 我的 → 账单 → 「...」→ 开具交易流水 → 选 CSV<br />
             微信 → 我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单
           </div>
@@ -137,7 +138,7 @@ export default function ImportPage({ nav }) {
                     <input type="checkbox" checked={checked} style={{ width: 18, height: 18 }}
                       onChange={(e) => setSel((s) => ({ ...s, [d.sourceHash]: e.target.checked }))} />
                     <div className="txicon" style={{ background: d.type === 'income' ? 'var(--income-weak)' : 'var(--expense-weak)', fontSize: 16 }}>
-                      <CatIcon icon={info?.icon || (d.type === 'income' ? '💰' : '❓')} size={16} />
+                      <CatIcon icon={info?.icon || (d.type === 'income' ? "svg:salary" : "svg:question")} size={16} />
                     </div>
                     <div className="txmain">
                       <div className="txname" style={{ fontSize: 14 }}>{d.note || (d.type === 'income' ? '收入' : '支出')}</div>

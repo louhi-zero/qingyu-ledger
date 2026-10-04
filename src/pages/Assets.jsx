@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm, Empty } from '../ui.jsx'
@@ -8,7 +9,7 @@ const PALETTE = ['#ff8a65', '#42a5f5', '#66bb6a', '#ab47bc', '#ffa726', '#26c6da
 const CURRENCIES = ['CNY', 'USD', 'EUR', 'JPY', 'GBP', 'HKD', 'AUD', 'CAD', 'SGD', 'KRW']
 
 function blankAcc() {
-  return { id: uid(), name: '', type: 'cash', icon: '💵', initial: 0, color: PALETTE[0], currency: 'CNY' }
+  return { id: uid(), name: '', type: 'cash', icon: "svg:cash", initial: 0, color: PALETTE[0], currency: 'CNY' }
 }
 
 export default function Assets({ nav }) {
@@ -37,7 +38,7 @@ export default function Assets({ nav }) {
     set((d) => {
       const idx = d.accounts.findIndex((a) => a.id === edit.id)
       const t = ACCOUNT_TYPES.find((x) => x.type === edit.type)
-      const data = { ...edit, name: edit.name.trim(), initial: round2(Number(edit.initial) || 0), icon: edit.icon || t?.icon || '⭐', currency: edit.currency || 'CNY' }
+      const data = { ...edit, name: edit.name.trim(), initial: round2(Number(edit.initial) || 0), icon: edit.icon || t?.icon || "svg:star", currency: edit.currency || 'CNY' }
       // 类型切换后清理不适用于该类型的字段
       if (data.type !== 'credit') { delete data.billingDay; delete data.dueDay; delete data.creditLimit }
       if (data.type !== 'debt' && data.type !== 'claim') { delete data.rate; delete data.dueDate }
@@ -97,7 +98,7 @@ export default function Assets({ nav }) {
 
         {state.accounts.length === 0 && (
           <div className="card">
-            <Empty icon="💳" text="还没有账户，添加现金、银行卡或支付宝等账户，就能自动统计净资产">
+            <Empty icon="svg:account" text="还没有账户，添加现金、银行卡或支付宝等账户，就能自动统计净资产">
               <button className="btn" onClick={() => setEdit(blankAcc())}>＋ 添加账户</button>
             </Empty>
           </div>
@@ -173,7 +174,7 @@ export default function Assets({ nav }) {
         {state.accounts.length > 0 && (
           <div className="card" style={{ background: 'var(--grad-soft)' }}>
             <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-              💡 余额 = 期初金额 + 收入 − 支出（含转账）。<br />
+              <Icon name="tag" size="1em" className="qy-inline-icon" /> 余额 = 期初金额 + 收入 − 支出（含转账）。<br />
               信用卡/花呗等负债账户，欠款会显示为负净资产。
             </div>
           </div>
@@ -262,7 +263,7 @@ export default function Assets({ nav }) {
                     style={{
                       width: 30, height: 30, borderRadius: 10, border: 'none', cursor: 'pointer',
                       background: c, boxShadow: edit.color === c ? `inset 0 0 0 3px var(--card), 0 0 0 2px ${c}` : 'none',
-                    }}>{edit.color === c ? '✓' : ''}</button>
+                    }}>{edit.color === c ? <><Icon name="check" size="1em" className="qy-inline-icon" /></> : ''}</button>
                 ))}
               </div>
             </div>

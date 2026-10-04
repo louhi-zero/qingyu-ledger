@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useEffect, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Seg } from '../ui.jsx'
@@ -46,7 +47,7 @@ export default function AiSettings({ nav }) {
       <TopBar title="AI 分析设置" onBack={nav.pop} />
       <div className="page-body no-tab">
         <div className="ai-hero">
-          <div className="t">🤖 智谱大模型账单分析</div>
+          <div className="t"><Icon name="robot" size="1em" className="qy-inline-icon" /> 智谱大模型账单分析</div>
           <div className="d">
             由智谱 GLM 提供流式月度/年度账单解读。API Key 仅保存在本设备，不会随云备份上传。
           </div>
@@ -92,11 +93,11 @@ export default function AiSettings({ nav }) {
               />
             </div>
             <button className="btn" disabled={testing} onClick={doTest}>
-              {testing ? '测试中…' : '🔌 测试连接'}
+              {testing ? '测试中…' : <><Icon name="plug" size="1em" className="qy-inline-icon" /> 测试连接</>}
             </button>
             {testResult && (
               <div className={testResult.ok ? '' : 'ai-warn'} style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7, color: testResult.ok ? 'var(--green)' : undefined }}>
-                {testResult.ok ? '✓ ' : '✕ '}{testResult.message}
+                {testResult.ok ? <><Icon name="check" size="1em" className="qy-inline-icon" /> </> : <><Icon name="close" size="1em" className="qy-inline-icon" /> </>}{testResult.message}
               </div>
             )}
             <div className="muted" style={{ fontSize: 12, lineHeight: 1.8, margin: '10px 0 4px' }}>
@@ -114,7 +115,7 @@ export default function AiSettings({ nav }) {
           <div className="gtitle">隐私</div>
           {/* v2.5 上传脱敏：手机号/身份证/银行卡等高敏数字串进模型前自动打码，默认开启 */}
           <div className="cell" onClick={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })}>
-            <div className="cico">🛡️</div>
+            <div className="cico"><Icon name="shield" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">上传前脱敏</div>
               <div className="cdesc">手机号/身份证/银行卡号自动打码后再发给 AI（金额不受影响）</div>
@@ -127,7 +128,7 @@ export default function AiSettings({ nav }) {
             </div>
           </div>
           <div className="cell" onClick={() => set((d) => { d.settings.aiIncludeNotes = !d.settings.aiIncludeNotes })}>
-            <div className="cico">📝</div>
+            <div className="cico"><Icon name="bill" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">分析时附带账单备注原文</div>
               <div className="cdesc">关闭后只上传金额与分类等统计数字</div>
@@ -143,7 +144,7 @@ export default function AiSettings({ nav }) {
             <div className="ai-warn" style={{ margin: 0, borderRadius: 0, borderLeft: 'none', borderRight: 'none' }}>
               {s.aiIncludeNotes
                 ? `⚠ 开启后，你的账单备注原文将随统计数据一起发送至智谱 AI 进行分析${s.aiMask !== false ? '（其中手机号/身份证/银行卡号会先自动打码）' : '；请勿在备注中记录密码、证件号等敏感信息'}。`
-                : '⚠ 已关闭脱敏：账单统计中的文本（备注除外）将原样发送给 AI。'}
+                : <><Icon name="warning" size="1em" className="qy-inline-icon" /> 已关闭脱敏：账单统计中的文本（备注除外）将原样发送给 AI。</>}
               截图识别（小票/支付页）为原图上传，无法自动脱敏，请注意截图内容。
             </div>
           )}
@@ -166,9 +167,9 @@ function StyleSection({ cfg, s, set, toast }) {
       <div style={{ padding: 14 }}>
         <Seg
           options={[
-            { label: '🎭 预设', value: 'preset' },
-            { label: '🎛️ 自定义', value: 'custom' },
-            { label: '✨ 角色扮演', value: 'char' },
+            { label: <><Icon name="masks" size="1em" className="qy-inline-icon" /> 预设</>, value: 'preset' },
+            { label: <><Icon name="sliders" size="1em" className="qy-inline-icon" /> 自定义</>, value: 'custom' },
+            { label: <><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 角色扮演</>, value: 'char' },
           ]}
           value={mode}
           onChange={(v) => {
@@ -191,7 +192,7 @@ function StyleSection({ cfg, s, set, toast }) {
                 <span className="stc-emoji">{x.emoji}</span>
                 <span className="stc-name">{x.name}</span>
                 <span className="stc-desc">{x.prompt}</span>
-                {s.aiStyle === x.id && <span className="stc-check">✓</span>}
+                {s.aiStyle === x.id && <span className="stc-check"><Icon name="check" size="1em" className="qy-inline-icon" /></span>}
               </button>
             ))}
           </div>
@@ -236,7 +237,7 @@ function CustomStylePanel({ s, set }) {
       {/* 实时风格卡预览：所选参数即时可见 */}
       <div className="sc-view sc-preview">
         <div className="sc-head">
-          <span className="sc-ava">🎛️</span>
+          <span className="sc-ava"><Icon name="sliders" size="1em" className="qy-inline-icon" /></span>
           <div className="sc-tt">
             <b>自定义风格<em className="sc-using">预览</em></b>
             <i>{styleAttrsDesc(attrs)}</i>
@@ -322,7 +323,7 @@ function CharStylePanel({ cfg, s, set, toast }) {
           onChange={(e) => { setName(e.target.value); setNote(''); setErr('') }}
         />
         <button className="btn char-gen-btn" disabled={!!phase || !name.trim()} onClick={generate}>
-          {phase === 'search' ? '检索中…' : phase === 'generate' ? '生成中…' : '✨ 生成风格卡'}
+          {phase === 'search' ? '检索中…' : phase === 'generate' ? '生成中…' : <><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 生成风格卡</>}
         </button>
       </div>
       <div className="muted" style={{ fontSize: 11.5, lineHeight: 1.7, margin: '8px 0 2px' }}>
@@ -339,7 +340,7 @@ function CharStylePanel({ cfg, s, set, toast }) {
         </div>
       )}
 
-      {err && <div className="ai-warn" style={{ marginTop: 10 }}>✕ {err}</div>}
+      {err && <div className="ai-warn" style={{ marginTop: 10 }}><Icon name="close" size="1em" className="qy-inline-icon" /> {err}</div>}
 
       {card && <StyleCardView card={card} using={using} note={note} onApply={apply} onRegen={regen} onDelete={del} />}
 
@@ -362,7 +363,7 @@ export function StyleCardView({ card, using, note, onApply, onRegen, onDelete })
   return (
     <div className="sc-view">
       <div className="sc-head">
-        <span className="sc-ava">{card.emoji || '🎭'}</span>
+        <span className="sc-ava">{card.emoji || <><Icon name="masks" size="1em" className="qy-inline-icon" /></>}</span>
         <div className="sc-tt">
           <b>{card.name}{using && <em className="sc-using">使用中</em>}</b>
           <i>{card.title}{card.source ? ` · ${card.source}` : ''}</i>
@@ -386,7 +387,7 @@ export function StyleCardView({ card, using, note, onApply, onRegen, onDelete })
       {card.tone && <div className="sc-sec"><label>语气规范</label><div className="sc-line">{card.tone}</div></div>}
       {card.usage && <div className="sc-sec"><label>适用场景</label><div className="sc-line">{card.usage}</div></div>}
       <div className="sc-sec"><label>风格指令（拼入系统提示词）</label><div className="sc-prompt">{card.prompt}</div></div>
-      {note && <div className="sc-note">⚡ {note}</div>}
+      {note && <div className="sc-note"><Icon name="bolt" size="1em" className="qy-inline-icon" /> {note}</div>}
       {onApply && (
         <div className="sc-acts">
           <button className="btn" disabled={using} onClick={onApply}>{using ? '当前使用中' : '应用此风格'}</button>

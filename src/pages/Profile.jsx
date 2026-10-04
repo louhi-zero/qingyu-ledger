@@ -67,7 +67,7 @@ export default function Profile() {
       if (d.checkins.includes(today)) return
       d.checkins.push(today)
     })
-    toast('打卡成功，坚持就是胜利 ✊')
+    toast("打卡成功，坚持就是胜利")
   }
 
   const saveName = () => {
@@ -90,25 +90,25 @@ export default function Profile() {
           <div className="me-row">
             <div className="avatar-wrap" onClick={onAvatarClick}>
               <div className="avatar"><AvatarFace /></div>
-              <span className="cam" aria-hidden="true">📷</span>
+              <span className="cam" aria-hidden="true"><Icon name="camera" size="1em" className="qy-inline-icon" /></span>
             </div>
             <div className="me-id" style={{ flex: 1, minWidth: 0 }}>
               <div className="me-name" onClick={onNameClick}>
                 <span className="me-name-txt">{displayName}</span>
-                <span className="me-edit">✏️</span>
+                <span className="me-edit"><Icon name="edit" size="1em" className="qy-inline-icon" /></span>
               </div>
               {/* v1.11.0 云状态徽标：未登录（未配置坚果云或手动关闭同步）时可见，点击直达登录引导 */}
               <div className="me-tags">
-                <span className="me-badge">🔥 已坚持 {days} 天</span>
+                <span className="me-badge"><Icon name="fire" size="1em" className="qy-inline-icon" /> 已坚持 {days} 天</span>
                 {!loggedIn && (
                   <button type="button" className="me-cloud" aria-label="坚果云未登录，点击登录" onClick={() => setLoginOpen(true)}>
-                    ☁️ 未登录
+                    <Icon name="cloud" size="1em" className="qy-inline-icon" /> 未登录
                   </button>
                 )}
               </div>
             </div>
             <button className={`punch ${checkedToday ? 'done' : ''}`} onClick={punch} disabled={checkedToday}>
-              {checkedToday ? `🔥 连击 ${streak} 天` : '📋 打卡'}
+              {checkedToday ? `🔥 连击 ${streak} 天` : <><Icon name="clipboard" size="1em" className="qy-inline-icon" /> 打卡</>}
             </button>
           </div>
           <div className="me-stats">
@@ -121,17 +121,17 @@ export default function Profile() {
         <div className="group">
           <div className="gtitle">记账</div>
           <div className="cell" onClick={() => nav.push({ page: 'ledgers' })}>
-            <div className="cico c-amber">📒</div>
+            <div className="cico c-amber"><Icon name="book" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">我的账本</div><div className="cdesc">{state.ledgers.length} 个账本</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => nav.push({ page: 'recurring' })}>
-            <div className="cico c-teal">🔁</div>
+            <div className="cico c-teal"><Icon name="repeat" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">周期记账</div><div className="cdesc">工资房租这类固定收支自动入账</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => nav.push({ page: 'import' })}>
-            <div className="cico c-blue">📥</div>
+            <div className="cico c-blue"><Icon name="download" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">账单导入</div><div className="cdesc">支付宝 / 微信账单，导入自动去重</div></div>
             <div className="cright arrow">›</div>
           </div>
@@ -140,17 +140,17 @@ export default function Profile() {
         <div className="group">
           <div className="gtitle">通用</div>
           <div className="cell" onClick={() => nav.push({ page: 'settings' })}>
-            <div className="cico c-violet">⚙️</div>
+            <div className="cico c-violet"><Icon name="settings" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">设置</div><div className="cdesc">外观 · 记账偏好 · 数据与安全</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => openFeedback()}>
-            <div className="cico c-green">💬</div>
+            <div className="cico c-green"><Icon name="message" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">意见反馈</div><div className="cdesc">在线表单填写建议或 bug，完成后按返回键回到应用</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setAboutOpen(true)}>
-            <div className="cico c-rose">ℹ️</div>
+            <div className="cico c-rose"><Icon name="info" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">关于轻语记账</div><div className="cdesc">版本信息与产品理念</div></div>
             <div className="cright arrow">›</div>
           </div>
@@ -168,13 +168,13 @@ export default function Profile() {
       {/* v1.10.0 未登录（未配置坚果云）点头像 → 登录引导：先去官网登录拿账号，再回应用内配置 */}
       <Sheet open={loginOpen} onClose={() => setLoginOpen(false)} title="登录坚果云">
         <div className="center-box" style={{ padding: '6px 0 12px' }}>
-          <div style={{ fontSize: 52 }}>☁️</div>
+          <div style={{ fontSize: 52 }}><Icon name="cloud" size="1em" className="qy-inline-icon" /></div>
           <div style={{ fontSize: 16, fontWeight: 800, marginTop: 8 }}>同步账单，换机不丢数据</div>
           <div className="muted" style={{ fontSize: 12, marginTop: 6, lineHeight: 1.8 }}>
             登录坚果云后，账单与个人资料自动双向同步<br />数据存你自己的网盘，隐私无忧
           </div>
         </div>
-        <button className="btn" onClick={() => window.open(JGY_LOGIN_URL, '_blank')}>🌐 打开坚果云登录页</button>
+        <button className="btn" onClick={() => window.open(JGY_LOGIN_URL, '_blank')}><Icon name="globe" size="1em" className="qy-inline-icon" /> 打开坚果云登录页</button>
         <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => { setLoginOpen(false); nav.push({ page: 'cloud' }) }}>
           已有账号？去应用内配置
         </button>
@@ -193,7 +193,7 @@ export default function Profile() {
           </div>
         </div>
         <button className="btn" disabled={busy} onClick={() => avatarFileRef.current?.click()}>
-          {busy ? '处理中…' : '📷 选择图片'}
+          {busy ? '处理中…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 选择图片</>}
         </button>
         {state.settings.avatarPhotoAt && (
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={busy} onClick={async () => {
@@ -231,12 +231,12 @@ export default function Profile() {
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
-            🌿 极简流程，三秒记完一笔账<br />
-            🔒 数据默认仅存本机，可自选同步到你的坚果云<br />
-            📊 清晰图表，快速看清钱花在哪<br />
-            🎯 预算预警，帮你管住手<br />
-            🔁 周期记账 · 账单导入 · 消费点评<br />
-            💡 记账虽不能直接实现财务自由，但坚持记、不断改善，一定可以。
+            <Icon name="leaf" size="1em" className="qy-inline-icon" /> 极简流程，三秒记完一笔账<br />
+            <Icon name="lock" size="1em" className="qy-inline-icon" /> 数据默认仅存本机，可自选同步到你的坚果云<br />
+            <Icon name="stats" size="1em" className="qy-inline-icon" /> 清晰图表，快速看清钱花在哪<br />
+            <Icon name="budget" size="1em" className="qy-inline-icon" /> 预算预警，帮你管住手<br />
+            <Icon name="repeat" size="1em" className="qy-inline-icon" /> 周期记账 · 账单导入 · 消费点评<br />
+            <Icon name="tag" size="1em" className="qy-inline-icon" /> 记账虽不能直接实现财务自由，但坚持记、不断改善，一定可以。
           </div>
         </div>
 
@@ -247,7 +247,7 @@ export default function Profile() {
         </button>
         {upd?.native && (
           <div className="cell" style={{ marginTop: 10 }} onClick={() => upd.setAutoDownload(!upd.autoDl)}>
-            <div className="cico">⚡</div>
+            <div className="cico"><Icon name="bolt" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">发现新版自动后台下载</div>
               <div className="cdesc">仅静默下载安装包，是否安装仍由你决定</div>

@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Empty, Confirm, CatIcon } from '../ui.jsx'
@@ -45,13 +46,13 @@ export default function Trash({ nav }) {
       <div className="page-body no-tab">
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-            🗑️ 删除的账单会在这里保留 {KEEP_DAYS} 天，期间可随时恢复；超过 {KEEP_DAYS} 天将在下次打开轻语记账时自动清除。
+            <Icon name="trash" size="1em" className="qy-inline-icon" /> 删除的账单会在这里保留 {KEEP_DAYS} 天，期间可随时恢复；超过 {KEEP_DAYS} 天将在下次打开轻语记账时自动清除。
           </div>
         </div>
 
         {!list.length && (
           <div className="card">
-            <Empty icon="🍃" text="回收站是空的，删除的账单会先出现在这里" />
+            <Empty icon="svg:leaf" text="回收站是空的，删除的账单会先出现在这里" />
           </div>
         )}
 
@@ -76,7 +77,7 @@ export default function Trash({ nav }) {
                   {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''}{fmt(t.amount)}
                 </b>
                 <button className="chip" onClick={() => setRestoreId(t.id)}>恢复</button>
-                <button className="chip" style={{ color: 'var(--expense)' }} onClick={() => setPurgeId(t.id)}>✕</button>
+                <button className="chip" style={{ color: 'var(--expense)' }} onClick={() => setPurgeId(t.id)}><Icon name="close" size="1em" className="qy-inline-icon" /></button>
               </div>
             </div>
           )

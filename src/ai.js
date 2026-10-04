@@ -50,19 +50,19 @@ export function saveAiCfg(cfg) {
 // ---------- 回复风格 ----------
 export const AI_STYLES = [
   {
-    id: 'tender', name: '温柔鼓励', emoji: '🌷',
+    id: 'tender', name: '温柔鼓励', emoji: "svg:flower",
     prompt: '语气像温柔贴心的好朋友，多用鼓励与共情，先肯定做得好的地方，再委婉提醒，绝不指责。',
   },
   {
-    id: 'sharp', name: '犀利毒舌', emoji: '🌶️',
+    id: 'sharp', name: '犀利毒舌', emoji: "svg:pepper",
     prompt: '语气犀利幽默、一针见血，可以适度吐槽和玩梗，像损友一样点醒用户，但结尾必须给出建设性的话，不做人身攻击。',
   },
   {
-    id: 'pro', name: '专业财务师', emoji: '💼',
+    id: 'pro', name: '专业财务师', emoji: "svg:briefcase",
     prompt: '语气专业克制、条理清晰，像持证财务顾问，关注结构、比率、趋势与风险，用数据说话，少用感叹号，不用 emoji。',
   },
   {
-    id: 'cute', name: '俏皮可爱', emoji: '🍭',
+    id: 'cute', name: '俏皮可爱', emoji: "svg:candy",
     prompt: '语气俏皮可爱、元气满满，多用 emoji 和短句，像二次元小管家，把财务建议讲得轻松好玩。',
   },
 ]
@@ -405,7 +405,7 @@ export function buildStatsPayload(state, scope, includeNotes = true, mask = true
 
 // ---------- Prompt 组装 ----------
 // v1.8.0 当前生效风格提示词：preset 四预设 | custom 参数组合 | char 角色风格卡（读本机缓存）
-// 注意：这里内联读角色卡缓存（不 import stylecard.js），避免 ai.js ↔ stylecard.js 循环依赖
+// 注意：这里内联读角色卡缓存（不 import stylecard.js），避免 ai.js  stylecard.js 循环依赖
 function activeStylePrompt(settings) {
   const mode = settings.aiStyle
   if (mode === 'custom') {

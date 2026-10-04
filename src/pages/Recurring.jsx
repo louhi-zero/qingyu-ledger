@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm, Switch, Empty, CatIcon } from '../ui.jsx'
@@ -50,14 +51,14 @@ export default function Recurring({ nav }) {
       <div className="page-body no-tab">
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.7 }}>
-            🔁 房租、会员、基金定投这类固定账单，<br />
+            <Icon name="repeat" size="1em" className="qy-inline-icon" /> 房租、会员、基金定投这类固定账单，<br />
             设置后每天打开 App 会自动补记，无需重复操作。
           </div>
         </div>
 
         {state.recurring.length === 0 ? (
           <div className="card">
-            <Empty icon="🔁" text="还没有周期账单，添加一个试试">
+            <Empty icon="svg:repeat" text="还没有周期账单，添加一个试试">
               <button className="btn" onClick={() => setEdit(blankRec())}>＋ 添加周期账单</button>
             </Empty>
           </div>

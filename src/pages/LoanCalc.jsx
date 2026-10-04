@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { TopBar, Seg } from '../ui.jsx'
 import { loanCalc, fmt } from '../utils.js'
@@ -90,7 +91,7 @@ export default function LoanCalc({ nav }) {
 
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '14px 14px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="card-title">📅 还款计划</div>
+            <div className="card-title"><Icon name="calendar" size="1em" className="qy-inline-icon" /> 还款计划</div>
             <button className="chip" onClick={() => setShowAll((v) => !v)}>{showAll ? '收起' : '展开全部'}</button>
           </div>
           <table className="plain" style={{ margin: '4px 0' }}>

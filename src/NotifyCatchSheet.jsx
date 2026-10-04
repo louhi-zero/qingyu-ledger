@@ -1,3 +1,4 @@
+import { Icon } from "./ui/icons.jsx"
 /* v1.5 收支监控确认弹窗：捕获到微信/支付宝收支通知后弹出，
  * 金额/方向/分类/账户可改，确认后才入账（不静默自动记账）。
  * 仅 Android 原生端会触发（见 notifyCatch.js），桌面/浏览器不会渲染。
@@ -5,7 +6,7 @@
  * v2.0.2 重构：
  * - 弹窗队列化：多条通知排队处理（App.jsx 传 caught=队首, queueLen=队列长度）
  * - AI 兜底通知：amount 可能为 null（方向可信但金额缺失，如转账消息）→ 金额留空由用户补填
- * - 📷 截图识别：通知里没金额时，选支付详情页截图 → GLM-4V 视觉模型提取金额/方向
+ * -  截图识别：通知里没金额时，选支付详情页截图 → GLM-4V 视觉模型提取金额/方向
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.jsx'
@@ -15,10 +16,10 @@ import { uid, todayStr, nowTime, round2 } from './utils.js'
 import { loadAiCfg, aiParsePayScreenshot, humanizeError } from './ai.js'
 
 const SRC_META = {
-  wechat: { name: '微信', icon: '💬' },
-  alipay: { name: '支付宝', icon: '🅰️' },
-  ai: { name: '智能识别', icon: '🤖' },
-  vision: { name: '截图识别', icon: '🖼️' },
+  wechat: { name: '微信', icon: "svg:message" },
+  alipay: { name: '支付宝', icon: "svg:alipay" },
+  ai: { name: '智能识别', icon: "svg:robot" },
+  vision: { name: '截图识别', icon: "svg:image" },
 }
 
 // 压缩截图：最长边 1280、JPEG 0.85（GLM-4V 识别足够，控制上传体积）
@@ -75,7 +76,7 @@ export default function NotifyCatchSheet({ caught, queueLen = 0, onClose }) {
   }, [caught])
 
   if (!caught) return null
-  const meta = SRC_META[caught.source] || { name: '通知', icon: '📩' }
+  const meta = SRC_META[caught.source] || { name: '通知', icon: "svg:mail" }
 
   const save = () => {
     const amt = round2(Number(amount))
@@ -127,7 +128,7 @@ export default function NotifyCatchSheet({ caught, queueLen = 0, onClose }) {
         </div>
       </div>
       <Seg
-        options={[{ label: '💸 支出', value: 'expense' }, { label: '💰 收入', value: 'income' }]}
+        options={[{ label: <><Icon name="cash" size="1em" className="qy-inline-icon" /> 支出</>, value: 'expense' }, { label: <><Icon name="salary" size="1em" className="qy-inline-icon" /> 收入</>, value: 'income' }]}
         value={kind}
         onChange={(v) => { setKind(v); setCatId(catsOf(v)[0]?.id || '') }}
       />
@@ -158,7 +159,7 @@ export default function NotifyCatchSheet({ caught, queueLen = 0, onClose }) {
       </div>
       {/* v2.0.2 截图识别：通知里没金额时，用视觉模型读支付截图补齐 */}
       <button className="btn ghost" disabled={aiBusy} onClick={() => shotRef.current?.click()}>
-        {aiBusy ? '🤖 识别中…' : '📷 截图识别金额（支付详情页截图）'}
+        {aiBusy ? <><Icon name="robot" size="1em" className="qy-inline-icon" /> 识别中…</> : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 截图识别金额（支付详情页截图）</>}
       </button>
       <input ref={shotRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onShot(f); e.target.value = '' }} />

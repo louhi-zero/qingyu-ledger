@@ -35,7 +35,7 @@ function VibrateCard({ level, onChange }) {
   return (
     <div className="vib-card">
       <div className="vib-head">
-        <span className="vib-ico">📳</span>
+        <span className="vib-ico"><Icon name="vibrate" size="1em" className="qy-inline-icon" /></span>
         <span className="vib-headtxt">
           <b>震动反馈强度</b>
           <i>手指落下即震；滑动滚动时自动撤震，不会烦人</i>
@@ -56,14 +56,14 @@ function VibrateCard({ level, onChange }) {
               <b>{lv.label}{lv.v > 0 && <em>{VIB_MS[lv.v]}ms</em>}</b>
               <i>{lv.desc}</i>
             </span>
-            <span className="vib-check" aria-hidden="true">{level === lv.v ? '✓' : ''}</span>
+            <span className="vib-check" aria-hidden="true">{level === lv.v ? <><Icon name="check" size="1em" className="qy-inline-icon" /></> : ''}</span>
           </button>
         ))}
       </div>
       <button
         type="button" className="vib-test" disabled={level === 0}
         onClick={() => playVibrate(level)}
-      >{level === 0 ? '当前为关闭状态' : '▶ 感受一下这个档位'}</button>
+      >{level === 0 ? '当前为关闭状态' : <><Icon name="play" size="1em" className="qy-inline-icon" /> 感受一下这个档位</>}</button>
     </div>
   )
 }
@@ -196,7 +196,7 @@ function ProfileSection({ ctx, nav }) {
       <div className="group">
         <div className="gtitle">个人</div>
         <div className="cell" onClick={ctx.openName}>
-          <div className="cico">✏️</div>
+          <div className="cico"><Icon name="edit" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">昵称</div></div>
           <div className="cright">{s.nickname}<span className="arrow">›</span></div>
         </div>
@@ -206,7 +206,7 @@ function ProfileSection({ ctx, nav }) {
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => nav.push({ page: 'ledgers', title: '我的账本' })}>
-          <div className="cico">📒</div>
+          <div className="cico"><Icon name="book" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">我的账本</div><div className="cdesc">{state.ledgers.length} 个账本</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
@@ -253,7 +253,7 @@ function AppearanceSection({ ctx }) {
         </div>
         {s.glassOn && (
           <div className="cell range-cell">
-            <div className="cico">🌫️</div>
+            <div className="cico"><Icon name="cloudFog" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">模糊强度</div>
               <div className="cdesc">数值越大，背景越清晰、磨砂层越透</div>
@@ -284,7 +284,7 @@ function AppearanceSection({ ctx }) {
             <span className="skin-thumb">
               {wallUrl
                 ? <img src={wallUrl} alt="" decoding="async" draggable={false} />
-                : <span className="skin-ph">🖼️</span>}
+                : <span className="skin-ph"><Icon name="image" size="1em" className="qy-inline-icon" /></span>}
             </span>
             <b>自定义壁纸</b>
             <span className="skin-st">{s.wallpaperAt ? '已设置 · 点击更换' : '未设置'}</span>
@@ -293,7 +293,7 @@ function AppearanceSection({ ctx }) {
             <span className="skin-thumb">
               {ctx.welcomeBg
                 ? <img src={ctx.welcomeBg} alt="" decoding="async" draggable={false} />
-                : <span className="skin-ph">🌅</span>}
+                : <span className="skin-ph"><Icon name="sunrise" size="1em" className="qy-inline-icon" /></span>}
             </span>
             <b>启动页背景</b>
             <span className="skin-st">{s.welcomeBgAt ? '已设置 · 点击更换' : '未设置'}</span>
@@ -326,7 +326,7 @@ function AppearanceSection({ ctx }) {
             await media.clearWallpaper()
             toast('已恢复默认背景')
           }}>
-            <div className="cico">↩️</div>
+            <div className="cico"><Icon name="undo" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">恢复默认背景</div></div>
             <div className="cright"><span className="arrow">›</span></div>
           </div>
@@ -376,7 +376,7 @@ function AppearanceSection({ ctx }) {
       <div className="group">
         <div className="gtitle">点击反馈</div>
         <div className="cell" onClick={() => set((d) => { d.settings.tapScale = d.settings.tapScale === false })}>
-          <div className="cico">👆</div>
+          <div className="cico"><Icon name="touch" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">按压缩放动画</div>
             <div className="cdesc">点按按钮与列表项时的轻微缩放反馈</div>
@@ -413,7 +413,7 @@ function AiSection({ ctx, nav }) {
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => nav.push({ page: 'aiSettings', title: 'AI 分析设置' })}>
-          <div className="cico">🤖</div>
+          <div className="cico"><Icon name="robot" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">AI 账单分析</div>
             <div className="cdesc">智谱大模型月度/年度账单解读，需配置 API Key</div>
@@ -428,7 +428,7 @@ function AiSection({ ctx, nav }) {
       <div className="group">
         <div className="gtitle">分析偏好</div>
         <div className="cell" onClick={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })}>
-          <div className="cico">🛡️</div>
+          <div className="cico"><Icon name="shield" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">上传前脱敏</div>
             <div className="cdesc">手机号/身份证/银行卡号自动打码后再发给 AI（金额不受影响）</div>
@@ -436,7 +436,7 @@ function AiSection({ ctx, nav }) {
           <div className="cright"><Switch on={s.aiMask !== false} onChange={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })} /></div>
         </div>
         <div className="cell" onClick={() => set((d) => { d.settings.aiIncludeNotes = !d.settings.aiIncludeNotes })}>
-          <div className="cico">📝</div>
+          <div className="cico"><Icon name="bill" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">附带账单备注原文</div>
             <div className="cdesc">分析时把备注一起交给 AI，解读更精准</div>
@@ -457,7 +457,7 @@ function PrefsSection({ ctx }) {
       <div className="group">
         <div className="gtitle">账期与账本</div>
         <div className="cell">
-          <div className="cico">📅</div>
+          <div className="cico"><Icon name="calendar" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">每月起始日</div>
             <div className="cdesc">影响账单周期与预算统计</div>
@@ -471,7 +471,7 @@ function PrefsSection({ ctx }) {
           </div>
         </div>
         <div className="cell" onClick={() => ctx.setFxOpen(true)}>
-          <div className="cico">💱</div>
+          <div className="cico"><Icon name="transfer" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">本位币与汇率</div>
             <div className="cdesc">人民币 CNY · 1 美元 ≈ {(state.fxRates?.USD ?? FX_RATES.USD.rate).toFixed(2)}</div>
@@ -482,7 +482,7 @@ function PrefsSection({ ctx }) {
       <div className="group">
         <div className="gtitle">显示与习惯</div>
         <div className="cell" onClick={() => set((d) => { d.settings.hideAmount = !d.settings.hideAmount })}>
-          <div className="cico">🔒</div>
+          <div className="cico"><Icon name="lock" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">金额模糊</div>
             <div className="cdesc">公共场合隐藏具体金额</div>
@@ -490,7 +490,7 @@ function PrefsSection({ ctx }) {
           <div className="cright"><Switch on={s.hideAmount} onChange={() => set((d) => { d.settings.hideAmount = !d.settings.hideAmount })} /></div>
         </div>
         <div className="cell" onClick={() => set((d) => { d.settings.dark = !d.settings.dark })}>
-          <div className="cico">🌙</div>
+          <div className="cico"><Icon name="moon" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">深色模式</div>
             <div className="cdesc">夜间记账更护眼</div>
@@ -498,7 +498,7 @@ function PrefsSection({ ctx }) {
           <div className="cright"><Switch on={s.dark} onChange={() => set((d) => { d.settings.dark = !d.settings.dark })} /></div>
         </div>
         <div className="cell" onClick={() => set((d) => { d.settings.nightAcross = !d.settings.nightAcross })}>
-          <div className="cico">🦉</div>
+          <div className="cico"><Icon name="owl" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">熬夜归属前一天</div>
             <div className="cdesc">凌晨 0-5 点记账默认算昨天（记「昨晚」更顺手）</div>
@@ -625,7 +625,7 @@ function NotifySection({ ctx }) {
       <div className="group">
         <div className="gtitle">记账提醒</div>
         <div className="cell" onClick={() => toggleRemind()}>
-          <div className="cico">⏰</div>
+          <div className="cico"><Icon name="clock" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">每日记账提醒</div>
             <div className="cdesc">App 内走系统定时通知，浏览器/桌面版为页面通知</div>
@@ -634,7 +634,7 @@ function NotifySection({ ctx }) {
         </div>
         {s.remindEnabled && (
           <div className="cell">
-            <div className="cico">🕐</div>
+            <div className="cico"><Icon name="clock" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">提醒时间</div></div>
             <div className="cright">
               <input type="time" className="input" style={{ width: 110, padding: '8px 10px' }}
@@ -652,7 +652,7 @@ function NotifySection({ ctx }) {
           d.settings.notifyCatch = next
           if (next && nativeOk) setTimeout(openAuth, 300)
         })}>
-          <div className="cico">👁️</div>
+          <div className="cico"><Icon name="eye" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">微信 / 支付宝收支监控</div>
             <div className="cdesc">实时弹窗确认入账；App 被杀不漏单（下次启动补弹）；配置 AI 后自动智能解析</div>
@@ -661,7 +661,7 @@ function NotifySection({ ctx }) {
         </div>
         {s.notifyCatch && nativeOk && (
           <div className="cell" onClick={openAuth}>
-            <div className="cico">🔐</div>
+            <div className="cico"><Icon name="lock" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">通知使用权</div>
               <div className="cdesc">{listening ? '已授权，正在监听微信/支付宝通知' : '未授权或被系统回收，点击去开启'}</div>
@@ -676,7 +676,7 @@ function NotifySection({ ctx }) {
         )}
         {/* v2.1 无障碍支付页捕获：替代截图方式，直接读取支付结果页文字 */}
         <div className="cell" onClick={() => toggleA11y()}>
-          <div className="cico">🤖</div>
+          <div className="cico"><Icon name="robot" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">微信 / 支付宝支付页捕获</div>
             <div className="cdesc">读取支付结果页文字，金额/收款方自动填好，无需截图</div>
@@ -685,7 +685,7 @@ function NotifySection({ ctx }) {
         </div>
         {s.accessibilityCatch && nativeOk && (
           <div className="cell" onClick={() => setA11yGuide(true)}>
-            <div className="cico">♿</div>
+            <div className="cico"><Icon name="accessibility" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">无障碍权限</div>
               <div className="cdesc">
@@ -704,7 +704,7 @@ function NotifySection({ ctx }) {
         )}
         {/* 识别规则沙盒：浏览器/桌面也能验证文案解析，无需真付款 */}
         <div className="notify-sandbox">
-          <div className="muted" style={{ fontSize: 12.5, marginBottom: 6 }}>🔎 文案识别测试（粘贴通知内容，验证能否识别金额与收支方向）</div>
+          <div className="muted" style={{ fontSize: 12.5, marginBottom: 6 }}><Icon name="search" size="1em" className="qy-inline-icon" /> 文案识别测试（粘贴通知内容，验证能否识别金额与收支方向）</div>
           <textarea
             className="input" rows={2} value={sandbox}
             placeholder="例如：微信支付-9.90 / 支付宝到账100.00元"
@@ -713,7 +713,7 @@ function NotifySection({ ctx }) {
           <button className="btn ghost" style={{ marginTop: 8, padding: '8px 14px' }} onClick={runSandbox}>测试识别</button>
           {sandboxState.status === 'ok' && (
             <div className="sandbox-ok">
-              ✓ 识别成功：{sandboxState.p.source === 'wechat' ? '微信' : '支付宝'} ·
+              <Icon name="check" size="1em" className="qy-inline-icon" /> 识别成功：{sandboxState.p.source === 'wechat' ? '微信' : '支付宝'} ·
               {sandboxState.p.kind === 'income' ? '收入' : '支出'} · ¥{sandboxState.p.amount}
             </div>
           )}
@@ -722,7 +722,7 @@ function NotifySection({ ctx }) {
           )}
         </div>
         <div className="cell">
-          <div className="cico">ℹ️</div>
+          <div className="cico"><Icon name="info" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">工作方式与隐私</div>
             <div className="cdesc" style={{ lineHeight: 1.7 }}>
@@ -735,7 +735,7 @@ function NotifySection({ ctx }) {
       <div className="group">
         <div className="gtitle">公告</div>
         <div className="cell" onClick={() => set((d) => { d.settings.noticeEnabled = d.settings.noticeEnabled === false })}>
-          <div className="cico">📢</div>
+          <div className="cico"><Icon name="megaphone" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">接收应用公告</div>
             <div className="cdesc">发现页展示公告卡；重要公告启动时弹窗提醒。关闭后两者都不再出现</div>
@@ -743,7 +743,7 @@ function NotifySection({ ctx }) {
           <div className="cright"><Switch on={s.noticeEnabled !== false} onChange={() => set((d) => { d.settings.noticeEnabled = d.settings.noticeEnabled === false })} /></div>
         </div>
         <div className="cell">
-          <div className="cico">ℹ️</div>
+          <div className="cico"><Icon name="info" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="cdesc" style={{ lineHeight: 1.7 }}>
               公告来自开发者发布在代码仓库中的 notice.json，App 启动时在线检查（失败时使用本地缓存，离线不影响任何功能）。
@@ -755,7 +755,7 @@ function NotifySection({ ctx }) {
       {/* v2.1 无障碍权限分步引导：价值展示 → 通俗解释 → 四步指引 → 隐私承诺 */}
       <Sheet open={a11yGuide} onClose={() => setA11yGuide(false)} title="开启收支自动捕获">
         <div className="center-box" style={{ padding: '6px 0 10px' }}>
-          <div style={{ fontSize: 40, lineHeight: 1 }}>⚡</div>
+          <div style={{ fontSize: 40, lineHeight: 1 }}><Icon name="bolt" size="1em" className="qy-inline-icon" /></div>
           <div style={{ fontWeight: 700, marginTop: 8 }}>付完钱，自动弹窗帮你记账</div>
           <div className="muted" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.7 }}>
             微信/支付宝支付成功后，轻语记账自动读取结果页文字，
@@ -826,22 +826,22 @@ function DataSection({ ctx, nav }) {
       <div className="group">
         <div className="gtitle">备份与恢复</div>
         <div className="cell" onClick={exportAll}>
-          <div className="cico">📤</div>
+          <div className="cico"><Icon name="upload" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">导出当前账本</div><div className="cdesc">CSV 格式，可用 Excel 打开</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={backupAll}>
-          <div className="cico">💾</div>
+          <div className="cico"><Icon name="save" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">全量备份</div><div className="cdesc">导出全部账本/账户/分类/预算/设置为 JSON</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => ctx.restoreRef.current?.click()}>
-          <div className="cico">📂</div>
+          <div className="cico"><Icon name="folder" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">从备份恢复</div><div className="cdesc">选择 JSON 备份，将覆盖当前全部数据</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => nav.push({ page: 'cloud', title: '云备份' })}>
-          <div className="cico">☁️</div>
+          <div className="cico"><Icon name="cloud" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">云备份</div><div className="cdesc">WebDAV 网盘：双设备自动合并、换机恢复</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
@@ -852,12 +852,12 @@ function DataSection({ ctx, nav }) {
       <div className="group">
         <div className="gtitle">维护</div>
         <div className="cell" onClick={() => nav.push({ page: 'category', title: '分类管理' })}>
-          <div className="cico">🏷️</div>
+          <div className="cico"><Icon name="tag" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">分类管理</div><div className="cdesc">自定义收支分类</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => nav.push({ page: 'trash', title: '回收站' })}>
-          <div className="cico">♻️</div>
+          <div className="cico"><Icon name="recycle" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain">
             <div className="ctitle">回收站</div>
             <div className="cdesc">删除的账单保留 30 天，可恢复</div>
@@ -870,7 +870,7 @@ function DataSection({ ctx, nav }) {
           </div>
         </div>
         <div className="cell" onClick={() => { loadDemo(); toast('已载入示例数据，可随意体验') }}>
-          <div className="cico">🎁</div>
+          <div className="cico"><Icon name="gift" size="1em" className="qy-inline-icon" /></div>
           <div className="cmain"><div className="ctitle">载入示例数据</div><div className="cdesc">覆盖当前数据，用于体验全部功能</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>
@@ -978,7 +978,7 @@ function SectionSheets({ ctx, section }) {
           </div>
         </div>
         <button className="btn" disabled={ctx.busyImg} onClick={() => ctx.avatarFileRef.current?.click()}>
-          {ctx.busyImg ? '处理中…' : '📷 选择图片'}
+          {ctx.busyImg ? '处理中…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 选择图片</>}
         </button>
         {s.avatarPhotoAt && (
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={ctx.busyImg} onClick={async () => {
@@ -993,14 +993,14 @@ function SectionSheets({ ctx, section }) {
         <div className="center-box" style={{ padding: '6px 0 12px' }}>
           <div className={`welcome-preview${ctx.welcomeBg ? ' has-img' : ''}`}>
             {ctx.welcomeBg && <img src={ctx.welcomeBg} alt="" decoding="async" draggable={false} />}
-            {!ctx.welcomeBg && <span style={{ fontSize: 30 }}>🌅</span>}
+            {!ctx.welcomeBg && <span style={{ fontSize: 30 }}><Icon name="sunrise" size="1em" className="qy-inline-icon" /></span>}
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
             {ctx.welcomeBg ? '已设置背景，下次首次打开生效' : '当前为默认渐变背景'}
           </div>
         </div>
         <button className="btn" disabled={ctx.busyImg} onClick={() => ctx.welcomeFileRef.current?.click()}>
-          {ctx.busyImg ? '处理中…' : '📷 选择背景图片'}
+          {ctx.busyImg ? '处理中…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 选择背景图片</>}
         </button>
         {s.welcomeBgAt && (
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={ctx.busyImg} onClick={async () => {
@@ -1017,7 +1017,7 @@ function SectionSheets({ ctx, section }) {
       {/* AI 助手形象 */}
       <Sheet open={ctx.aiFaceOpen} onClose={() => ctx.setAiFaceOpen(false)} title="AI 助手形象">
         <Seg
-          options={[{ label: '😀 表情', value: 'emoji' }, { label: '🖼️ 相册图片', value: 'photo' }]}
+          options={[{ label: <><Icon name="smile" size="1em" className="qy-inline-icon" /> 表情</>, value: 'emoji' }, { label: <><Icon name="image" size="1em" className="qy-inline-icon" /> 相册图片</>, value: 'photo' }]}
           value={ctx.aiFaceTab}
           onChange={ctx.setAiFaceTab}
         />
@@ -1040,7 +1040,7 @@ function SectionSheets({ ctx, section }) {
               <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>方形图片会自动居中裁切</div>
             </div>
             <button className="btn" disabled={ctx.busyImg} onClick={() => ctx.aiFaceFileRef.current?.click()}>
-              {ctx.busyImg ? '处理中…' : '📷 从相册选择图片'}
+              {ctx.busyImg ? '处理中…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 从相册选择图片</>}
             </button>
             {s.aiFaceAt && (
               <button className="btn ghost" style={{ marginTop: 10 }} disabled={ctx.busyImg} onClick={async () => {

@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Seg, Empty } from '../ui.jsx'
@@ -82,7 +83,7 @@ export default function Debts({ nav }) {
     const accId = uid()
     set((d) => {
       d.accounts.push({
-        id: accId, name: draft.name.trim(), type: newKind, icon: t?.icon || '⭐', initial: 0,
+        id: accId, name: draft.name.trim(), type: newKind, icon: t?.icon || "svg:star", initial: 0,
         color: newKind === 'debt' ? '#ec407a' : '#26c6da', currency: 'CNY',
         rate: Number(draft.rate) || 0, dueDate: draft.dueDate || null,
       })
@@ -100,7 +101,7 @@ export default function Debts({ nav }) {
   }
 
   const badge = (r) => {
-    if (r.settled) return <span className="chip" style={{ color: 'var(--green)' }}>✓ {r.isDebt ? '已还清' : '已收回'}</span>
+    if (r.settled) return <span className="chip" style={{ color: 'var(--green)' }}><Icon name="check" size="1em" className="qy-inline-icon" /> {r.isDebt ? '已还清' : '已收回'}</span>
     if (r.overdueDays != null) return <span className="chip on" style={{ background: 'var(--expense)', color: '#fff' }}>已逾期 {r.overdueDays} 天</span>
     if (r.dueInDays != null && r.dueInDays <= 30) return <span className="chip on warn">{r.dueInDays} 天后到期</span>
     return null
@@ -133,7 +134,7 @@ export default function Debts({ nav }) {
 
         {rows.length === 0 && (
           <div className="card">
-            <Empty icon="📉" text="还没有借入借出记录\n借朋友的钱、花呗分期、车贷房贷都能在这里管理">
+            <Empty icon="svg:trendDown" text="还没有借入借出记录\n借朋友的钱、花呗分期、车贷房贷都能在这里管理">
               <div className="btnrow">
                 <button className="btn" onClick={() => openNew('debt')}>＋ 记借入</button>
                 <button className="btn ghost" onClick={() => openNew('claim')}>＋ 记借出</button>
@@ -166,7 +167,7 @@ export default function Debts({ nav }) {
                   </div>
                 </div>
                 {r.monthly != null && (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>💰 等额本息月供参考：约 {fmt(r.monthly)} 元/月</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}><Icon name="salary" size="1em" className="qy-inline-icon" /> 等额本息月供参考：约 {fmt(r.monthly)} 元/月</div>
                 )}
                 {!r.settled && (
                   <div className="btnrow" style={{ marginTop: 12 }}>
@@ -220,7 +221,7 @@ export default function Debts({ nav }) {
 
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.8 }}>
-            💡 借入/借出会自动创建对应账户并生成转账账单；还款、收款同样以转账记录，金额实时冲减本金。
+            <Icon name="tag" size="1em" className="qy-inline-icon" /> 借入/借出会自动创建对应账户并生成转账账单；还款、收款同样以转账记录，金额实时冲减本金。
           </div>
         </div>
       </div>
@@ -230,7 +231,7 @@ export default function Debts({ nav }) {
         {draft && (
           <>
             <Seg
-              options={[{ value: 'debt', label: '📉 借入（我欠钱）' }, { value: 'claim', label: '🤝 借出（别人欠我）' }]}
+              options={[{ value: 'debt', label: <><Icon name="trendDown" size="1em" className="qy-inline-icon" /> 借入（我欠钱）</> }, { value: 'claim', label: <><Icon name="handshake" size="1em" className="qy-inline-icon" /> 借出（别人欠我）</> }]}
               value={newKind}
               onChange={(v) => setNewKind(v)}
             />

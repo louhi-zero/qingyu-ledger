@@ -11,69 +11,69 @@ export function defaultCategories() {
   return {
     expense: [
       // v2.6 主分类默认使用线性图标库（'./icons/' 路径）；子分类与无匹配项保留 emoji
-      cat('餐饮', './icons/cat/food.png', PAL[0], [['早餐', '🥐'], ['午餐', '🍚'], ['晚餐', '🍲'], ['饮料', '🥤'], ['零食', '🍪'], ['水果', '🍎']]),
-      cat('购物', './icons/cat/shop.png', PAL[1], [['服饰鞋包', '👟'], ['日用百货', '🧻'], ['数码家电', '📱'], ['美妆护肤', '💄'], ['网购', '📦']]),
-      cat('交通出行', './icons/cat/transport.png', PAL[2], [['公交地铁', '🚇'], ['打车', '🚕'], ['加油', '⛽'], ['火车机票', '✈️'], ['停车', '🅿️']]),
-      cat('居家生活', './icons/cat/home.png', PAL[3], [['房租', '🏘️'], ['水电燃气', '💧'], ['物业', '🏢'], ['通讯', '📶'], ['装修', '🛠️']]),
-      cat('娱乐休闲', './icons/cat/game.png', PAL[4], [['电影', '🎬'], ['游戏', '🎮'], ['旅行', '🏖️'], ['订阅', '📺'], ['运动', '⚽']]),
-      cat('医疗健康', './icons/cat/medical.png', PAL[5], [['挂号门诊', '🏥'], ['药品', '💊'], ['体检', '🩺']]),
-      cat('教育学习', './icons/cat/edu.png', PAL[6], [['书籍', '📚'], ['培训', '🎓'], ['学费', '🏫'], ['知识付费', '📝']]),
-      cat('人情往来', './icons/cat/gift.png', PAL[7], [['礼金', '🧧'], ['红包', '💰'], ['请客', '🍽️'], ['慈善', '❤️']]),
-      cat('宠物', './icons/cat/pet.png', PAL[8], [['宠物食品', '🦴'], ['宠物医疗', '🐾']]),
-      cat('其他支出', '🧾', PAL[9]),
+      cat('餐饮', "./icons/cat/food.svg", PAL[0], [['早餐', "svg:croissant"], ['午餐', "svg:bowl"], ['晚餐', "svg:bowl"], ['饮料', "svg:cup"], ['零食', "svg:cookie"], ['水果', "svg:apple"]]),
+      cat('购物', "./icons/cat/shop.svg", PAL[1], [['服饰鞋包', "svg:shoe"], ['日用百货', "svg:roll"], ['数码家电', "svg:phone"], ['美妆护肤', "svg:lipstick"], ['网购', "svg:box"]]),
+      cat('交通出行', "./icons/cat/transport.svg", PAL[2], [['公交地铁', "svg:train"], ['打车', "svg:transport"], ['加油', "svg:fuel"], ['火车机票', "svg:travel"], ['停车', "svg:parking"]]),
+      cat('居家生活', "./icons/cat/home.svg", PAL[3], [['房租', "svg:home"], ['水电燃气', "svg:droplet"], ['物业', "svg:building"], ['通讯', "svg:signal"], ['装修', "svg:tools"]]),
+      cat('娱乐休闲', "./icons/cat/game.svg", PAL[4], [['电影', "svg:film"], ['游戏', "svg:game"], ['旅行', "svg:beach"], ['订阅', "svg:tv"], ['运动', "svg:ball"]]),
+      cat('医疗健康', "./icons/cat/medical.svg", PAL[5], [['挂号门诊', "svg:medical"], ['药品', "svg:pill"], ['体检', "svg:stethoscope"]]),
+      cat('教育学习', "./icons/cat/edu.svg", PAL[6], [['书籍', "svg:books"], ['培训', "svg:edu"], ['学费', "svg:edu"], ['知识付费', "svg:bill"]]),
+      cat('人情往来', "./icons/cat/gift.svg", PAL[7], [['礼金', "svg:envelope"], ['红包', "svg:salary"], ['请客', "svg:food"], ['慈善', "svg:heart"]]),
+      cat('宠物', "./icons/cat/pet.svg", PAL[8], [['宠物食品', "svg:bone"], ['宠物医疗', "svg:pet"]]),
+      cat('其他支出', "svg:reimburse", PAL[9]),
     ],
     income: [
-      cat('工资', './icons/cat/salary.png', '#ffb300'),
-      cat('奖金', './icons/cat/bonus.png', '#ff7043'),
-      cat('兼职', '💪', '#8d6e63'),
-      cat('理财收益', './icons/cat/invest.png', '#26a69a', [['利息', '🪙'], ['分红', '💎']]),
-      cat('退款', '↩️', '#42a5f5'),
-      cat('红包', '🧧', '#ef5350'),
-      cat('生意收入', '🏪', '#7e57c2'),
-      cat('其他收入', '💡', '#9e9e9e'),
+      cat('工资', "./icons/cat/salary.svg", '#ffb300'),
+      cat('奖金', "./icons/cat/bonus.svg", '#ff7043'),
+      cat('兼职', "svg:sport", '#8d6e63'),
+      cat('理财收益', "./icons/cat/invest.svg", '#26a69a', [['利息', "svg:coin"], ['分红', "svg:diamond"]]),
+      cat('退款', "svg:undo", '#42a5f5'),
+      cat('红包', "svg:envelope", '#ef5350'),
+      cat('生意收入', "svg:business", '#7e57c2'),
+      cat('其他收入', "svg:tag", '#9e9e9e'),
     ],
   }
 }
 
 export const ACCOUNT_TYPES = [
-  { type: 'cash', name: '现金', icon: '💵', desc: '钱包里的钞票', liability: false },
-  { type: 'debit', name: '储蓄卡', icon: '💳', desc: '银行借记卡', liability: false },
-  { type: 'credit', name: '信用卡', icon: '🪪', desc: '信用卡/花呗/白条', liability: true },
-  { type: 'virtual', name: '虚拟账户', icon: '📱', desc: '支付宝/微信', liability: false },
-  { type: 'invest', name: '投资账户', icon: '📈', desc: '股票/基金/理财', liability: false },
-  { type: 'debt', name: '负债', icon: '📉', desc: '贷款/借入', liability: true },
-  { type: 'claim', name: '债权', icon: '🤝', desc: '应收/借出', liability: false },
-  { type: 'custom', name: '自定义', icon: '⭐', desc: '自定义资产', liability: false },
+  { type: 'cash', name: '现金', icon: "svg:cash", desc: '钱包里的钞票', liability: false },
+  { type: 'debit', name: '储蓄卡', icon: "svg:account", desc: '银行借记卡', liability: false },
+  { type: 'credit', name: '信用卡', icon: "svg:id", desc: '信用卡/花呗/白条', liability: true },
+  { type: 'virtual', name: '虚拟账户', icon: "svg:phone", desc: '支付宝/微信', liability: false },
+  { type: 'invest', name: '投资账户', icon: "svg:invest", desc: '股票/基金/理财', liability: false },
+  { type: 'debt', name: '负债', icon: "svg:trendDown", desc: '贷款/借入', liability: true },
+  { type: 'claim', name: '债权', icon: "svg:handshake", desc: '应收/借出', liability: false },
+  { type: 'custom', name: '自定义', icon: "svg:star", desc: '自定义资产', liability: false },
 ]
 
 export const LEDGER_TEMPLATES = [
-  { icon: '📒', name: '标准账本', desc: '日常收支记录' },
-  { icon: '🏪', name: '生意账本', desc: '生意经营专用' },
-  { icon: '📋', name: '报销账本', desc: '适合记录报销账目' },
-  { icon: '🧳', name: '旅行账本', desc: '旅途花销一目了然' },
-  { icon: '🔨', name: '装修账本', desc: '装修支出管理' },
-  { icon: '👨‍👩‍👧', name: '家庭账本', desc: '全家人一起记' },
-  { icon: '✏️', name: '自定义', desc: '自定义你的专属账本' },
+  { icon: "svg:book", name: '标准账本', desc: '日常收支记录' },
+  { icon: "svg:business", name: '生意账本', desc: '生意经营专用' },
+  { icon: "svg:clipboard", name: '报销账本', desc: '适合记录报销账目' },
+  { icon: "svg:luggage", name: '旅行账本', desc: '旅途花销一目了然' },
+  { icon: "svg:tools", name: '装修账本', desc: '装修支出管理' },
+  { icon: "svg:users", name: '家庭账本', desc: '全家人一起记' },
+  { icon: "svg:edit", name: '自定义', desc: '自定义你的专属账本' },
 ]
 
 export function defaultAccounts() {
   return [
-    { id: uid(), name: '现金', type: 'cash', icon: '💵', initial: 800, color: PAL[0] },
-    { id: uid(), name: '工资卡', type: 'debit', icon: '💳', initial: 20000, color: PAL[1] },
-    { id: uid(), name: '支付宝', type: 'virtual', icon: '🅰️', initial: 3000, color: PAL[4] },
-    { id: uid(), name: '微信钱包', type: 'virtual', icon: '💬', initial: 1000, color: PAL[2] },
+    { id: uid(), name: '现金', type: 'cash', icon: "svg:cash", initial: 800, color: PAL[0] },
+    { id: uid(), name: '工资卡', type: 'debit', icon: "svg:account", initial: 20000, color: PAL[1] },
+    { id: uid(), name: '支付宝', type: 'virtual', icon: "svg:alipay", initial: 3000, color: PAL[4] },
+    { id: uid(), name: '微信钱包', type: 'virtual', icon: "svg:message", initial: 1000, color: PAL[2] },
   ]
 }
 
 export function emptyState() {
   const cats = defaultCategories()
   const accounts = []
-  const ledgers = [{ id: uid(), name: '默认账本', icon: '📒', template: '标准账本' }]
+  const ledgers = [{ id: uid(), name: '默认账本', icon: "svg:book", template: '标准账本' }]
   return {
     version: 3,
     settings: {
       nickname: '轻语用户',
-      avatar: '🐣',
+      avatar: "svg:chick",
       monthStartDay: 1,
       defaultType: 'expense',
       hideAmount: false,
@@ -99,7 +99,7 @@ export function emptyState() {
       nightAcross: false,
       // 个性化：AI 助手形象、启动页背景（tabIcons 为 v1.3 遗留，v1.4.1 起废弃不再使用）
       tabIcons: {}, // v1.4.1 已废弃，仅兼容旧数据
-      aiFace: '🤖', // AI 形象 emoji（照片优先，见 aiFaceAt）
+      aiFace: "svg:robot", // AI 形象 emoji（照片优先，见 aiFaceAt）
       aiFaceAt: null,
       welcomeBgAt: null, // 启动页背景更新时间，本体在 IndexedDB
       bgRotate: true, // v2.6 内置背景循环播放
@@ -171,11 +171,11 @@ export function demoState() {
   s.accounts = defaultAccounts()
   const [cash, card, alipay, wechat] = s.accounts
   // v1.3 示例：信用卡 + 负债账户（资金管理页演示）
-  const credit = { id: uid(), name: '招行信用卡', type: 'credit', icon: '🪪', initial: -600, color: PAL[5], currency: 'CNY', billingDay: 5, dueDay: 23, creditLimit: 30000 }
-  const loan = { id: uid(), name: '车贷', type: 'debt', icon: '🚗', initial: -40000, color: PAL[6], currency: 'CNY', rate: 4.5, dueDate: addDays(todayStr(), 400) }
+  const credit = { id: uid(), name: '招行信用卡', type: 'credit', icon: "svg:id", initial: -600, color: PAL[5], currency: 'CNY', billingDay: 5, dueDay: 23, creditLimit: 30000 }
+  const loan = { id: uid(), name: '车贷', type: 'debt', icon: "svg:transport", initial: -40000, color: PAL[6], currency: 'CNY', rate: 4.5, dueDate: addDays(todayStr(), 400) }
   s.accounts.push(credit, loan)
   const ledgers = s.ledgers
-  ledgers.push({ id: uid(), name: '旅行账本', icon: '🧳', template: '旅行账本' })
+  ledgers.push({ id: uid(), name: '旅行账本', icon: "svg:luggage", template: '旅行账本' })
   const cats = s.categories
   const find = (main, sub) => {
     const c = cats.expense.find((x) => x.name === main)
@@ -274,8 +274,8 @@ export function demoState() {
   ]
   // v1.3 示例储蓄目标
   s.goals = [
-    { id: uid(), name: '云南旅行基金', icon: '🧳', target: 20000, saved: 6500, deadline: addDays(today, 180), note: '明年春天出发', at: new Date().toISOString() },
-    { id: uid(), name: '应急备用金', icon: '🛟', target: 30000, saved: 31200, deadline: addDays(today, 90), note: '已达成，保持住', at: new Date().toISOString() },
+    { id: uid(), name: '云南旅行基金', icon: "svg:luggage", target: 20000, saved: 6500, deadline: addDays(today, 180), note: '明年春天出发', at: new Date().toISOString() },
+    { id: uid(), name: '应急备用金', icon: "svg:lifebuoy", target: 30000, saved: 31200, deadline: addDays(today, 90), note: '已达成，保持住', at: new Date().toISOString() },
   ]
   // 发票抬头示例
   s.invoices = [{ id: uid(), name: '示例公司', taxNo: '91110000XXXXXXXXXX', address: '北京市朝阳区xx路1号', phone: '010-88888888', bank: 'XX银行北京分行', account: '6222 0000 0000 0000' }]

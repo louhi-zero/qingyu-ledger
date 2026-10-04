@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Seg, Confirm, Empty, EmojiPicker, CatIcon } from '../ui.jsx'
@@ -16,8 +17,8 @@ export default function CategoryManage({ nav }) {
 
   const list = tab === 'expense' ? state.categories.expense : state.categories.income
 
-  const newCat = () => ({ id: uid(), name: '', icon: '🏷️', color: '#2a2f3a', custom: true, children: [] })
-  const newSub = () => ({ id: uid(), name: '', icon: '🏷️' })
+  const newCat = () => ({ id: uid(), name: '', icon: "svg:tag", color: '#2a2f3a', custom: true, children: [] })
+  const newSub = () => ({ id: uid(), name: '', icon: "svg:tag" })
 
   const saveCat = () => {
     const d = editCat.draft
@@ -97,7 +98,7 @@ export default function CategoryManage({ nav }) {
                 <div className="cdesc">{(c.children || []).map((x) => x.name).join(' / ') || '无子分类'}</div>
               </div>
               <div className="cright" style={{ gap: 6 }}>
-                <button className="iconbtn" onClick={() => setEditCat({ draft: { ...c, children: c.children || [] }, isNew: false })}>✏️</button>
+                <button className="iconbtn" onClick={() => setEditCat({ draft: { ...c, children: c.children || [] }, isNew: false })}><Icon name="edit" size="1em" className="qy-inline-icon" /></button>
                 <button className="iconbtn" onClick={() => setEditSub({ catId: c.id, draft: newSub(), isNew: true })}>＋</button>
               </div>
             </div>
@@ -109,7 +110,7 @@ export default function CategoryManage({ nav }) {
                     <div className="cmain"><div className="ctitle" style={{ fontSize: 13.5 }}>{sub.name}</div></div>
                     <div className="cright" style={{ gap: 6 }}>
                       <button className="iconbtn" style={{ width: 30, height: 30 }}
-                        onClick={() => setEditSub({ catId: c.id, draft: { ...sub }, isNew: false })}>✏️</button>
+                        onClick={() => setEditSub({ catId: c.id, draft: { ...sub }, isNew: false })}><Icon name="edit" size="1em" className="qy-inline-icon" /></button>
                     </div>
                   </div>
                 ))}

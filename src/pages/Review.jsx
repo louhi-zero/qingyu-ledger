@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, CatIcon } from '../ui.jsx'
@@ -6,10 +7,10 @@ import {
 } from '../utils.js'
 
 const LEVEL_STYLE = {
-  理性型: { color: '#22b573', bg: 'rgba(34,181,115,.12)', icon: '🏆' },
-  均衡型: { color: '#2fa886', bg: 'rgba(59,201,140,.12)', icon: '👍' },
-  随性型: { color: '#ff9f2e', bg: 'rgba(255,159,46,.14)', icon: '🌤️' },
-  豪爽型: { color: '#ff6b5e', bg: 'rgba(255,107,94,.12)', icon: '🔥' },
+  理性型: { color: '#22b573', bg: 'rgba(34,181,115,.12)', icon: "svg:trophy" },
+  均衡型: { color: '#2fa886', bg: 'rgba(59,201,140,.12)', icon: "svg:thumbUp" },
+  随性型: { color: '#ff9f2e', bg: 'rgba(255,159,46,.14)', icon: "svg:sunCloud" },
+  豪爽型: { color: '#ff6b5e', bg: 'rgba(255,107,94,.12)', icon: "svg:fire" },
 }
 
 export default function Review({ nav }) {
@@ -72,13 +73,13 @@ export default function Review({ nav }) {
 
         {/* 点评正文 */}
         <div className="card">
-          <div className="card-title" style={{ marginBottom: 10 }}>📝 轻语点评</div>
+          <div className="card-title" style={{ marginBottom: 10 }}><Icon name="bill" size="1em" className="qy-inline-icon" /> 轻语点评</div>
           {r.lines.map((line, i) => (
             <div key={i} style={{
               display: 'flex', gap: 10, padding: '10px 12px', marginBottom: 8,
               background: 'var(--card2)', borderRadius: 13, fontSize: 13.5, lineHeight: 1.7,
             }}>
-              <span style={{ flexShrink: 0 }}>{i === 0 ? '📊' : i < 3 ? '🔍' : '💡'}</span>
+              <span style={{ flexShrink: 0 }}>{i === 0 ? <><Icon name="stats" size="1em" className="qy-inline-icon" /></> : i < 3 ? <><Icon name="search" size="1em" className="qy-inline-icon" /></> : <><Icon name="tag" size="1em" className="qy-inline-icon" /></>}</span>
               <span>{line}</span>
             </div>
           ))}
@@ -87,7 +88,7 @@ export default function Review({ nav }) {
         {/* 支出 Top5 */}
         {r.top.length > 0 && (
           <div className="card">
-            <div className="card-title" style={{ marginBottom: 8 }}>🏅 支出榜 Top {r.top.length}</div>
+            <div className="card-title" style={{ marginBottom: 8 }}><Icon name="medal" size="1em" className="qy-inline-icon" /> 支出榜 Top {r.top.length}</div>
             {r.top.map((c, i) => (
               <div key={c.id} className="rankrow">
                 <div className="rk">{i + 1}</div>

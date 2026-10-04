@@ -267,7 +267,8 @@ app.whenReady().then(async () => {
       await sleep(150)
     }
     await setVibLevel(2)
-    assert('标准档选中态：波形柱点亮 3 根 + 勾选', await run(`document.querySelectorAll('.vib-opt.on .vib-bars i.lit').length === 3 && document.querySelector('.vib-opt.on .vib-check').textContent === '✓'`))
+    // v2.6：勾选符从文本 ✓ 改为内联 SVG（qy 图标体系）
+    assert('标准档选中态：波形柱点亮 3 根 + 勾选', await run(`document.querySelectorAll('.vib-opt.on .vib-bars i.lit').length === 3 && !!document.querySelector('.vib-opt.on .vib-check svg')`))
     await run(`window.__vibs = []; window.__tapCell()`)
     await sleep(60)
     assert('震动标准档：pointerdown 触发 10ms', await run(`JSON.stringify(window.__vibs)`).then((v) => JSON.parse(v)).then((a) => a.includes(10)).catch(() => false))
@@ -468,16 +469,16 @@ app.whenReady().then(async () => {
     await run(`document.querySelector('.tab-add').click()`)
     await sleep(500)
     assert('记账页：账本 pill 显示当前账本「旅行」', await run(`(() => {
-      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒'))
+      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => /默认账本|旅行/.test(b.textContent))
       return p ? p.textContent.includes('旅行') : 'no-pill'
     })()`))
-    await run(`[...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒')).click()`)
+    await run(`[...document.querySelectorAll('.addsheet .meta-pill')].find((b) => /默认账本|旅行/.test(b.textContent)).click()`)
     await sleep(400)
     assert('账本选择弹层：列出全部账本', await run(`document.querySelectorAll('.sheet .selectline').length === 2`))
     await run(`[...document.querySelectorAll('.sheet .selectline')].find((e) => e.textContent.includes('默认账本')).click()`)
     await sleep(300)
     assert('账本 pill 已改为「默认账本」', await run(`(() => {
-      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => b.textContent.includes('📒'))
+      const p = [...document.querySelectorAll('.addsheet .meta-pill')].find((b) => /默认账本|旅行/.test(b.textContent))
       return p ? p.textContent.includes('默认账本') : 'no-pill'
     })()`))
     await run(`(() => {
@@ -485,7 +486,8 @@ app.whenReady().then(async () => {
       for (const n of nums) [...document.querySelectorAll('.kp button')].find((b) => b.textContent === n).click()
       return true
     })()`)
-    await run(`[...document.querySelectorAll('.kp button')].find((b) => b.textContent === '完成').click()`)
+    // v2.6：完成键文字已换为内联 SVG 图标（className="ok"）
+    await run(`document.querySelector('.kp button.ok').click()`)
     const savedLedger = await pollTrue(run, `(() => {
       const s = JSON.parse(localStorage.getItem('qingyu_state_v3'))
       const def = s.ledgers.find((l) => l.name === '默认账本')

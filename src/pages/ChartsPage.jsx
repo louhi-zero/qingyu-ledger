@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
@@ -124,7 +125,7 @@ export default function ChartsPage() {
         <div className="card">
           {scope === 'month' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button className="chip" onClick={exportPdf}>⬇ 导出 PDF</button>
+              <button className="chip" onClick={exportPdf}><Icon name="download" size="1em" className="qy-inline-icon" /> 导出 PDF</button>
             </div>
           )}
           <div style={{ marginBottom: 10 }}>
@@ -156,7 +157,7 @@ export default function ChartsPage() {
         </div>
 
         {curTxs.length === 0 ? (
-          <div className="card"><Empty icon="📊" text="记几笔再来看统计" /></div>
+          <div className="card"><Empty icon="svg:stats" text="记几笔再来看统计" /></div>
         ) : (
           <>
             {/* AI 解读（仅月/年视图） */}
@@ -294,7 +295,7 @@ function AiMiniCard({ report, onOpen }) {
           </div>
           {st?.highlights?.[0] ? (
             <div className="muted" style={{ marginTop: 3, fontSize: 12.5, lineHeight: 1.6 }}>
-              🌟 {st.highlights[0]}
+              <Icon name="star" size="1em" className="qy-inline-icon" /> {st.highlights[0]}
             </div>
           ) : report?.narrative ? (
             <div className="muted" style={{ marginTop: 3, fontSize: 12.5 }}>已生成解读，点击查看完整报告</div>
@@ -303,7 +304,7 @@ function AiMiniCard({ report, onOpen }) {
           )}
           {st?.prediction && (
             <div style={{ marginTop: 6, fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.6 }}>
-              📈 {st.prediction}
+              <Icon name="invest" size="1em" className="qy-inline-icon" /> {st.prediction}
             </div>
           )}
         </div>

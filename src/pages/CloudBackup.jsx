@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Confirm, Switch } from '../ui.jsx'
@@ -159,7 +160,7 @@ export default function CloudBackup({ nav }) {
                 type="button"
                 onClick={applyJianguo}
                 style={{ float: 'right', fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, border: '1px solid var(--line)', background: 'var(--card2)', color: 'var(--ink2)' }}
-              >🌰 一键填入坚果云</button>
+              ><Icon name="chestnut" size="1em" className="qy-inline-icon" /> 一键填入坚果云</button>
             </div>
             <input className="input" placeholder={JIANGUO_URL}
               value={url} onChange={(e) => setUrl(e.target.value)} autoCapitalize="off" />
@@ -167,7 +168,7 @@ export default function CloudBackup({ nav }) {
             {showJgyTip && (
               <div style={{ marginTop: 8, padding: '9px 11px', borderRadius: 10, background: 'var(--card2)', border: '1px solid var(--line)', fontSize: 12, lineHeight: 1.7, color: 'var(--ink2)' }}>
                 坚果云应用密码获取：登录 <b>坚果云网页版</b> → 右上角账户 → <b>安全选项</b> → <b>第三方应用管理</b> → 添加应用（名称随意，如“轻语记账”），把生成的密码填入上方密码栏；账号填坚果云注册邮箱。
-                {' '}<a href="https://help.jianguoyun.com/?p=2064" target="_blank" rel="noreferrer">查看官方教程 ↗</a>
+                {' '}<a href="https://help.jianguoyun.com/?p=2064" target="_blank" rel="noreferrer">查看官方教程 <Icon name="external" size="1em" className="qy-inline-icon" /></a>
               </div>
             )}
           </div>
@@ -182,7 +183,7 @@ export default function CloudBackup({ nav }) {
               value={password} onChange={(e) => setPassword(e.target)} />
           </div>
           <div className="cell">
-            <div className="cico">🔌</div>
+            <div className="cico"><Icon name="plug" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">测试连接</div><div className="cdesc">验证地址、账号与密码是否可用</div></div>
             <div className="cright"><button className="btn ghost" disabled={!!busy} onClick={onTest}>
               {busy === 'test' ? '检测中…' : '测试'}
@@ -201,7 +202,7 @@ export default function CloudBackup({ nav }) {
             }
             return (
               <div className="cell" onClick={toggle}>
-                <div className="cico">🔘</div>
+                <div className="cico"><Icon name="tag" size="1em" className="qy-inline-icon" /></div>
                 <div className="cmain">
                   <div className="ctitle">开启云同步</div>
                   <div className="cdesc">{state.settings.cloudSyncOff ? '已关闭：数据不会再上传或下载' : '已开启：账单变化自动双向同步'}</div>
@@ -214,7 +215,7 @@ export default function CloudBackup({ nav }) {
           })()}
           {/* v1.9.0 用户资料云存档：检测到昵称/头像变化自动打包上传，点击可手动立即存档 */}
           <div className="cell" onClick={busy ? undefined : onProfileSync}>
-            <div className="cico">🪪</div>
+            <div className="cico"><Icon name="id" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">用户资料云存档</div>
               <div className="cdesc">
@@ -227,12 +228,12 @@ export default function CloudBackup({ nav }) {
               {busy === 'profile' ? (
                 <button className="btn ghost" disabled>存档中…</button>
               ) : (
-                <span className="muted">{lastProfile?.error ? '⚠ 失败' : (lastProfile?.at ? fmtTime(lastProfile.at) : '未存档')}</span>
+                <span className="muted">{lastProfile?.error ? <><Icon name="warning" size="1em" className="qy-inline-icon" /> 失败</> : (lastProfile?.at ? fmtTime(lastProfile.at) : '未存档')}</span>
               )}
             </div>
           </div>
           <div className="cell" onClick={busy ? undefined : onSync}>
-            <div className="cico">☁️</div>
+            <div className="cico"><Icon name="cloud" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">立即同步</div>
               <div className="cdesc">配置后账单变化会自动双向同步；也可在此手动同步</div>
@@ -242,7 +243,7 @@ export default function CloudBackup({ nav }) {
             </button></div>
           </div>
           <div className="cell" onClick={() => setConfirmRestore(true)}>
-            <div className="cico">📥</div>
+            <div className="cico"><Icon name="download" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">从云端恢复</div>
               <div className="cdesc">换机/新设备：直接以云端数据为准覆盖本机</div>
@@ -256,21 +257,21 @@ export default function CloudBackup({ nav }) {
         <div className="group">
           <div className="gtitle">状态</div>
           <div className="cell">
-            <div className="cico">🕒</div>
+            <div className="cico"><Icon name="clock" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain">
               <div className="ctitle">最近同步</div>
               {last?.error && <div className="cdesc">最近一次失败：{last.error.message}</div>}
             </div>
-            <div className="cright muted">{last?.error ? '⚠ 异常' : fmtTime(last?.at)}</div>
+            <div className="cright muted">{last?.error ? <><Icon name="warning" size="1em" className="qy-inline-icon" /> 异常</> : fmtTime(last?.at)}</div>
           </div>
           <div className="cell">
-            <div className="cico">🆔</div>
+            <div className="cico"><Icon name="id" size="1em" className="qy-inline-icon" /></div>
             <div className="cmain"><div className="ctitle">本设备标识</div><div className="cdesc">冲突副本会用它命名</div></div>
             <div className="cright muted">{String(getDevice()).slice(0, 8)}</div>
           </div>
           {!!last?.conflicts && (
             <div className="cell" onClick={() => logRef.current?.showModal?.()}>
-              <div className="cico">⚠️</div>
+              <div className="cico"><Icon name="warning" size="1em" className="qy-inline-icon" /></div>
               <div className="cmain"><div className="ctitle">最近冲突</div>
                 <div className="cdesc">{last.conflicts} 处（两端改动不一致时均已保留副本，可人工核对）</div></div>
               <div className="cright"><span className="arrow">›</span></div>

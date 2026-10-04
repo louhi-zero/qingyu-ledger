@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm } from '../ui.jsx'
@@ -7,7 +8,7 @@ import { useBookIconUrl, useMediaActions } from '../theme.jsx'
 import { replaceBlob } from '../blobdb.js'
 
 function blankLedger() {
-  return { id: uid(), name: '', icon: '📒', template: '标准账本' }
+  return { id: uid(), name: '', icon: "svg:book", template: '标准账本' }
 }
 
 // 账本图标：自定义图片优先（IndexedDB 'bookicon_<id>'），否则 emoji
@@ -81,7 +82,7 @@ export default function Ledgers({ nav }) {
       <div className="page-body no-tab">
         <div className="card" style={{ background: 'var(--grad-soft)' }}>
           <div style={{ fontSize: 12.5, color: 'var(--ink2)', lineHeight: 1.7 }}>
-            📚 不同用途分开记：日常、旅行、装修、报销互不干扰。<br />
+            <Icon name="books" size="1em" className="qy-inline-icon" /> 不同用途分开记：日常、旅行、装修、报销互不干扰。<br />
             点击账本即可切换，首页顶部也能随时一键切换。
           </div>
         </div>
@@ -144,10 +145,10 @@ export default function Ledgers({ nav }) {
                 <div className="bookicon-preview">
                   {editIconUrl
                     ? <img src={editIconUrl} alt="" decoding="async" draggable={false} />
-                    : (edit.icon || '📒')}
+                    : (edit.icon || <><Icon name="book" size="1em" className="qy-inline-icon" /></>)}
                 </div>
                 <button className="btn ghost" style={{ flex: 1, margin: 0 }} disabled={busyIcon} onClick={() => iconFileRef.current?.click()}>
-                  {busyIcon ? '处理中…' : '🖼️ 上传自定义图标'}
+                  {busyIcon ? '处理中…' : <><Icon name="image" size="1em" className="qy-inline-icon" /> 上传自定义图标</>}
                 </button>
                 {editIconUrl && (
                   <button className="btn ghost" style={{ margin: 0 }} disabled={busyIcon} onClick={async () => {

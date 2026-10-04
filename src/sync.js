@@ -312,7 +312,7 @@ export function isPristineState(s) {
 // v2.0.1 本机资料默认态识别：昵称/头像/头像照片都还是出厂值
 // （先记账后登录的场景：资料三字段不应被当作「本机修改」与云端打架）
 export function isDefaultProfileSettings(s) {
-  return !!s && s.nickname === '轻语用户' && (s.avatar || '') === '🐣' && !s.avatarPhotoAt
+  return !!s && s.nickname === '轻语用户' && (s.avatar || '') === "svg:chick" && !s.avatarPhotoAt
 }
 
 // ---------- 一次完整同步（纯逻辑，不碰 DOM/localStorage） ----------
@@ -344,7 +344,7 @@ export async function syncOnce({ local, base, remoteText, remoteEtag, remoteInfo
     if (isDefaultProfileSettings(local.settings) && remote.data.settings) {
       localEff = deepClone(local)
       localEff.settings.nickname = remote.data.settings.nickname
-      localEff.settings.avatar = remote.data.settings.avatar || '🐣'
+      localEff.settings.avatar = remote.data.settings.avatar || "svg:chick"
       localEff.settings.avatarPhotoAt = remote.data.settings.avatarPhotoAt ?? null
     }
     merged = mergeStates(base, localEff, remote.data, {

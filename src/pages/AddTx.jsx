@@ -1,3 +1,4 @@
+import { Icon } from "../ui/icons.jsx"
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { Seg, Confirm, Empty, Sheet, CatIcon } from '../ui.jsx'
@@ -232,7 +233,7 @@ export default function AddTx({ open, editTx, onClose }) {
     try {
       const p = await parseTxText(loadAiCfg(), text, state)
       if (p) {
-        applyParsed(p, p.source === 'ai' ? '✨ AI 已解析并填入' : '已按本地规则填入，可再调整')
+        applyParsed(p, p.source === 'ai' ? "AI 已解析并填入" : '已按本地规则填入，可再调整')
         setSmartOpen(false)
         setSmartText('')
       } else {
@@ -261,7 +262,7 @@ export default function AddTx({ open, editTx, onClose }) {
       applyParsed({
         type: 'expense', amount: p.amount, date: p.date, time: p.time,
         note: p.note || p.merchant || '', categoryId: p.categoryId,
-      }, '✨ 小票已识别并填入，原图已作附件')
+      }, "小票已识别并填入，原图已作附件")
       setAttachAt(new Date().toISOString())
       setSmartOpen(false)
       setSmartText('')
@@ -289,7 +290,7 @@ export default function AddTx({ open, editTx, onClose }) {
     <div className="mask" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="sheet addsheet">
         <div className="sheet-head">
-          <button className="sx" onClick={onClose}>✕</button>
+          <button className="sx" onClick={onClose}><Icon name="close" size="1em" className="qy-inline-icon" /></button>
           <div className="st">{editTx ? '编辑账单' : '记一笔'}</div>
           <div style={{ width: 30 }} />
         </div>
@@ -299,7 +300,7 @@ export default function AddTx({ open, editTx, onClose }) {
             <div className="tpl-chips">
               {tplList.map((t) => (
                 <button key={t.id} className="chip tpl-chip" onClick={() => applyTemplate(t)}>
-                  ⚡ {t.name} · ¥{fmt(t.amount)}
+                  <Icon name="bolt" size="1em" className="qy-inline-icon" /> {t.name} · ¥{fmt(t.amount)}
                 </button>
               ))}
             </div>
@@ -308,7 +309,7 @@ export default function AddTx({ open, editTx, onClose }) {
           {/* v1.4 智能填单入口 */}
           {!editTx && (
             <div className="meta-row" style={{ marginBottom: 8 }}>
-              <button className="meta-pill" onClick={() => setSmartOpen(true)}>✨ 智能填单 · 一句话记一笔</button>
+              <button className="meta-pill" onClick={() => setSmartOpen(true)}><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 智能填单 · 一句话记一笔</button>
             </div>
           )}
 
@@ -359,12 +360,12 @@ export default function AddTx({ open, editTx, onClose }) {
           <div className="meta-row">
             {/* v1.6.9 记账可选账本 */}
             <button className="meta-pill" onClick={() => setLedgerOpen(true)}>
-              📒 <b>{state.ledgers.find((l) => l.id === (ledgerId || state.currentLedgerId))?.name || '选择账本'}</b>
+              <Icon name="book" size="1em" className="qy-inline-icon" /> <b>{state.ledgers.find((l) => l.id === (ledgerId || state.currentLedgerId))?.name || '选择账本'}</b>
             </button>
-            <button className="meta-pill" onClick={() => setNoteEditOpen(true)}>📝 {note ? <b>{note.slice(0, 8)}</b> : '备注'}</button>
-            <button className="meta-pill" onClick={() => pickAccount(setAccountId)}>💳 <b>{type === 'transfer' ? accountName(state, accountId) : accountName(state, accountId)}</b></button>
-            <button className="meta-pill" onClick={() => setShowDatePicker((v) => !v)}>📅 <b>{date === todayStr() ? '今天' : date.slice(5)}</b></button>
-            <button className="meta-pill" onClick={() => setTimeOpen((v) => !v)}>⏰ <b>{time}</b></button>
+            <button className="meta-pill" onClick={() => setNoteEditOpen(true)}><Icon name="bill" size="1em" className="qy-inline-icon" /> {note ? <b>{note.slice(0, 8)}</b> : '备注'}</button>
+            <button className="meta-pill" onClick={() => pickAccount(setAccountId)}><Icon name="account" size="1em" className="qy-inline-icon" /> <b>{type === 'transfer' ? accountName(state, accountId) : accountName(state, accountId)}</b></button>
+            <button className="meta-pill" onClick={() => setShowDatePicker((v) => !v)}><Icon name="calendar" size="1em" className="qy-inline-icon" /> <b>{date === todayStr() ? '今天' : date.slice(5)}</b></button>
+            <button className="meta-pill" onClick={() => setTimeOpen((v) => !v)}><Icon name="clock" size="1em" className="qy-inline-icon" /> <b>{time}</b></button>
           </div>
           {/* v1.2 标签 / 报销 / 附件 */}
           {type !== 'transfer' && (
@@ -374,11 +375,11 @@ export default function AddTx({ open, editTx, onClose }) {
               </button>
               {type === 'expense' && (
                 <button className={`meta-pill ${reimburse !== 'none' ? 'pill-on' : ''}`} onClick={() => setReimOpen(true)}>
-                  🧾 {reimburse === 'pending' ? <b>待报销</b> : reimburse === 'done' ? <b>已报销</b> : '报销'}
+                  <Icon name="reimburse" size="1em" className="qy-inline-icon" /> {reimburse === 'pending' ? <b>待报销</b> : reimburse === 'done' ? <b>已报销</b> : '报销'}
                 </button>
               )}
               <button className={`meta-pill ${attachAt ? 'pill-on' : ''}`} onClick={() => (attachAt ? setAttachOpen(true) : fileRef.current?.click())} disabled={busyAttach}>
-                📎 {busyAttach ? '处理中…' : attachAt ? <b>小票</b> : '附件'}
+                <Icon name="attach" size="1em" className="qy-inline-icon" /> {busyAttach ? '处理中…' : attachAt ? <b>小票</b> : '附件'}
               </button>
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickAttach} />
             </div>
@@ -398,9 +399,11 @@ export default function AddTx({ open, editTx, onClose }) {
           {/* 键盘 */}
           {showKp ? (
             <div className="kp">
-              {['1', '2', '3', '⌫', '4', '5', '6', '+', '7', '8', '9', '-', '·', '0', '00', '✓'].map((k) => {
+              {['1', '2', '3', '⌫', '4', '5', '6', '+', '7', '8', '9', '-', '·', '0', '00', 'OK'].map((k) => {
                 if (k === '·') return <button key={k} className="fn" onClick={() => pressKey('.')}>·</button>
-                if (k === '✓') return <button key={k} className="ok" onClick={() => save(false)}>完成</button>
+                // v2.6 修复：完成键用哨兵字符串 'OK'（此前数组里放 JSX 元素，字符串比较永不命中，
+                // 渲染成无 onClick 的空按钮——记账无法通过键盘「完成」保存）
+                if (k === 'OK') return <button key={k} className="ok" onClick={() => save(false)} aria-label="完成"><Icon name="check" size="1em" className="qy-inline-icon" /></button>
                 if (k === '⌫') return <button key={k} className="fn" onClick={() => pressKey('⌫')}>⌫</button>
                 // +/- 为键盘布局占位（常见支付键盘样式），不可点、不可聚焦、不可见内容
                 if (k === '+' || k === '-') return <div key={k} className="kp-blank" aria-hidden="true" />
@@ -443,7 +446,7 @@ export default function AddTx({ open, editTx, onClose }) {
         <Sheet open={tagOpen} onClose={() => setTagOpen(false)} title="标签">
           <div className="chips" style={{ marginBottom: 10 }}>
             {tags.map((g) => (
-              <button key={g} className="chip on" onClick={() => removeTag(g)}>#{g} ✕</button>
+              <button key={g} className="chip on" onClick={() => removeTag(g)}>#{g} <Icon name="close" size="1em" className="qy-inline-icon" /></button>
             ))}
             {!tags.length && <div className="muted" style={{ padding: '4px 0 8px' }}>还没加标签，最多 6 个</div>}
           </div>
@@ -488,10 +491,10 @@ export default function AddTx({ open, editTx, onClose }) {
             value={smartText} onChange={(e) => setSmartText(e.target.value)}
           />
           <button className="btn" style={{ marginTop: 12 }} disabled={smartBusy} onClick={doSmartParse}>
-            {smartBusy ? '解析中…' : '✨ 解析并填入'}
+            {smartBusy ? '解析中…' : <><Icon name="sparkles" size="1em" className="qy-inline-icon" /> 解析并填入</>}
           </button>
           <button className="btn ghost" style={{ marginTop: 10 }} disabled={ocrBusy || smartBusy} onClick={() => ocrRef.current?.click()}>
-            {ocrBusy ? '识别中…' : '📷 识别小票图片自动填单'}
+            {ocrBusy ? '识别中…' : <><Icon name="camera" size="1em" className="qy-inline-icon" /> 识别小票图片自动填单</>}
           </button>
           <input ref={ocrRef} type="file" accept="image/*" hidden onChange={onPickOcr} />
         </Sheet>
@@ -556,7 +559,7 @@ function AccountSheet({ state, open, onClose, onPick }) {
     <div className="mask" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="sheet">
         <div className="sheet-head">
-          <button className="sx" onClick={onClose}>✕</button>
+          <button className="sx" onClick={onClose}><Icon name="close" size="1em" className="qy-inline-icon" /></button>
           <div className="st">选择账户</div><div style={{ width: 30 }} />
         </div>
         <div className="sheet-body">
@@ -564,7 +567,7 @@ function AccountSheet({ state, open, onClose, onPick }) {
             <div className="selectline" key={a.id} style={{ marginBottom: 8 }} onClick={() => onPick(a.id)}>
               <span>{a.icon} {a.name}</span><span className="arrow">›</span>
             </div>
-          )) : <Empty icon="💳" text="还没有账户，去「资产」添加一个" />}
+          )) : <Empty icon="svg:account" text="还没有账户，去「资产」添加一个" />}
         </div>
       </div>
     </div>
