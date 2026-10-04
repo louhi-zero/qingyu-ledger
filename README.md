@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/License-GPL--3.0-3bc98c?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B-38b6c9?style=flat-square)](https://github.com/louhi-zero/qingyu-ledger/releases)
 [![Stack](https://img.shields.io/badge/Stack-React%2018%20·%20Vite%205%20·%20Capacitor%207-6b93ff?style=flat-square)](#-技术栈)
-[![Tests](https://img.shields.io/badge/Tests-570%2B%20pass-22b573?style=flat-square)](#-测试与质量)
+[![Tests](https://img.shields.io/badge/Tests-670%2B%20pass-22b573?style=flat-square)](#-测试与质量)
 
 [下载安装](#-安装) · [核心功能](#-核心功能) · [界面预览](#-界面预览) · [从源码构建](#-从源码构建) · [赞助与鸣谢](#-赞助与鸣谢)
 
@@ -43,17 +43,22 @@
 |---|---|
 | 记一笔要填一堆字段 | **三秒记一笔**：金额 → 分类 → 完成，备注/标签/附件全部可选 |
 | 不想手动记账 | **微信/支付宝收支自动捕获**：通知监听 + 无障碍支付页识别，弹出确认窗一键入账，App 被杀也不漏单 |
+| 界面千篇一律的「AI 味」 | **黑白灰视觉体系**：黑白灰主色 + 语义色只标收入/支出/预警，四张手绘插画背景轮播，28 枚线性分类图标 |
 | 看不懂报表 | **图表页**：周/月/年三档、分类占比、排行榜，负结余自动标红「超支」 |
 | 数据在别人手里 | **数据默认仅存本机**，WebDAV 云同步走你自己的坚果云，不上传任何第三方 |
 | 想让 AI 点评账单 | **自带智谱 AI 集成**：填入自己的 API Key 即可生成风格化账单解读，上传前自动脱敏 |
 
 ## 📸 界面预览
 
-| 首页 · 明细 | 图表 · 月账单 |
+| 首页 · 樱花背景 | 记一笔 · 线性图标 |
 |:---:|:---:|
-| ![home](docs/screenshots/home.png) | ![charts](docs/screenshots/charts.png) |
-| **发现页 · 作者与社区** | **赞助与鸣谢** |
-| ![discover](docs/screenshots/discover.png) | ![support](docs/screenshots/support.png) |
+| ![home](docs/screenshots/home.png) | ![add](docs/screenshots/add.png) |
+| **发现页** | **我的** |
+| ![discover](docs/screenshots/discover.png) | ![profile](docs/screenshots/profile.png) |
+| **外观 · 背景轮播** | **分类图标库 · 28 枚** |
+| ![appearance](docs/screenshots/appearance.png) | ![iconlib](docs/screenshots/iconlib.png) |
+| **视频动态背景** | |
+| ![videobg](docs/screenshots/videobg.png) | |
 
 ## 🧩 核心功能
 
@@ -86,11 +91,13 @@
 - 信用卡账单日/额度管理、房贷计算器、汇率换算、发票助手
 
 ### 🎨 个性化
-- **透明液态玻璃**：半透明磨砂 + 壁纸主色晕光（26s 漂移动画），模糊强度 8-28 可调
-- **字体跟随系统**：与系统字体保持一致
-- 自定义壁纸、启动页背景、账本封面
-- 底部菜单与发现页入口支持自定义图片图标
-- 深色模式、金额模糊（防窥）、按压缩放 + 四档震动反馈
+- **黑白灰视觉体系**：主色黑白灰、语义三色只用于收入/支出/预警等关键状态，拒绝紫蓝渐变的「AI 生成感」
+- **背景轮播**：内置四张手绘插画（小屋/夜色/黄昏/樱花）与自定义壁纸混合轮换，30-300 秒间隔可调
+- **视频动态背景**：上传本地视频（≤80MB）静音循环播放，一键移除回落图片轮播
+- **28 枚线性分类图标**：支出 14 + 收入 6 + 功能 8 手绘风线性图标库，分类管理页图标库/emoji 双来源混选
+- **透明液态玻璃**：半透明磨砂 + 壁纸主色晕光，模糊强度 8-28 可调
+- **樱花应用图标**：全新默认图标，Android 自适应图标全密度适配
+- 深色模式、金额模糊（防窥）、按压缩放 + 四档震动反馈、字体跟随系统
 
 ### 🛡️ 数据与同步
 - 账单数据本机存储（localStorage + IndexedDB 二进制库）
@@ -137,7 +144,7 @@ cd android
 
 | 常用命令 | 说明 |
 |---|---|
-| `npm run test:unit` | 单元测试 362 项 |
+| `npm run test:unit` | 单元测试 372 项 |
 | `npm run test:notify` | 收支监控深度测试 106 项 |
 | `npm run test:ai` | AI 模块测试 18 项 |
 | `npm run test:sync` | 云同步测试 32 项 |
@@ -158,13 +165,15 @@ qingyu-ledger/
 │   │   ├── QyA11yPlugin.java          # 无障碍桥
 │   │   └── UpdatePlugin.java          # 应用内更新（断点续传+SHA-256）
 │   └── app/src/main/res/xml/          # 无障碍服务配置（锁定微信/支付宝）
-├── public/                  # 静态资源（图标/manifest/sw.js/donate 收款码）
+├── docs/screenshots/        # README 界面截图
+├── public/                  # 静态资源（图标/背景/分类图标库/manifest/sw.js）
 ├── scripts/                 # 测试与工具脚本（unit/notify/ai/sync/smoke/e2e）
 ├── src/
 │   ├── pages/               # 页面（Home/Charts/Discover/Profile/Support…）
 │   ├── ui/icons.jsx         # 内联 SVG 图标体系（iconify 开源集）
+│   ├── catIcons.js          # 分类图标库清单（28 枚白名单）
 │   ├── store.jsx            # 全局状态 + migrateState 版本迁移
-│   ├── theme.jsx            # 液态玻璃主题引擎（壁纸主色提取/晕光）
+│   ├── theme.jsx            # 液态玻璃主题引擎（背景轮播/视频层/主色提取）
 │   ├── notifyCatch.js       # 通知监听 JS 桥（统一处理器：去重/规则/AI 兜底）
 │   ├── a11ycatch.js         # 无障碍捕获 JS 桥（页面文本→交易要素）
 │   ├── ai.js                # 智谱 AI 集成（SSE 流式/脱敏/GLM-4V）
@@ -180,13 +189,13 @@ qingyu-ledger/
 - **移动端**：Capacitor 7（仅 Android）· 自研通知/无障碍/更新三插件
 - **桌面端**：Electron 33（https 白名单 SSE 桥）
 - **AI**：智谱 GLM-4.7-Flash（文本）· GLM-4V-Flash（截图）
-- **测试**：自研断言框架，570+ 项测试全绿
+- **测试**：自研断言框架，670+ 项测试全绿
 
 ## 🧪 测试与质量
 
 | 套件 | 数量 | 覆盖 |
 |---|---|---|
-| unit | 362 | 纯函数/组件接线/迁移/更新/主题 |
+| unit | 372 | 纯函数/组件接线/迁移/更新/主题/图标库 |
 | notify | 106 | 通知解析语料/去重策略/原生接线断言 |
 | smoke | 142 | Electron 真实渲染 UI 冒烟 |
 | sync | 32 | WebDAV 合并语义 |
