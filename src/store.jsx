@@ -51,6 +51,8 @@ export function migrateState(s) {
   if (typeof s.settings.aiCharName !== 'string') s.settings.aiCharName = ''
   // v1.6.8 点击反馈拆分迁移：老版本只有 tapFeedback（缩放+震动合一开关）
   if (!('tapScale' in s.settings)) s.settings.tapScale = s.settings.tapFeedback !== false
+  // v2.5 UI 重构：液态玻璃默认开启一次（升级用户也能看到新观感，设置里仍可关）
+  if (s.settings.glassOnV25 !== true) { s.settings.glassOn = true; s.settings.glassOnV25 = true }
   if (!('vibrateLevel' in s.settings)) {
     s.settings.vibrateLevel = s.settings.tapFeedback === false ? 0 : 2
   } else if (![0, 1, 2, 3].includes(Number(s.settings.vibrateLevel))) {

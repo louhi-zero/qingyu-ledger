@@ -65,13 +65,14 @@ public class NotifyCatchPlugin extends Plugin {
         }
     }
 
-    /** 注入模拟通知（默认微信收款 0.01 元），走实时链路：emit（不入队；真实通知的双轨由 Service 保证） */
+    /** 注入模拟通知（默认微信收款 0.01 元），走实时链路：emit（不入队；真实通知的双轨由 Service 保证）。
+     *  test=true：JS 管线跳过 15s/30s 时间窗抑制（连点测试按钮每次都弹，不与真实支付互吞） */
     @PluginMethod
     public void testEmit(PluginCall call) {
         String title = call.getString("title", "微信支付");
         String text = call.getString("text", "微信支付收款0.01元，可在账单详情查看");
         String pkg = call.getString("pkg", "com.tencent.mm");
-        emit(title, text, pkg, System.currentTimeMillis());
+        emit(title, text, pkg, System.currentTimeMillis(), true);
         JSObject r = new JSObject();
         r.put("ok", true);
         call.resolve(r);
@@ -84,7 +85,7 @@ public class NotifyCatchPlugin extends Plugin {
             String title = call.getString("title", "微信支付");
             String text = call.getString("text", "微信支付收款0.01元，可在账单详情查看");
             String pkg = call.getString("pkg", "com.tencent.mm");
-            enqueue(getContext(), title, text, pkg, System.currentTimeMillis());
+            enqueue(getContext(), title, text, pkg, System.currentTimeMillis(), true);
             call.resolve();
         } catch (Exception e) {
             call.reject("入队失败", e);
@@ -142,8 +143,13 @@ public class NotifyCatchPlugin extends Plugin {
         }
     }
 
-    /** 由 NotifyCatchService 回调：转发通知原文给 JS（插件未加载时忽略——此时已入队，App 下次启动补弹） */
+    /** 由 NotifyCatchService 回调：转发通知原文给 JS（插件未加载时忽略——此时已入队，App 下次启动补弹）。
+     *  真实通知 4 参重载（test=false）；testEmit 走 5 参注入测试标记 */
     static void emit(String title, String text, String pkg, long ts) {
+        emit(title, text, pkg, ts, false);
+    }
+
+    static void emit(String title, String text, String pkg, long ts, boolean isTest) {
         NotifyCatchPlugin p = instance;
         if (p == null || p.bridge == null) return;
         JSObject data = new JSObject();
@@ -151,6 +157,7 @@ public class NotifyCatchPlugin extends Plugin {
         data.put("text", text == null ? "" : text);
         data.put("pkg", pkg == null ? "" : pkg);
         data.put("ts", ts); // 与入队时间戳一致（postTime），JS 端双轨精确去重依赖此值
+        data.put("test", isTest); // JS 管线据此跳过时间窗抑制（仅测试注入为 true）
         // retainUntilDelivered=false：App 未在前台/无人监听时直接丢弃，避免打开 App 弹旧账
         // （离线场景由持久化队列兜底，见 enqueue/pendingList）
         p.notifyListeners("caught", data, false);
@@ -158,17 +165,23 @@ public class NotifyCatchPlugin extends Plugin {
 
     // ---------------- 离线暂存队列（v2.0.2） ----------------
 
-    /** 持久化入队（Service 调用，ctx=Service 自身；App 死亡也照常写入）。新→旧，上限 50 条。 */
+    /** 持久化入队（Service 调用，ctx=Service 自身；App 死亡也照常写入）。新→旧，上限 50 条。
+     *  真实通知 4 参重载（test=false）；pendingEnqueueSample 走 5 参写入测试标记 */
     static void enqueue(Context ctx, String title, String text, String pkg, long ts) {
+        enqueue(ctx, title, text, pkg, ts, false);
+    }
+
+    static void enqueue(Context ctx, String title, String text, String pkg, long ts, boolean isTest) {
         if (ctx == null) return;
         try {
             String sig = pkg + "|" + (title == null ? "" : title) + "|" + (text == null ? "" : text);
             JSONArray arr = readQueue(ctx);
-            // 同签名 10s 内去重：系统对分组通知会重复 post
+            // 同签名 10s 内去重：系统对分组通知会重复 post（防负时间差：新 ts 更早视为异常，不判重复）
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject it = arr.optJSONObject(i);
                 if (it == null) continue;
-                if (sig.equals(it.optString("sig")) && ts - it.optLong("ts") < ENQUEUE_DEDUP_MS) return;
+                long dt = ts - it.optLong("ts");
+                if (sig.equals(it.optString("sig")) && dt >= 0 && dt < ENQUEUE_DEDUP_MS) return;
             }
             JSONObject item = new JSONObject();
             item.put("key", ts + "-" + Integer.toHexString(sig.hashCode()));
@@ -177,6 +190,7 @@ public class NotifyCatchPlugin extends Plugin {
             item.put("text", text == null ? "" : text);
             item.put("pkg", pkg == null ? "" : pkg);
             item.put("ts", ts);
+            item.put("test", isTest); // 离线消费时透传 JS（补弹测试不受 30s 金额去重抑制）
             JSONArray out = new JSONArray();
             out.put(item);
             for (int i = 0; i < arr.length() && out.length() < MAX_PENDING; i++) out.put(arr.get(i));

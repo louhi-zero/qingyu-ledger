@@ -112,6 +112,20 @@ export default function AiSettings({ nav }) {
         {/* 隐私 */}
         <div className="group">
           <div className="gtitle">隐私</div>
+          {/* v2.5 上传脱敏：手机号/身份证/银行卡等高敏数字串进模型前自动打码，默认开启 */}
+          <div className="cell" onClick={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })}>
+            <div className="cico">🛡️</div>
+            <div className="cmain">
+              <div className="ctitle">上传前脱敏</div>
+              <div className="cdesc">手机号/身份证/银行卡号自动打码后再发给 AI（金额不受影响）</div>
+            </div>
+            <div className="cright">
+              <button
+                className={`switch ${s.aiMask !== false ? 'on' : ''}`}
+                onClick={(e) => { e.stopPropagation(); set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false }) }}
+              />
+            </div>
+          </div>
           <div className="cell" onClick={() => set((d) => { d.settings.aiIncludeNotes = !d.settings.aiIncludeNotes })}>
             <div className="cico">📝</div>
             <div className="cmain">
@@ -125,9 +139,12 @@ export default function AiSettings({ nav }) {
               />
             </div>
           </div>
-          {s.aiIncludeNotes && (
+          {(s.aiIncludeNotes || s.aiMask === false) && (
             <div className="ai-warn" style={{ margin: 0, borderRadius: 0, borderLeft: 'none', borderRight: 'none' }}>
-              ⚠ 开启后，你的账单备注原文将随统计数据一起发送至智谱 AI 进行分析；请勿在备注中记录密码、证件号等敏感信息。
+              {s.aiIncludeNotes
+                ? `⚠ 开启后，你的账单备注原文将随统计数据一起发送至智谱 AI 进行分析${s.aiMask !== false ? '（其中手机号/身份证/银行卡号会先自动打码）' : '；请勿在备注中记录密码、证件号等敏感信息'}。`
+                : '⚠ 已关闭脱敏：账单统计中的文本（备注除外）将原样发送给 AI。'}
+              截图识别（小票/支付页）为原图上传，无法自动脱敏，请注意截图内容。
             </div>
           )}
         </div>

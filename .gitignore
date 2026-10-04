@@ -20,3 +20,10 @@ android/app/release/
 *.jks
 android/app/keystore.properties
 .idea/
+
+# 会话本地产物（不发布）
+.e2e/
+.vscode/
+.zcode/
+diag-out.txt
+docs/README-v1.md.bak

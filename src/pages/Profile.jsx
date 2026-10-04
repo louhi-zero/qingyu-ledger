@@ -6,6 +6,9 @@ import { AvatarFace, useMediaActions, useTheme } from '../theme.jsx'
 import { useUpdate } from '../update-ctx.jsx'
 import { APP_VERSION } from '../update.js'
 import { getWebdavCfg } from '../userarchive.js'
+import { openFeedback } from '../feedback.js'
+import { openExternal, LINKS } from '../links.js'
+import { Icon, BRAND_COLORS } from '../ui/icons.jsx'
 import { bookkeepingDays, streakOf, txsOfLedger } from '../utils.js'
 
 const JGY_LOGIN_URL = 'https://www.jianguoyun.com/d/login'
@@ -20,8 +23,6 @@ export default function Profile() {
   const [avatarOpen, setAvatarOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
-  const [fbOpen, setFbOpen] = useState(false)
-  const [fbText, setFbText] = useState('')
   const [busy, setBusy] = useState(false)
   const [name, setName] = useState(state.settings.nickname)
 
@@ -58,7 +59,7 @@ export default function Profile() {
   }
   // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
   const { palette } = useTheme()
-  const headGlows = palette.length ? palette : ['#5b8cff', '#7a6bff', '#42a5f5']
+  const headGlows = palette.length ? palette : ['#3bc98c', '#38b6c9', '#45c4e0']
 
   const punch = () => {
     const today = new Date().toLocaleDateString('sv')
@@ -143,9 +144,9 @@ export default function Profile() {
             <div className="cmain"><div className="ctitle">设置</div><div className="cdesc">外观 · 记账偏好 · 数据与安全</div></div>
             <div className="cright arrow">›</div>
           </div>
-          <div className="cell" onClick={() => setFbOpen(true)}>
+          <div className="cell" onClick={() => openFeedback()}>
             <div className="cico c-green">💬</div>
-            <div className="cmain"><div className="ctitle">意见反馈</div><div className="cdesc">说说你的建议或遇到的问题</div></div>
+            <div className="cmain"><div className="ctitle">意见反馈</div><div className="cdesc">在线表单填写建议或 bug，完成后按返回键回到应用</div></div>
             <div className="cright arrow">›</div>
           </div>
           <div className="cell" onClick={() => setAboutOpen(true)}>
@@ -209,9 +210,24 @@ export default function Profile() {
       {/* 关于 */}
       <Sheet open={aboutOpen} onClose={() => setAboutOpen(false)} title="关于">
         <div className="center-box" style={{ padding: '10px 0' }}>
-          <div style={{ fontSize: 52 }}>📖</div>
+          <div style={{ fontSize: 52, lineHeight: 1 }}><Icon name="book2" size={52} color="var(--brand)" /></div>
           <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>轻语记账</div>
           <div className="muted">v{APP_VERSION} · 全功能免费</div>
+          {/* v2.5 作者社交入口（与发现页作者卡一致） */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12 }}>
+            <button className="slink" title="小黑盒" aria-label="小黑盒主页" onClick={() => openExternal(LINKS.xiaoheihe.url)}>
+              <Icon name="deviceGamepad" size={18} color={BRAND_COLORS.xiaoheihe} />
+            </button>
+            <button className="slink" title="B站" aria-label="B站主页" onClick={() => openExternal(LINKS.bilibili.url, LINKS.bilibili.scheme)}>
+              <Icon name="bilibili" size={18} color={BRAND_COLORS.bilibili} />
+            </button>
+            <button className="slink" title="抖音" aria-label="抖音主页" onClick={() => openExternal(LINKS.douyin.url)}>
+              <Icon name="tiktok" size={18} color={BRAND_COLORS.tiktok} />
+            </button>
+            <button className="slink" title="加入闲聊群" aria-label="加入QQ群" onClick={() => openExternal(LINKS.qqGroup.url)}>
+              <Icon name="brandQq" size={18} color={BRAND_COLORS.tencentqq} />
+            </button>
+          </div>
         </div>
         <div className="card" style={{ background: 'var(--card2)', boxShadow: 'none' }}>
           <div style={{ fontSize: 13, lineHeight: 2 }}>
@@ -243,28 +259,7 @@ export default function Profile() {
         )}
       </Sheet>
 
-      {/* 反馈 */}
-      <Sheet open={fbOpen} onClose={() => setFbOpen(false)} title="意见反馈">
-        <textarea className="input" value={fbText} onChange={(e) => setFbText(e.target.value)} placeholder="说说你的建议或遇到的问题（仅保存在本机）" />
-        <button className="btn" style={{ marginTop: 12 }} onClick={() => {
-          if (!fbText.trim()) { toast('写点什么再提交吧', 'err'); return }
-          set((d) => { d.feedbacks.unshift({ text: fbText.trim(), at: new Date().toISOString() }) })
-          setFbText('')
-          setFbOpen(false)
-          toast('已收到你的反馈，感谢支持！')
-        }}>提交反馈</button>
-        {state.feedbacks?.length > 0 && (
-          <>
-            <div className="hr" />
-            <div className="muted" style={{ marginBottom: 6 }}>历史反馈（{state.feedbacks.length}）</div>
-            {state.feedbacks.slice(0, 5).map((f, i) => (
-              <div className="tagrow" key={i} style={{ marginBottom: 6 }}>
-                <span className="tag">{f.text.slice(0, 20)} · {f.at.slice(0, 10)}</span>
-              </div>
-            ))}
-          </>
-        )}
-      </Sheet>
+      {/* v2.5 意见反馈改为应用内嵌腾讯文档收集表（pages/Feedback.jsx），旧本地反馈 Sheet 移除 */}
     </>
   )
 }

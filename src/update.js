@@ -17,7 +17,7 @@
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '2.4'
+export const APP_VERSION = '2.5'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -346,11 +346,20 @@ export async function getUpdateBridge() {
     return window.__qyUpdateBridge
   }
   if (!bridgePromise) {
+    // 【严重修复】同 notifyCatch.getNotifyCatch：插件代理是 thenable，绝不能作为 Promise
+    // 结算值（async return / .then 回调返回都会扁平化挂死，真机上原生下载/安装桥失效），
+    // 包非 thenable 门面规避。
     bridgePromise = (async () => {
       try {
         const { registerPlugin, Capacitor } = await import('@capacitor/core')
         if (Capacitor.getPlatform() !== 'android') return null
-        return registerPlugin('AppUpdate')
+        const proxy = registerPlugin('AppUpdate')
+        return new Proxy({}, {
+          get(_t, prop, recv) {
+            if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
+            return Reflect.get(proxy, prop, proxy)
+          },
+        })
       } catch {
         return null
       }

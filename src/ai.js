@@ -6,13 +6,15 @@
  *   3. 浏览器：直连 fetch（智谱若拦截 CORS，会给出使用桌面版/APK 的中文引导）
  *
  * 隐私：API Key/模型/BaseURL 仅存本机 localStorage（qingyu_ai_cfg_v1），
- * 不进入云备份快照；备注是否上传由 settings.aiIncludeNotes 控制。
+ * 不进入云备份快照；备注是否上传由 settings.aiIncludeNotes 控制；
+ * v2.5 起上传前默认脱敏（settings.aiMask，手机号/身份证/银行卡打码；截图识别为原图无法打码）。
  * 金额口径：只读取 utils 已 round2 的数值用于展示，AI 不参与任何金额计算。
  */
 import {
   round2, sumBy, statByCategory, catInfo, findCat, accountById,
   txsOfLedger, txsInRange, txsOfPeriod, periodBounds, periodAdd, periodLabel,
   yearBounds, addDays, parseD, todayStr, pad2, parseTxTextLocal, guessCategoryId,
+  maskSensitive,
 } from './utils.js'
 
 // ---------- 本机配置（不云同步） ----------
@@ -378,12 +380,27 @@ function buildYear(state, year, sd, ledgerName, includeNotes) {
   }
 }
 
-export function buildStatsPayload(state, scope, includeNotes = true) {
+// ---------- v2.5 AI 上传脱敏 ----------
+// 载荷里所有字符串递归过 maskSensitive（手机号/身份证/银行卡打码，金额不动），
+// 关闭时（settings.aiMask === false）原样上传。
+function deepMask(v) {
+  if (typeof v === 'string') return maskSensitive(v)
+  if (Array.isArray(v)) return v.map(deepMask)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v)) out[k] = deepMask(v[k])
+    return out
+  }
+  return v
+}
+
+export function buildStatsPayload(state, scope, includeNotes = true, mask = true) {
   const sd = state.settings.monthStartDay || 1
   const ledgerName = state.ledgers.find((l) => l.id === state.currentLedgerId)?.name || '默认账本'
-  return scope.kind === 'year'
+  const payload = scope.kind === 'year'
     ? buildYear(state, scope.key, sd, ledgerName, includeNotes)
     : buildMonth(state, scope.key, sd, ledgerName, includeNotes)
+  return mask ? deepMask(payload) : payload
 }
 
 // ---------- Prompt 组装 ----------
@@ -423,7 +440,8 @@ function composeAttrsPrompt(attrs) {
 
 export function buildMessages(state, scope) {
   const custom = (state.settings.aiCustomStyle || '').trim()
-  const payload = buildStatsPayload(state, scope, state.settings.aiIncludeNotes !== false)
+  // v2.5 上传脱敏：默认开启（settings.aiMask !== false），手机号/身份证/银行卡进模型前打码
+  const payload = buildStatsPayload(state, scope, state.settings.aiIncludeNotes !== false, state.settings.aiMask !== false)
   const system = [SYS_BASE, activeStylePrompt(state.settings), custom ? `额外风格要求：${custom}` : '']
     .filter(Boolean).join('\n')
   const task = scope.kind === 'year' ? NARR_TASK_YEAR : NARR_TASK_MONTH
@@ -650,11 +668,14 @@ const NOTIFY_PARSE_SYS = [
 ].join('\n')
 
 export async function aiParseNotify(cfg, title, text, { signal } = {}) {
+  // v2.5 上传脱敏：门控与解析语义不依赖手机号/证件号，进模型前把高敏数字串打码（金额保留）
+  const safeTitle = cfg.mask !== false ? maskSensitive(title) : title
+  const safeText = cfg.mask !== false ? maskSensitive(text) : text
   const body = JSON.stringify({
     model: cfg.model,
     messages: [
       { role: 'system', content: NOTIFY_PARSE_SYS },
-      { role: 'user', content: `通知标题：${String(title || '').slice(0, 40)}\n通知内容：${String(text || '').slice(0, 120)}` },
+      { role: 'user', content: `通知标题：${String(safeTitle || '').slice(0, 40)}\n通知内容：${String(safeText || '').slice(0, 120)}` },
     ],
     stream: false,
     temperature: 0.1,

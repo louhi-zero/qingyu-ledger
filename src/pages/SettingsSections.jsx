@@ -10,8 +10,9 @@ import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
 import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs, useTheme } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { DISCOVER_TOOLS } from './Discover.jsx'
-import { getNotifyCatch, isNotifyListening, openNotifySettings, testNotifyEmit, enqueuePendingSample } from '../notifyCatch.js'
-import { getA11yStatus, openA11ySettings, testA11yEmit, enqueuePendingSample as enqueueA11ySample } from '../a11ycatch.js'
+import { Icon } from '../ui/icons.jsx'
+import { getNotifyCatch, isNotifyListening, openNotifySettings } from '../notifyCatch.js'
+import { getA11yStatus, openA11ySettings } from '../a11ycatch.js'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify } from '../utils.js'
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
@@ -233,12 +234,21 @@ function AppearanceSection({ ctx }) {
       <div className="group">
         <div className="gtitle">液态玻璃</div>
         <div className="cell" onClick={() => set((d) => { d.settings.glassOn = !d.settings.glassOn })}>
-          <div className="cico">🧊</div>
+          <div className="cico"><Icon name="droplet" size={20} color="var(--brand)" /></div>
           <div className="cmain">
             <div className="ctitle">液态玻璃效果</div>
             <div className="cdesc">半透明磨砂材质与主色晕光，低端机可关闭省电</div>
           </div>
           <div className="cright"><Switch on={s.glassOn} onChange={() => set((d) => { d.settings.glassOn = !d.settings.glassOn })} /></div>
+        </div>
+        {/* v2.5 字体跟随系统 */}
+        <div className="cell" onClick={() => set((d) => { d.settings.sysFont = d.settings.sysFont === false ? true : false })}>
+          <div className="cico"><Icon name="typography" size={20} color="var(--brand)" /></div>
+          <div className="cmain">
+            <div className="ctitle">字体跟随系统</div>
+            <div className="cdesc">使用系统当前字体渲染（关=通用无衬线栈）</div>
+          </div>
+          <div className="cright"><Switch on={s.sysFont !== false} onChange={() => set((d) => { d.settings.sysFont = d.settings.sysFont === false ? true : false })} /></div>
         </div>
         {s.glassOn && (
           <div className="cell range-cell">
@@ -324,7 +334,7 @@ function AppearanceSection({ ctx }) {
       <div className="group">
         <div className="gtitle">点击反馈</div>
         <div className="cell" onClick={() => set((d) => { d.settings.tapScale = d.settings.tapScale === false })}>
-          <div className="cico">�</div>
+          <div className="cico">👆</div>
           <div className="cmain">
             <div className="ctitle">按压缩放动画</div>
             <div className="cdesc">点按按钮与列表项时的轻微缩放反馈</div>
@@ -375,6 +385,14 @@ function AiSection({ ctx, nav }) {
       />
       <div className="group">
         <div className="gtitle">分析偏好</div>
+        <div className="cell" onClick={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })}>
+          <div className="cico">🛡️</div>
+          <div className="cmain">
+            <div className="ctitle">上传前脱敏</div>
+            <div className="cdesc">手机号/身份证/银行卡号自动打码后再发给 AI（金额不受影响）</div>
+          </div>
+          <div className="cright"><Switch on={s.aiMask !== false} onChange={() => set((d) => { d.settings.aiMask = d.settings.aiMask === false ? true : false })} /></div>
+        </div>
         <div className="cell" onClick={() => set((d) => { d.settings.aiIncludeNotes = !d.settings.aiIncludeNotes })}>
           <div className="cico">📝</div>
           <div className="cmain">
@@ -536,20 +554,6 @@ function NotifySection({ ctx }) {
     else toast('无法打开系统设置页', 'err')
   }
 
-  // 端到端测试：原生注入一条模拟微信收款通知 → 真实监听链路 → 解析 → 确认弹窗
-  const runNativeTest = async () => {
-    const ok = await testNotifyEmit({ title: '微信支付', text: '微信支付收款0.01元，可在账单详情查看', pkg: 'com.tencent.mm' })
-    toast(ok ? '已发送测试通知，应弹出确认记账窗' : '原生通道不可用', ok ? 'ok' : 'err')
-  }
-
-  // v2.0.2 离线补弹测试：模拟 App 被杀时收到的通知（写入持久化队列）→ 立即触发消费补弹
-  const runPendingTest = async () => {
-    const ok = await enqueuePendingSample({ title: '支付宝', text: '支付宝消费成功，实付8.80元', pkg: 'com.eg.android.AlipayGphone' })
-    if (!ok) { toast('原生通道不可用', 'err'); return }
-    toast('已写入暂存队列，正在触发补弹…', 'ok')
-    setTimeout(() => window.dispatchEvent(new Event('qy-consume-pending')), 600)
-  }
-
   // 解析沙盒：任意环境可用，验证文案识别规则
   const runSandbox = () => {
     const p = parseMoneyNotify('通知测试', sandbox, '')
@@ -574,19 +578,6 @@ function NotifySection({ ctx }) {
   }
 
   // v2.1 端到端测试：原生注入一次模拟支付页事件 → a11y 事件通道 → 解析 → 确认弹窗
-  const runA11yTest = async () => {
-    const ok = await testA11yEmit()
-    toast(ok ? '已注入模拟支付页（瑞幸咖啡 ¥25.00），应弹出确认记账窗' : '原生通道不可用', ok ? 'ok' : 'err')
-  }
-
-  // v2.1 支付页补弹测试：模拟 App 被杀时捕获的页面（写入持久化队列）→ 触发消费补弹
-  const runA11yPendingTest = async () => {
-    const ok = await enqueueA11ySample()
-    if (!ok) { toast('原生通道不可用', 'err'); return }
-    toast('已写入暂存队列，正在触发补弹…', 'ok')
-    setTimeout(() => window.dispatchEvent(new Event('qy-consume-pending')), 600)
-  }
-
   return (
     <>
       <div className="group">
@@ -641,27 +632,6 @@ function NotifySection({ ctx }) {
             </div>
           </div>
         )}
-        {s.notifyCatch && nativeOk && (
-          <div className="cell" onClick={runNativeTest}>
-            <div className="cico">🧪</div>
-            <div className="cmain">
-              <div className="ctitle">发送测试通知</div>
-              <div className="cdesc">注入一条 0.01 元模拟收款，验证监听→解析→弹窗全链路</div>
-            </div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-        )}
-        {/* v2.0.2 离线补弹测试：验证 App 被杀场景的漏单修复 */}
-        {s.notifyCatch && nativeOk && (
-          <div className="cell" onClick={runPendingTest}>
-            <div className="cico">📬</div>
-            <div className="cmain">
-              <div className="ctitle">离线补弹测试</div>
-              <div className="cdesc">模拟 App 被杀时收到通知，验证暂存队列自动补弹</div>
-            </div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-        )}
         {/* v2.1 无障碍支付页捕获：替代截图方式，直接读取支付结果页文字 */}
         <div className="cell" onClick={() => toggleA11y()}>
           <div className="cico">🤖</div>
@@ -690,26 +660,6 @@ function NotifySection({ ctx }) {
             </div>
           </div>
         )}
-        {s.accessibilityCatch && nativeOk && (
-          <div className="cell" onClick={runA11yTest}>
-            <div className="cico">🧪</div>
-            <div className="cmain">
-              <div className="ctitle">支付页捕获测试</div>
-              <div className="cdesc">注入一次模拟支付页事件，验证捕获→解析→弹窗全链路</div>
-            </div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-        )}
-        {s.accessibilityCatch && nativeOk && (
-          <div className="cell" onClick={runA11yPendingTest}>
-            <div className="cico">📮</div>
-            <div className="cmain">
-              <div className="ctitle">支付页补弹测试</div>
-              <div className="cdesc">模拟 App 被杀时捕获的支付页，验证暂存队列自动补弹</div>
-            </div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-        )}
         {/* 识别规则沙盒：浏览器/桌面也能验证文案解析，无需真付款 */}
         <div className="notify-sandbox">
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 6 }}>🔎 文案识别测试（粘贴通知内容，验证能否识别金额与收支方向）</div>
@@ -734,7 +684,7 @@ function NotifySection({ ctx }) {
           <div className="cmain">
             <div className="ctitle">工作方式与隐私</div>
             <div className="cdesc" style={{ lineHeight: 1.7 }}>
-              使用 Android 通知使用权读取微信/支付宝通知原文（含展开文本与会话消息），在本机解析金额与方向后弹窗确认，任何内容不上传；识别不出直接忽略，15 秒内重复通知自动去重。{!nativeOk && '当前为浏览器/桌面环境，监听功能不可用，仅可做文案测试。'}
+              使用 Android 通知使用权读取微信/支付宝通知原文（含展开文本与会话消息），在本机解析金额与方向后弹窗确认，任何内容不上传；配置 AI 兜底解析时，发送给大模型的通知文本会先自动脱敏（手机号/身份证/银行卡号打码）；识别不出直接忽略，15 秒内重复通知自动去重。{!nativeOk && '当前为浏览器/桌面环境，监听功能不可用，仅可做文案测试。'}
             </div>
           </div>
         </div>

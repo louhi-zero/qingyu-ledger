@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { Icon } from '../ui/icons.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet, Empty, Seg, Amount } from '../ui.jsx'
 import { BookIconImg } from '../theme.jsx'
@@ -128,23 +129,26 @@ export default function Home() {
           </div>
           <div className="hm-meta">
             <span>{sumType === 'expense' ? '支出' : '收入'} {filtered.length} 笔{filtered.length !== txs.length ? `（共 ${txs.length} 笔）` : ''}</span>
-            <span>结余 <Amount value={balance} /></span>
+            {/* v2.5 结余为负显示「超支」+ 支出色 + 绝对值（主流记账叫法），避免负数被 Amount 吞成误导性的正数 */}
+            <span style={balance < 0 ? { color: 'var(--expense)' } : undefined}>
+              {balance < 0 ? '超支' : '结余'} <Amount value={Math.abs(balance)} sign={false} />
+            </span>
           </div>
         </div>
 
         {/* 快捷入口 */}
         <div className="quickrow">
           <button className="quick" onClick={() => nav.push({ page: 'budget' })}>
-            <div className="qicon">🎯</div>预算
+            <div className="qicon"><Icon name="targetArrow" size={21} color="var(--brand)" /></div>预算
           </button>
           <button className="quick" onClick={() => nav.push({ page: 'assets' })}>
-            <div className="qicon">🏦</div>资产
+            <div className="qicon"><Icon name="buildingBank" size={21} color="var(--brand)" /></div>资产
           </button>
           <button className="quick" onClick={() => nav.push({ page: 'ledgers' })}>
-            <div className="qicon">📒</div>账本
+            <div className="qicon"><Icon name="book2" size={21} color="var(--brand)" /></div>账本
           </button>
           <button className="quick" onClick={() => nav.push({ page: 'review' })}>
-            <div className="qicon">🪄</div>点评
+            <div className="qicon"><Icon name="wand" size={21} color="var(--brand)" /></div>点评
           </button>
         </div>
 

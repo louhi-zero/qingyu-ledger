@@ -68,7 +68,8 @@ export function Bar({ value, max, danger, warn, height = 10 }) {
 export function Amount({ value, sign, className = '', digits = 2, prefix = '¥' }) {
   const { state } = useStore()
   if (state.settings.hideAmount) return <span className={`blur ${className}`}>{prefix}88.88</span>
-  const s = sign ? (value > 0 ? '+' : value < 0 ? '-' : '') : ''
+  // v2.5 修复：未显式传 sign 时负值也要带负号（旧版 Math.abs 会把 -7 显示成误导性的 ¥7.00）
+  const s = sign ? (value > 0 ? '+' : value < 0 ? '-' : '') : (value < 0 ? '-' : '')
   return <span className={className}>{s}{prefix}{fmt(Math.abs(value), digits)}</span>
 }
 

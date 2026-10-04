@@ -18,7 +18,9 @@ import SettingsSections from './pages/SettingsSections.jsx'
 import NotifyCatchSheet from './NotifyCatchSheet.jsx'
 import NoticeModal from './NoticeModal.jsx'
 import { UpdateProvider, UpdateFloat, UpdatePrompt } from './update-ctx.jsx'
+import { Icon } from './ui/icons.jsx'
 import { getNotice, importantPending, loadConfirmed, noticeKey, addConfirmed } from './notice.js'
+import { loadAiCfg } from './ai.js'
 import { startNotifyCatch, stopNotifyCatch, makeNotifyHandler, fetchPendingNotifies, removePendingNotifies } from './notifyCatch.js'
 import { startA11yCatch, stopA11yCatch, makeA11yHandler, fetchPendingPages, removePendingPages } from './a11ycatch.js'
 import CategoryManage from './pages/CategoryManage.jsx'
@@ -26,6 +28,7 @@ import CloudBackup from './pages/CloudBackup.jsx'
 import AddTx from './pages/AddTx.jsx'
 import AiInsight from './pages/AiInsight.jsx'
 import AiSettings from './pages/AiSettings.jsx'
+import Support from './pages/Support.jsx'
 import Reimburse from './pages/Reimburse.jsx'
 import Templates from './pages/Templates.jsx'
 import CreditCards from './pages/CreditCards.jsx'
@@ -48,7 +51,7 @@ const TAB_PAGES = {
 }
 
 // 底部菜单默认图标（设置-外观-底部菜单图标 可自定义）
-export const DEFAULT_TAB_ICONS = { home: '📒', charts: '📊', discover: '🧭', profile: '👤' }
+export const DEFAULT_TAB_ICONS = { home: 'wallet', charts: 'chartBar', discover: 'compass', profile: 'user' }
 
 const SUB_PAGES = {
   budget: Budget,
@@ -61,6 +64,7 @@ const SUB_PAGES = {
   fx: FxConverter,
   invoice: Invoices,
   settings: Settings,
+  support: Support,
   settingsSection: SettingsSections,
   category: CategoryManage,
   cloud: CloudBackup,
@@ -90,7 +94,7 @@ const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {} }) {
             <span className="tico">
               {tabImgs[key]
                 ? <img src={tabImgs[key]} alt="" decoding="async" draggable={false} />
-                : DEFAULT_TAB_ICONS[key]}
+                : <Icon name={DEFAULT_TAB_ICONS[key]} size={22} color={tab === key ? 'var(--brand)' : 'var(--ink2)'} />}
             </span>
             <span>{cfg.title}</span>
           </button>
@@ -177,8 +181,22 @@ function Shell() {
   const pushCaught = useCallback((item) => {
     if (item) setCaughtQueue((q) => [...q, item])
   }, [])
+  // 离线副本清理：弹窗确认/忽略或去重命中后，同时清通知队列与支付页队列（双通道合流同一弹窗）
+  const removeCaughtKey = useCallback((key) => {
+    if (!key) return
+    removePendingNotifies([key])
+    removePendingPages([key])
+  }, [])
+  // v2.5 AI 兜底上传脱敏跟随主设置（ref 桥接最新值，规避 handler 创建时的 state 快照陷阱）
+  const aiMaskRef = useRef(true)
+  aiMaskRef.current = state.settings.aiMask !== false
   const notifyHandlerRef = useRef(null)
-  if (!notifyHandlerRef.current) notifyHandlerRef.current = makeNotifyHandler(pushCaught)
+  if (!notifyHandlerRef.current) {
+    notifyHandlerRef.current = makeNotifyHandler(pushCaught, {
+      onCleanup: removeCaughtKey,
+      loadCfg: () => ({ ...loadAiCfg(), mask: aiMaskRef.current }),
+    })
+  }
   // v2.1 无障碍通道复用同一管线（跨通道金额去重依赖同一实例）
   const a11yHandlerRef = useRef(null)
   if (!a11yHandlerRef.current) a11yHandlerRef.current = makeA11yHandler(pushCaught, { notifyHandler: notifyHandlerRef.current })
@@ -187,9 +205,9 @@ function Shell() {
   caughtQueueRef.current = caughtQueue
   const closeCaught = useCallback(() => {
     const head = caughtQueueRef.current[0]
-    if (head?.key) removePendingNotifies([head.key])
+    if (head?.key) removeCaughtKey(head.key)
     setCaughtQueue((q) => q.slice(1))
-  }, [])
+  }, [removeCaughtKey])
   useEffect(() => {
     if (!state.settings.notifyCatch) return undefined
     let alive = true
@@ -214,14 +232,14 @@ function Shell() {
           const items = await fetchPendingNotifies()
           if (!alive) return
           for (const it of items) {
-            await notifyHandlerRef.current({ key: it.key, title: it.title, text: it.text, pkg: it.pkg, ts: it.ts })
+            await notifyHandlerRef.current({ key: it.key, title: it.title, text: it.text, pkg: it.pkg, ts: it.ts, test: !!it.test })
           }
         }
         if (state.settings.accessibilityCatch) {
           const pages = await fetchPendingPages()
           if (!alive) return
           for (const it of pages) {
-            await a11yHandlerRef.current({ key: it.key, sig: it.sig, pkg: it.pkg, ts: it.ts, texts: it.texts })
+            await a11yHandlerRef.current({ key: it.key, sig: it.sig, pkg: it.pkg, ts: it.ts, texts: it.texts, test: !!it.test })
           }
         }
       } catch { /* 消费失败不影响实时链路 */ }

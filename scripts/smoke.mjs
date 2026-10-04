@@ -121,6 +121,9 @@ app.whenReady().then(async () => {
       const s = JSON.parse(localStorage.getItem(k) || 'null')
       if (!s) return 'no-state'
       s.settings.welcomed = true
+      // v2.5 迁移适配：预置为「已见过 v2.5 玻璃迁移且手动关闭」的老用户，保证玻璃场景从 off 起步
+      s.settings.glassOnV25 = true
+      s.settings.glassOn = false
       localStorage.setItem(k, JSON.stringify(s))
       localStorage.setItem('qingyu_sync_cfg_v1', JSON.stringify({ url: 'http://127.0.0.1:9/dav/qingyu/backup.json', username: '', password: '' }))
       localStorage.setItem('qingyu_splash_off', '1')

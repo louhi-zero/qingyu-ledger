@@ -1,99 +1,224 @@
-# 轻语记账 QingYu Ledger
+<div align="center">
 
-> 隐私优先的轻量记账 App —— 数据只留本机，三秒记完一笔账
+<img src="public/icon-512.png" width="96" alt="轻语记账 logo" />
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-1.6.4-4c7dff)
+# 轻语记账 · Qingyu Ledger
 
-一款本地优先的个人记账应用：Android 手机端（Capacitor 打包 APK）+ Windows 桌面端（Electron），同一套代码双端运行，账单数据通过坚果云在设备间同步。
+**把每一笔钱，轻轻说清楚。**
 
-## ✨ 功能亮点
+一款开源免费的极简记账 App —— 记账只要三秒，看得清每一分钱。
 
-**记账核心**
-- 支出 / 收入 / 转账三种类型，多账本管理
-- 交易标签、报销管理、记账模板、附件照片
-- 熬夜归属：凌晨 0–5 点记账默认算前一天（记「昨晚」更顺手）
-- 自定义数字键盘，两档小数位限制，纯整数金额运算避免浮点误差
+[![Release](https://img.shields.io/github/v/release/louhi-zero/qingyu-ledger?style=flat-square&color=3bc98c)](https://github.com/louhi-zero/qingyu-ledger/releases)
+[![License](https://img.shields.io/badge/License-GPL--3.0-3bc98c?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B-38b6c9?style=flat-square)](https://github.com/louhi-zero/qingyu-ledger/releases)
+[![Stack](https://img.shields.io/badge/Stack-React%2018%20·%20Vite%205%20·%20Capacitor%207-6b93ff?style=flat-square)](#-技术栈)
+[![Tests](https://img.shields.io/badge/Tests-570%2B%20pass-22b573?style=flat-square)](#-测试与质量)
 
-**智能化**
-- 智能填单：一句话记一笔（GLM 解析 + 本地正则兜底，无 Key 也能用）
-- 扫票 OCR：GLM-4V 识别小票，原图自动存为附件
-- AI 月度 / 年度账单解读（智谱 GLM，流式输出，API Key 仅保存在本机）
+[下载安装](#-安装) · [核心功能](#-核心功能) · [界面预览](#-界面预览) · [从源码构建](#-从源码构建) · [赞助与鸣谢](#-赞助与鸣谢)
 
-**资产体系**
-- 账户 / 信用卡（账单日、还款日、应还提醒）/ 债务 / 储蓄目标
-- 多币种：汇率表 + 换算器，账本按基础币种折算
-- 净资产趋势：每日快照 + 30 天 SVG 曲线
+**镜像仓库：** [Gitee](https://gitee.com/louhi-zero/qingyu-ledger) · [GitCode](https://gitcode.com/louhi-zero/qingyu-ledger) · [AtomGit](https://atomgit.com/louhi-zero/qingyu-ledger)
 
-**统计与预算**
-- 月 / 年账单视图，手写 SVG 图表（零图表库依赖）
-- 分类占比、同比环比、周视图（周一起始）、自定义账期（每月 1–28 日起始）
-- 预算监控与超支提醒、AI 账单点评
+</div>
 
-**通知监控（Android）**
-- 读取微信 / 支付宝的收支通知，解析金额后弹窗确认入账（**不静默记账**）
-- 需在系统「通知使用权」中手动授权，可随时关闭
+---
 
-**数据安全**
-- 回收站：删除账单 30 天内可恢复，附件一并保留
-- 坚果云 WebDAV 云同步：行级合并、乐观锁防覆盖、冲突副本保留
-- 全量备份 / 恢复（JSON 信封格式，兼容旧版本）
-- 月账单 PDF 导出、每日记账提醒（本地通知）
+## 📑 目录
 
-**界面体验**
-- 液态玻璃 UI：壁纸晕光 + 毛玻璃材质，可一键开关（关闭省电）
-- 深色模式、点击反馈（按压缩放 + 8ms 轻震动）
-- 二级设置菜单，430px 手机壳式布局
+- [核心亮点](#-核心亮点)
+- [界面预览](#-界面预览)
+- [核心功能](#-核心功能)
+- [安装](#-安装)
+- [从源码构建](#-从源码构建)
+- [项目结构](#-项目结构)
+- [技术栈](#-技术栈)
+- [测试与质量](#-测试与质量)
+- [隐私承诺](#-隐私承诺)
+- [赞助与鸣谢](#-赞助与鸣谢)
+- [贡献指南](#-贡献指南)
+- [许可证](#-许可证)
 
-## 📱 下载安装
+## 🚀 核心亮点
 
-| 平台 | 获取方式 |
+| 痛点 | 轻语的答案 |
 |---|---|
-| Android | [Releases](../../releases) 下载 `qingyu-*-android.apk`，允许安装未知来源应用后覆盖安装，数据自动保留 |
-| Windows | [Releases](../../releases) 下载桌面安装包，或本地 `npm run desktop:build` 构建 |
+| 记一笔要填一堆字段 | **三秒记一笔**：金额 → 分类 → 完成，备注/标签/附件全部可选 |
+| 不想手动记账 | **微信/支付宝收支自动捕获**：通知监听 + 无障碍支付页识别，弹出确认窗一键入账，App 被杀也不漏单 |
+| 看不懂报表 | **图表页**：周/月/年三档、分类占比、排行榜，负结余自动标红「超支」 |
+| 数据在别人手里 | **数据默认仅存本机**，WebDAV 云同步走你自己的坚果云，不上传任何第三方 |
+| 想让 AI 点评账单 | **自带智谱 AI 集成**：填入自己的 API Key 即可生成风格化账单解读，上传前自动脱敏 |
 
-## 🛠 技术栈
+## 📸 界面预览
 
-- **构建**：Vite 5 + React 18（无 UI 框架，自研 hash 导航 + Context 状态管理）
-- **移动端**：Capacitor 7（仅 Android），本地插件实现通知监听
-- **桌面端**：Electron 33
-- **存储**：localStorage（结构化数据）+ IndexedDB（图片/blob 资产），金额以最小货币单位整数存储
-- **图表**：全部手写 SVG，零第三方图表库
+| 首页 · 明细 | 图表 · 月账单 |
+|:---:|:---:|
+| ![home](docs/screenshots/home.png) | ![charts](docs/screenshots/charts.png) |
+| **发现页 · 作者与社区** | **赞助与鸣谢** |
+| ![discover](docs/screenshots/discover.png) | ![support](docs/screenshots/support.png) |
 
-## 🚀 本地开发
+## 🧩 核心功能
+
+### ✍️ 记账
+- **三秒记一笔**：大键盘数字区 + 分类宫格，支持备注、标签（≤6 个）、小票附件拍照留存
+- **智能填单**：一句话记账「午饭 25 块」自动解析金额与分类
+- **报销管理**：待报销/已报销视图，核销自动生成到账收入
+- **周期记账**：工资房租这类固定收支自动入账
+- **账单导入**：微信/支付宝 CSV 导入，自动去重
+- **转账与多账户**：现金/银行卡/微信/支付宝/自定义账户，账户间转账独立通道
+- **熬夜归属**：0-5 点记账可归前一天，夜猫子友好
+
+### 🤖 微信 / 支付宝收支监控（Android）
+- **通知监听**：读取微信/支付宝支付通知，解析金额与收支方向后弹窗确认（不静默自动记账）
+- **无障碍支付页捕获**：直接读取支付结果页文字，金额/收款方/交易时间自动填好，无需截图
+- **离线不漏单**：App 被杀期间的通知持久化暂存，下次启动自动补弹
+- **AI 兜底解析**：本地规则认不出的转账消息交给大模型，上传文本自动脱敏（手机号/身份证/银行卡打码）
+- **截图识别**：通知没有金额时，GLM-4V 读支付截图补齐
+
+### 📊 图表与洞察
+- 周/月/年三档视图，结余/支出/收入三指标切换
+- 支出分类占比环图、排行榜、每日支出柱状
+- 环比/同比提示（支出升红降绿）
+- **AI 账单分析**：智谱大模型月度/年度解读，四种回复风格（温柔鼓励/犀利毒舌/专业财务师/俏皮可爱）+ 角色扮演
+- **消费点评**：一键生成一段话点评与可执行建议，可存档回看
+
+### 🎯 预算与资产
+- 总预算 + 分类预算，超支前三色预警
+- 资产管家：账户/负债/净资产总览，每日净值快照趋势线
+- 信用卡账单日/额度管理、房贷计算器、汇率换算、发票助手
+
+### 🎨 个性化
+- **透明液态玻璃**：半透明磨砂 + 壁纸主色晕光（26s 漂移动画），模糊强度 8-28 可调
+- **字体跟随系统**：与系统字体保持一致
+- 自定义壁纸、启动页背景、账本封面
+- 底部菜单与发现页入口支持自定义图片图标
+- 深色模式、金额模糊（防窥）、按压缩放 + 四档震动反馈
+
+### 🛡️ 数据与同步
+- 账单数据本机存储（localStorage + IndexedDB 二进制库）
+- **WebDAV 云同步**：坚果云一键填入引导，双端自动合并（LWW 冲突解决），断网不影响记账
+- 云备份头像/壁纸/资产元数据
+- 回收站：删除账单保留 30 天可恢复
+- 全量 JSON 备份/恢复、CSV 导出
+
+## 📦 安装
+
+| 要求 | 说明 |
+|---|---|
+| 系统 | Android 7.0（API 24）及以上 |
+| 安装包 | 4-5 MB · 免费无广告 · 无任何跟踪 |
+
+**下载渠道：**
+
+1. **GitHub Releases（推荐）**：[latest release](https://github.com/louhi-zero/qingyu-ledger/releases/latest) 下载 `qingyu-v*-android.apk`
+   - 应用内也会自动检查更新（断点续传 + SHA-256 校验），无需手动盯版
+2. **源码构建**：见[下一节](#-从源码构建)
+
+> 安装时如提示「未知来源」，允许一次即可；应用不申请通讯录/位置等敏感权限。
+
+## 🔨 从源码构建
+
+| 前置要求 | 版本 |
+|---|---|
+| Node.js | ≥ 18 |
+| JDK | 17 或 21 |
+| Android SDK | Platform 35 + Build-Tools 35 |
 
 ```bash
-npm install        # 安装依赖
-npm run dev        # 启动开发服务器（手机壳预览）
-npm run build      # 生产构建
-npm run desktop:build  # Windows 桌面安装包
+git clone https://github.com/louhi-zero/qingyu-ledger.git
+cd qingyu-ledger
+npm install
+
+npm run build          # 纯 Web 构建（dist/）
+npm run dev            # 本地开发预览
+npm run android:build  # Web 构建 + Capacitor 同步
+
+cd android
+./gradlew assembleRelease   # 产出 android/app/build/outputs/apk/release/
 ```
 
-测试命令：
+| 常用命令 | 说明 |
+|---|---|
+| `npm run test:unit` | 单元测试 362 项 |
+| `npm run test:notify` | 收支监控深度测试 106 项 |
+| `npm run test:ai` | AI 模块测试 18 项 |
+| `npm run test:sync` | 云同步测试 32 项 |
+| `npm run test:smoke` | Electron UI 冒烟 142 项 |
+| `npm run desktop` | Electron 桌面版开发预览 |
 
-```bash
-npm run test:unit   # 纯函数单元测试（24 项）
-npm run test:sync   # 云同步合并回归（23 项断言）
-npm run test:smoke  # Electron 集成冒烟（25 项断言）
+> CI 说明：推送 `v*` tag 自动触发 GitHub Actions 云端构建并发布 Release（含 SHA-256 校验文件）。
+
+## 🗂️ 项目结构
+
+```
+qingyu-ledger/
+├── android/                 # Capacitor Android 壳工程
+│   ├── app/src/main/java/com/qingyu/ledger/
+│   │   ├── NotifyCatchService.java    # 通知监听服务（离线队列）
+│   │   ├── NotifyCatchPlugin.java     # Capacitor 桥（实时 emit + 持久化）
+│   │   ├── QyA11yService.java         # 无障碍支付页采集（节流+防抖）
+│   │   ├── QyA11yPlugin.java          # 无障碍桥
+│   │   └── UpdatePlugin.java          # 应用内更新（断点续传+SHA-256）
+│   └── app/src/main/res/xml/          # 无障碍服务配置（锁定微信/支付宝）
+├── public/                  # 静态资源（图标/manifest/sw.js/donate 收款码）
+├── scripts/                 # 测试与工具脚本（unit/notify/ai/sync/smoke/e2e）
+├── src/
+│   ├── pages/               # 页面（Home/Charts/Discover/Profile/Support…）
+│   ├── ui/icons.jsx         # 内联 SVG 图标体系（iconify 开源集）
+│   ├── store.jsx            # 全局状态 + migrateState 版本迁移
+│   ├── theme.jsx            # 液态玻璃主题引擎（壁纸主色提取/晕光）
+│   ├── notifyCatch.js       # 通知监听 JS 桥（统一处理器：去重/规则/AI 兜底）
+│   ├── a11ycatch.js         # 无障碍捕获 JS 桥（页面文本→交易要素）
+│   ├── ai.js                # 智谱 AI 集成（SSE 流式/脱敏/GLM-4V）
+│   ├── update.js            # 应用内更新（多源回退/断点续传）
+│   ├── sync.js              # WebDAV 云同步（LWW 合并）
+│   └── utils.js             # 纯函数工具（通知解析/脱敏/导出）
+└── .github/workflows/       # CI（tag 触发云端出 APK）
 ```
 
-## 📦 版本发布
+## 🧰 技术栈
 
-推送 `v*` 标签（如 `v1.6.5`）即自动触发 GitHub Actions：
+- **前端**：React 18 · Vite 5 · 纯 CSS 液态玻璃（无 UI 框架依赖）
+- **移动端**：Capacitor 7（仅 Android）· 自研通知/无障碍/更新三插件
+- **桌面端**：Electron 33（https 白名单 SSE 桥）
+- **AI**：智谱 GLM-4.7-Flash（文本）· GLM-4V-Flash（截图）
+- **测试**：自研断言框架，570+ 项测试全绿
 
-1. 云端构建 Android APK（JDK 21 + Android SDK）
-2. 自动创建 GitHub Release 并附上重命名后的 APK
-3. 自动生成版本变更说明
+## 🧪 测试与质量
 
-配置签名 Secrets（`ANDROID_KEYSTORE` 等，见 workflow 末尾注释）后，可额外产出签名 release APK。
+| 套件 | 数量 | 覆盖 |
+|---|---|---|
+| unit | 362 | 纯函数/组件接线/迁移/更新/主题 |
+| notify | 106 | 通知解析语料/去重策略/原生接线断言 |
+| smoke | 142 | Electron 真实渲染 UI 冒烟 |
+| sync | 32 | WebDAV 合并语义 |
+| ai | 18 | SSE 切包/载荷/风格注入 |
 
-## 🔒 隐私说明
+另有模拟器端到端验证传统：每个发版前在 Android 模拟器做「能弹窗、能入账」的行为级验收（详见 `进度记录.md`）。
 
-- 账单、分类、账户等数据**默认仅存本机**，不上传任何服务器
-- 云备份需用户自行配置坚果云账号，凭据仅存本机
-- AI 功能需用户自行填写 API Key，Key 不随云备份上传、不出本机
-- 通知监控仅解析通知中的金额文本，可在设置中一键关闭
+## 🔒 隐私承诺
+
+- 账单数据**默认仅保存在你的设备**，同步走你自己的 WebDAV 账号
+- 收支监控的通知原文在本机解析，**任何内容不上传**；AI 兜底上传前自动脱敏
+- 无广告、无埋点、无需注册
+
+## 💝 赞助与鸣谢
+
+如果轻语记账帮到了你，欢迎请作者喝杯奶茶 ☕（应用内「发现 → 赞助与鸣谢」可查看收款码）。
+
+感谢每一位[赞助者](src/support.js)与内测用户的支持——名单在应用内持续更新。
+
+**找到作者：** [B站](https://space.bilibili.com/3546602511797107) · [小黑盒](https://www.xiaoheihe.cn/app/user/profile/104962942) · 抖音 · [QQ 群【次元茶馆】](https://qm.qq.com/q/ekDzByBiso)
+
+## 🤝 贡献指南
+
+欢迎 Issue 与 PR：
+
+1. Fork 本仓库并创建特性分支（`git checkout -b feat/xxx`）
+2. 提交前跑通全部测试（`npm run test:unit && npm run test:notify && npm run test:smoke`）
+3. Commit 信息用中文简述（参考现有格式：`feat: 描述` / `fix: 描述`）
+4. 发起 Pull Request 并说明改动动机
 
 ## 📄 许可证
 
-本项目基于 [GPL-3.0-or-later](LICENSE) 许可证开源 —— 任何分发或修改版须以相同许可证开放源代码。
+[GPL-3.0](LICENSE) © [洛希Roxie](https://space.bilibili.com/3546602511797107)
+
+记账虽不能直接实现财务自由，但坚持记、不断改善，一定可以。

@@ -81,7 +81,7 @@ export function emptyState() {
       remindTime: '21:00',
       welcomed: false,
       // v1.1 液态玻璃
-      glassOn: false, // 老用户默认关闭，保持升级前观感
+      glassOn: true, // v2.5 重构：默认开启透明液态玻璃（参考新 UI 观感，设置里可关）
       glassBlur: 16, // 背景模糊半径 px
       wallpaperAt: null, // 自定义壁纸更新时间（null=默认），图片本体在 IndexedDB
       avatarPhotoAt: null, // 头像照片更新时间（null=用 emoji）
@@ -92,6 +92,8 @@ export function emptyState() {
       aiStyleAttrs: { tone: 'gentle', formality: 'balanced', length: 'std', structure: 'para' },
       aiCharName: '', // v1.8.0 角色风格：当前应用的角色名（卡片本体存本机 qingyu_style_cards_v1）
       aiIncludeNotes: true, // 分析时是否附带账单备注原文
+      aiMask: true, // v2.5 AI 上传脱敏（手机号/身份证/银行卡打码），默认开启
+      sysFont: true, // v2.5 字体跟随系统（system-ui 优先），默认开启
       // v1.2 熬夜归属：0 点后（<5 点）记一笔默认算昨天
       nightAcross: false,
       // 个性化：AI 助手形象、启动页背景（tabIcons 为 v1.3 遗留，v1.4.1 起废弃不再使用）

@@ -12,13 +12,21 @@ import { makeNotifyHandler } from './notifyCatch.js'
 
 let proxyPromise = null
 
+// 【严重修复】同 notifyCatch.getNotifyCatch：代理是 thenable，绝不能作为 Promise 结算值
+// （async return / .then 回调返回都会扁平化挂死），包非 thenable 门面规避。
 export function getA11yCatch() {
   if (!proxyPromise) {
     proxyPromise = (async () => {
       try {
         const { registerPlugin, Capacitor } = await import('@capacitor/core')
         if (Capacitor.getPlatform() !== 'android') return null
-        return registerPlugin('A11yCatch')
+        const proxy = registerPlugin('A11yCatch')
+        return new Proxy({}, {
+          get(_t, prop, recv) {
+            if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined
+            return Reflect.get(proxy, prop, proxy)
+          },
+        })
       } catch {
         return null
       }
@@ -183,6 +191,8 @@ function toFen(n) {
 export function pageToNotifyEntry(texts, pkg = '') {
   const list = (Array.isArray(texts) ? texts : [])
     .map((t) => String(t || '').trim())
+    // 千分位归一（支付页大金额「¥1,068.00」→ 1068.00，循环处理百万位）
+    .map((t) => { while (/(\d),(\d{3})(?!\d)/.test(t)) t = t.replace(/(\d),(\d{3})(?!\d)/g, '$1$2'); return t })
     .filter((t) => t && !A11Y_NOISE.test(t))
   if (!list.length) return null
   const joined = list.join(' ')
@@ -263,7 +273,7 @@ export function makeA11yHandler(onCatch, opts = {}) {
       a11ySeenMark(page.sig, page.ts || Date.now())
       const entry = pageToNotifyEntry(page.texts, page.pkg)
       if (!entry) { cleanup(); return }
-      // 合成通知条目进入既有管线（去重/本地规则/AI 兜底/弹窗队列），透传交易要素
+      // 合成通知条目进入既有管线（去重/本地规则/AI 兜底/弹窗队列），透传交易要素与 test 标记
       await notifyHandler({
         key: page.key || '',
         pkg: page.pkg || '',
@@ -271,6 +281,7 @@ export function makeA11yHandler(onCatch, opts = {}) {
         title: entry.title,
         text: entry.text,
         entry,
+        test: !!page.test,
       })
     } catch { /* 单页异常不影响服务 */ }
   }

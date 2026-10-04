@@ -107,7 +107,7 @@ const es = emptyState()
 assert('tapFeedback 默认开启', es.settings.tapFeedback === true)
 assert('tabIconAt 四 key 形状正确', JSON.stringify(normalizeTabIconAt(es.settings.tabIconAt)) === JSON.stringify({ home: null, charts: null, discover: null, profile: null }))
 assert('notifyCatch 默认关闭', es.settings.notifyCatch === false)
-assert('glassOn 默认关闭', es.settings.glassOn === false)
+assert('glassOn 默认开启（v2.5 重构新观感）', es.settings.glassOn === true)
 assert('noticeEnabled 默认开启', es.settings.noticeEnabled === true)
 
 // ---------- 5. Android 权限声明 ----------
@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 30 / 2.4', gradle.includes('versionCode 30') && gradle.includes('versionName "2.4"'))
+assert('版本 versionCode 31 / 2.5', gradle.includes('versionCode 31') && gradle.includes('versionName "2.5"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -229,7 +229,7 @@ assert('服务提取 EXTRA_BIG_TEXT / MessagingStyle',
   notifyJava.includes('EXTRA_BIG_TEXT') && notifyJava.includes('lastMessagingText') && notifyJava.includes('android.messages'))
 assert('断开后主动 requestRebind 自愈', notifyJava.includes('requestRebind'))
 const pluginJava = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/NotifyCatchPlugin.java', import.meta.url), 'utf-8')
-assert('插件提供 testEmit 端到端测试方法', pluginJava.includes('public void testEmit') && pluginJava.includes('emit(title, text, pkg, System.currentTimeMillis())'))
+assert('插件提供 testEmit 端到端测试方法（test 标记跳过去重抑制）', pluginJava.includes('public void testEmit') && pluginJava.includes('emit(title, text, pkg, System.currentTimeMillis(), true)'))
 assert('连接状态变化推 listening 事件', pluginJava.includes('notifyListeners("listening"'))
 assert('caught 事件不做滞留投递（避免打开 App 弹旧账）', pluginJava.includes('notifyListeners("caught", data, false)'))
 const notifyJs = readFileSync(new URL('../src/notifyCatch.js', import.meta.url), 'utf-8')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.4', pkgJson.version === '2.4')
+assert('package.json 版本 2.5', pkgJson.version === '2.5')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.4', APP_VERSION === '2.4')
+assert('update.js 版本单一源为 2.5', APP_VERSION === '2.5')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -873,8 +873,9 @@ assert('Java 队列：pendingList/pendingRemove/pendingEnqueueSample + 50 条上
 assert('JS 队列消费：fetchPendingNotifies/removePendingNotifies + 启动/resume/自定义事件三触发',
   appNotifySrc.includes('fetchPendingNotifies()') && appNotifySrc.includes("App.addListener('resume', consume)")
   && appNotifySrc.includes("addEventListener('qy-consume-pending', consume)"))
-assert('弹窗队列化：caughtQueue + closeCaught 移除离线副本 + 队列长度提示',
-  appNotifySrc.includes('caughtQueue') && appNotifySrc.includes('removePendingNotifies([head.key])')
+assert('弹窗队列化：caughtQueue + closeCaught 移除离线副本（双队列）+ 队列长度提示',
+  appNotifySrc.includes('caughtQueue') && appNotifySrc.includes('removeCaughtKey(head.key)')
+  && appNotifySrc.includes('removePendingPages([key])')
   && ncSheetSrc.includes('待处理'))
 assert('AI 文本兜底接线：makeNotifyHandler（本地规则→AI 兜底→支付语境门控）',
   notifyJs.includes('parseMoneyNotify(n.title, n.text, n.pkg)')
@@ -1049,10 +1050,90 @@ assert('开关接线：seed 默认关闭 + store 迁移兜底',
 assert('App 双通道：共享管线实例 + 实时监听 + 双队列离线消费',
   appNotifySrc.includes('makeA11yHandler(pushCaught, { notifyHandler: notifyHandlerRef.current })')
   && appNotifySrc.includes('startA11yCatch') && appNotifySrc.includes('fetchPendingPages()'))
-assert('设置页：捕获开关/权限状态/两个测试入口 + 分步引导 Sheet（去开启）',
+assert('设置页：捕获开关/权限状态 + 分步引导 Sheet（去开启）',
   sectionsSrc.includes('微信 / 支付宝支付页捕获') && sectionsSrc.includes('无障碍权限')
-  && sectionsSrc.includes('runA11yTest') && sectionsSrc.includes('runA11yPendingTest')
   && sectionsSrc.includes('开启收支自动捕获') && sectionsSrc.includes('openA11ySettings'))
+assert('v2.5 正式版：测试入口已从设置页移除（桥函数保留供测试脚本）',
+  !sectionsSrc.includes('runNativeTest') && !sectionsSrc.includes('runPendingTest')
+  && !sectionsSrc.includes('runA11yTest') && !sectionsSrc.includes('runA11yPendingTest')
+  && !sectionsSrc.includes('发送测试通知') && !sectionsSrc.includes('离线补弹测试')
+  && !sectionsSrc.includes('支付页捕获测试') && !sectionsSrc.includes('支付页补弹测试')
+  && notifyJs.includes('export async function testNotifyEmit'))
+
+// ---------- v2.5 结余/超支显示 ----------
+console.log('v2.5 结余/超支：')
+const homeSrc = readFileSync(new URL('../src/pages/Home.jsx', import.meta.url), 'utf-8')
+const uiSrc = readFileSync(new URL('../src/ui.jsx', import.meta.url), 'utf-8')
+const chartsSrc = readFileSync(new URL('../src/pages/ChartsPage.jsx', import.meta.url), 'utf-8')
+const reviewSrc = readFileSync(new URL('../src/pages/Review.jsx', import.meta.url), 'utf-8')
+const discoverSrc = readFileSync(new URL('../src/pages/Discover.jsx', import.meta.url), 'utf-8')
+assert('Amount 组件：未传 sign 时负值带负号（不再吞成误导性正数）',
+  uiSrc.includes("const s = sign ? (value > 0 ? '+' : value < 0 ? '-' : '') : (value < 0 ? '-' : '')"))
+assert('首页汇总卡：负结余显示「超支」+ 绝对值 + 支出色',
+  homeSrc.includes("{balance < 0 ? '超支' : '结余'}") && homeSrc.includes('Math.abs(balance)')
+  && homeSrc.includes("color: 'var(--expense)'"))
+assert('图表页大数字：负结余 → 「超支」+ 绝对值（表格/曲线数据保留带负号结余）',
+  chartsSrc.includes("bal < 0 ? '超支' : '结余'") && chartsSrc.includes('Math.abs(bal)'))
+assert('点评页三宫格：负结余 → 「超支」+ 绝对值', reviewSrc.includes("r.bal < 0 ? '超支' : '结余'") && reviewSrc.includes('Math.abs(r.bal)'))
+assert('发现页概览：负结余 → 「超支」+ 绝对值', discoverSrc.includes("bal < 0 ? '超支' : '结余'") && discoverSrc.includes('Math.abs(bal)'))
+assert('HTML 分享卡：负结余 → 「超支」+ 绝对值', (await import('../src/utils.js')).buildMonthHtml.toString().includes("inc - exp >= 0 ? '结余' : '超支'")
+  && (await import('../src/utils.js')).buildMonthHtml.toString().includes('Math.abs(inc - exp)'))
+
+// ---------- v2.5 意见反馈：腾讯文档收集表（主 WebView 导航，iframe 被腾讯文档防嵌套拒绝） ----------
+console.log('v2.5 意见反馈内嵌表单：')
+const fbSrc = readFileSync(new URL('../src/feedback.js', import.meta.url), 'utf-8')
+const profileSrcV25 = readFileSync(new URL('../src/pages/Profile.jsx', import.meta.url), 'utf-8')
+const capCfg = readFileSync(new URL('../capacitor.config.json', import.meta.url), 'utf-8')
+assert('feedback.js：链接为用户提供的腾讯文档收集表 + 平台分流（原生主 WebView 导航 / 浏览器新标签）',
+  fbSrc.includes('https://docs.qq.com/form/page/DWXJvZ0pZV3BoREdu')
+  && fbSrc.includes('Capacitor.isNativePlatform()') && fbSrc.includes("window.location.href = FEEDBACK_URL")
+  && fbSrc.includes("window.open(FEEDBACK_URL, '_blank')"))
+assert('capacitor 配置 allowNavigation docs.qq.com（主 WebView 可导航表单域，返回键回应用）',
+  capCfg.includes('"allowNavigation"') && capCfg.includes('docs.qq.com'))
+// ---------- v2.5 社交链接 + 赞助模块 + 主题/字体/图标重构 ----------
+console.log('v2.5 社交/赞助/UI：')
+const linksSrc = readFileSync(new URL('../src/links.js', import.meta.url), 'utf-8')
+const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+const supportDataSrc = readFileSync(new URL('../src/support.js', import.meta.url), 'utf-8')
+const supportPageSrc = readFileSync(new URL('../src/pages/Support.jsx', import.meta.url), 'utf-8')
+const discoverSrcV25 = readFileSync(new URL('../src/pages/Discover.jsx', import.meta.url), 'utf-8')
+const iconsSrc = readFileSync(new URL('../src/ui/icons.jsx', import.meta.url), 'utf-8')
+const themeSrcV25 = readFileSync(new URL('../src/theme.jsx', import.meta.url), 'utf-8')
+assert('links.js：B站/小黑盒/抖音/QQ群链接 + scheme 优先策略（visibility 兑底）',
+  linksSrc.includes('space.bilibili.com/3546602511797107') && linksSrc.includes('bilibili://space/3546602511797107')
+  && linksSrc.includes('xiaoheihe.cn/app/user/profile/104962942') && linksSrc.includes('douyin.com/user/self')
+  && linksSrc.includes('qm.qq.com/q/ekDzByBiso') && linksSrc.includes("document.visibilityState === 'visible'"))
+assert('allowNavigation 增补四域（B站/黑盒/抖音/QQ 中转）',
+  capCfg.includes('space.bilibili.com') && capCfg.includes('www.xiaoheihe.cn')
+  && capCfg.includes('www.douyin.com') && capCfg.includes('qm.qq.com'))
+assert('support.js：赞助名单（id+amount）与内测鸣谢（id）两个维护常量',
+  supportDataSrc.includes('export const SPONSORS') && supportDataSrc.includes('amount: 10')
+  && supportDataSrc.includes('export const TESTERS'))
+assert('Support 页：双收款码 + 放大 Sheet + 名单滚动 + 总额汇总',
+  supportPageSrc.includes('./donate/wechat.png') && supportPageSrc.includes('./donate/alipay.jpg')
+  && supportPageSrc.includes('roll-list') && supportPageSrc.includes('reduce((a, s) => a + Number(s.amount'))
+assert('发现页：作者与社区卡（三社交图标）+ QQ 群入口 + 赞助入口',
+  discoverSrcV25.includes('author-card') && discoverSrcV25.includes('洛希')
+  && discoverSrcV25.includes('加入闲聊群') && discoverSrcV25.includes("page: 'support'"))
+assert('关于 Sheet：作者社交图标行（含 QQ 群）',
+  profileSrcV25.includes('加入闲聊群【') || profileSrcV25.includes('title="加入闲聊群"'))
+assert('图标体系：icons.jsx 内联 SVG + currentColor（32 图标）',
+  iconsSrc.includes('dangerouslySetInnerHTML') && iconsSrc.includes('ICONS = {'))
+assert('tab/快捷宫格/发现页入口已去 emoji（Icon key 化）',
+  appJs.includes("home: 'wallet'") && appJs.includes('<Icon name={DEFAULT_TAB_ICONS[key]}')
+  && homeJs.includes('<Icon name="targetArrow"') && discoverSrcV25.includes('<Icon name={t.icon}'))
+assert('主题：薄荷绿主色 + theme-color 同步 + 玻璃更透',
+  css.includes('--brand: #3bc98c;') && indexHtml.includes('content="#3bc98c"')
+  && css.includes('--g-tint: rgba(255, 255, 255, .48);'))
+assert('字体跟随系统：system-ui 前置 + sysFont 开关接线（seed/theme/styles/设置页）',
+  seedSrc.includes('sysFont: true') && themeSrcV25.includes('dataset.sysfont')
+  && css.includes(':root[data-sysfont="off"] body')
+  && settingsJs.includes('字体跟随系统'))
+assert('收款码资产入库', existsSync(new URL('../public/donate/wechat.png', import.meta.url)) && existsSync(new URL('../public/donate/alipay.jpg', import.meta.url)))
+
+assert('Profile 意见反馈 → openFeedback（旧本地 Sheet 已移除）',
+  profileSrcV25.includes('openFeedback()') && profileSrcV25.includes('按返回键回到应用')
+  && !profileSrcV25.includes('setFbOpen') && !profileSrcV25.includes('仅保存在本机'))
 
 // ---------- v2.3 启动页重构 + 功能介绍页（源码断言） ----------
 console.log('v2.3 启动流程：')

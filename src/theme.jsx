@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useStore } from './store.jsx'
 import { getObjectUrl, replaceBlob, fileToJpeg, hashBlob } from './blobdb.js'
+import { Icon } from './ui/icons.jsx'
 
 const ThemeCtx = createContext({ wallUrl: null, palette: [] })
 export const useTheme = () => useContext(ThemeCtx)
@@ -50,7 +51,7 @@ async function extractPalette(url) {
   return colors
 }
 
-const FALLBACK_GLOWS = ['#13b5a1', '#42a5f5']
+const FALLBACK_GLOWS = ['#34d399', '#38bdf8']
 
 export function ThemeProvider({ children }) {
   const { state } = useStore()
@@ -64,6 +65,8 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const el = document.documentElement
     el.dataset.glass = s.glassOn ? 'on' : 'off'
+    // v2.5 字体跟随系统：off 时 CSS 回退非 system-ui 栈
+    el.dataset.sysfont = s.sysFont === false ? 'off' : 'on'
     if (!s.glassOn) {
       delete el.dataset.gboot
       return undefined
@@ -207,15 +210,21 @@ export function AiFace({ className = '', style }) {
   const { state } = useStore()
   const url = useAiFacePhoto()
   if (url) return <img className={`ai-face-img ${className}`} src={url} alt="AI 助手" style={style} draggable={false} />
-  return <span className={className} style={style}>{state.settings.aiFace || '🤖'}</span>
+  // v2.5 默认形象去 emoji：线性机器人图标（用户自定义照片/表情优先级不变）
+  if (state.settings.aiFace && state.settings.aiFace !== '🤖') {
+    return <span className={className} style={style}>{state.settings.aiFace}</span>
+  }
+  return <Icon name="robot" size={26} color="var(--brand)" className={className} style={style} />
 }
 
-// 头像内容：照片优先，否则 emoji
+// 头像内容：照片优先，否则默认图标（v2.5 去 emoji；历史 emoji 数据仅 🐣 默认值弃用）
 export function AvatarFace() {
   const { state } = useStore()
   const url = useAvatarPhoto()
   if (url) return <img className="avatar-img" src={url} alt="头像" draggable={false} />
-  return <>{state.settings.avatar}</>
+  const legacy = state.settings.avatar
+  if (legacy && legacy !== '🐣') return <>{legacy}</>
+  return <Icon name="userCircle" size={30} color="var(--brand)" />
 }
 
 // ---------- 头像/壁纸写入动作（压缩 → IDB → state 元数据） ----------

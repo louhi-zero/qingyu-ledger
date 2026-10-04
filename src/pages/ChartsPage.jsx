@@ -131,9 +131,10 @@ export default function ChartsPage() {
             <Seg options={[{ value: 'balance', label: '结余' }, { value: 'expense', label: '支出' }, { value: 'income', label: '收入' }]} value={metric} onChange={setMetric} />
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div className="muted">{metric === 'balance' ? '结余' : metric === 'expense' ? '总支出' : '总收入'}</div>
+            {/* v2.5 结余为负 → 标签「超支」+ 绝对值（图表曲线/月度表格数据仍保留带负号的结余） */}
+            <div className="muted">{metric === 'balance' ? (bal < 0 ? '超支' : '结余') : metric === 'expense' ? '总支出' : '总收入'}</div>
             <div className="big-num" style={{ color: metric === 'balance' ? (bal >= 0 ? 'var(--ink)' : 'var(--expense)') : colorOf }}>
-              ¥{fmt(metricVal)}
+              ¥{fmt(metric === 'balance' && bal < 0 ? Math.abs(bal) : metricVal)}
             </div>
             {scope === 'week' && metric !== 'balance' && (
               <div className="muted">平均值 ¥{fmt(weekAvg)} / 天</div>

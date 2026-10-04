@@ -7,7 +7,7 @@ import {
 
 const LEVEL_STYLE = {
   理性型: { color: '#22b573', bg: 'rgba(34,181,115,.12)', icon: '🏆' },
-  均衡型: { color: '#4c7dff', bg: 'rgba(76,125,255,.12)', icon: '👍' },
+  均衡型: { color: '#2fa886', bg: 'rgba(59,201,140,.12)', icon: '👍' },
   随性型: { color: '#ff9f2e', bg: 'rgba(255,159,46,.14)', icon: '🌤️' },
   豪爽型: { color: '#ff6b5e', bg: 'rgba(255,107,94,.12)', icon: '🔥' },
 }
@@ -66,7 +66,7 @@ export default function Review({ nav }) {
           <div className="stat3">
             <div className="s3"><div className="k">支出</div><div className="v" style={{ color: 'var(--expense)' }}>¥{fmt(r.exp)}</div></div>
             <div className="s3"><div className="k">收入</div><div className="v" style={{ color: 'var(--income)' }}>¥{fmt(r.inc)}</div></div>
-            <div className="s3"><div className="k">结余</div><div className="v" style={{ color: r.bal >= 0 ? 'var(--green)' : 'var(--expense)' }}>¥{fmt(r.bal)}</div></div>
+            <div className="s3"><div className="k">{r.bal < 0 ? '超支' : '结余'}</div><div className="v" style={{ color: r.bal >= 0 ? 'var(--green)' : 'var(--expense)' }}>¥{fmt(Math.abs(r.bal))}</div></div>
           </div>
         </div>
 

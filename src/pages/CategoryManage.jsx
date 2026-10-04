@@ -14,7 +14,7 @@ export default function CategoryManage({ nav }) {
 
   const list = tab === 'expense' ? state.categories.expense : state.categories.income
 
-  const newCat = () => ({ id: uid(), name: '', icon: '🏷️', color: '#4c7dff', custom: true, children: [] })
+  const newCat = () => ({ id: uid(), name: '', icon: '🏷️', color: '#3bc98c', custom: true, children: [] })
   const newSub = () => ({ id: uid(), name: '', icon: '🏷️' })
 
   const saveCat = () => {

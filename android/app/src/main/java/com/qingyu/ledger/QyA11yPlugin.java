@@ -79,7 +79,8 @@ public class QyA11yPlugin extends Plugin {
         }
     }
 
-    /** 注入模拟支付页文本（默认微信付款成功页），走与真实捕获完全相同的「采集→提取→解析→弹窗」链路 */
+    /** 注入模拟支付页文本（默认微信付款成功页），走与真实捕获完全相同的「采集→提取→解析→弹窗」链路。
+     *  test=true：JS 管线跳过时间窗抑制（连点测试每次都弹） */
     @PluginMethod
     public void testA11yEmit(PluginCall call) {
         try {
@@ -92,7 +93,7 @@ public class QyA11yPlugin extends Plugin {
                 texts.put("收款方 瑞幸咖啡");
             }
             String pkg = call.getString("pkg", QyA11yService.PKG_WECHAT);
-            emitPage(pkg, System.currentTimeMillis(), "test-" + System.currentTimeMillis(), texts);
+            emitPage(pkg, System.currentTimeMillis(), "test-" + System.currentTimeMillis(), texts, true);
             call.resolve();
         } catch (Exception e) {
             call.reject("测试注入失败", e);
@@ -112,7 +113,7 @@ public class QyA11yPlugin extends Plugin {
             }
             long now = System.currentTimeMillis();
             enqueuePage(getContext(), call.getString("pkg", QyA11yService.PKG_ALIPAY), now,
-                    "sample-" + now, texts);
+                    "sample-" + now, texts, true);
             call.resolve();
         } catch (Exception e) {
             call.reject("入队失败", e);
@@ -168,15 +169,21 @@ public class QyA11yPlugin extends Plugin {
         }
     }
 
-    /** 由 QyA11yService 回调：持久化入队（Service 自身有 Context，App 死亡也照常写） */
+    /** 由 QyA11yService 回调：持久化入队（Service 自身有 Context，App 死亡也照常写）。
+     *  真实采集 5 参重载（test=false）；pendingEnqueueSample 走 6 参写入测试标记 */
     static void enqueuePage(Context ctx, String pkg, long ts, String sig, JSONArray texts) {
+        enqueuePage(ctx, pkg, ts, sig, texts, false);
+    }
+
+    static void enqueuePage(Context ctx, String pkg, long ts, String sig, JSONArray texts, boolean isTest) {
         if (ctx == null || texts == null || texts.length() == 0) return;
         try {
             JSONArray arr = readQueue(ctx);
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject it = arr.optJSONObject(i);
                 if (it == null) continue;
-                if (sig.equals(it.optString("sig")) && ts - it.optLong("ts") < ENQUEUE_DEDUP_MS) return;
+                long dt = ts - it.optLong("ts");
+                if (sig.equals(it.optString("sig")) && dt >= 0 && dt < ENQUEUE_DEDUP_MS) return;
             }
             JSONObject item = new JSONObject();
             item.put("key", ts + "-" + Integer.toHexString(sig.hashCode()));
@@ -184,6 +191,7 @@ public class QyA11yPlugin extends Plugin {
             item.put("pkg", pkg == null ? "" : pkg);
             item.put("ts", ts);
             item.put("texts", texts);
+            item.put("test", isTest); // 离线消费时透传 JS（补弹测试不受时间窗抑制）
             JSONArray out = new JSONArray();
             out.put(item);
             for (int i = 0; i < arr.length() && out.length() < MAX_PENDING; i++) out.put(arr.get(i));
@@ -193,8 +201,13 @@ public class QyA11yPlugin extends Plugin {
         }
     }
 
-    /** 由 QyA11yService 回调：转发页面文本给 JS（插件未加载时忽略——已入队，App 下次启动补弹） */
+    /** 由 QyA11yService 回调：转发页面文本给 JS（插件未加载时忽略——已入队，App 下次启动补弹）。
+     *  真实采集 4 参重载（test=false）；testA11yEmit 走 5 参注入测试标记 */
     static void emitPage(String pkg, long ts, String sig, JSONArray texts) {
+        emitPage(pkg, ts, sig, texts, false);
+    }
+
+    static void emitPage(String pkg, long ts, String sig, JSONArray texts, boolean isTest) {
         QyA11yPlugin p = instance;
         if (p == null || p.bridge == null) return;
         try {
@@ -203,6 +216,7 @@ public class QyA11yPlugin extends Plugin {
             data.put("pkg", pkg == null ? "" : pkg);
             data.put("sig", sig == null ? "" : sig);
             data.put("ts", ts);
+            data.put("test", isTest);
             p.notifyListeners("page", data, false);
         } catch (Exception ignored) { /* 转发失败不影响服务 */ }
     }

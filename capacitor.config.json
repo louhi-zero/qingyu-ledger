@@ -3,6 +3,15 @@
   "appName": "轻语记账",
   "webDir": "dist",
   "backgroundColor": "#f3f5fa",
+  "server": {
+    "allowNavigation": [
+      "docs.qq.com",
+      "space.bilibili.com",
+      "www.xiaoheihe.cn",
+      "www.douyin.com",
+      "qm.qq.com"
+    ]
+  },
   "android": {
     "allowMixedContent": false,
     "backgroundColor": "#f3f5fa"

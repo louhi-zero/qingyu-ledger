@@ -610,8 +610,8 @@ export function buildMonthHtml(state, period) {
   .sum { display: flex; gap: 10px; margin-bottom: 14px; }
   .sum div { flex: 1; border-radius: 10px; padding: 10px 12px; background: #f2f5fa; }
   .sum b { display: block; font-size: 16px; margin-top: 2px; }
-  .expense { color: #e5484d; } .income { color: #159570; } .transfer { color: #4c7dff; }
-  h2 { font-size: 13px; margin: 16px 0 6px; border-left: 3px solid #6f6bff; padding-left: 8px; }
+  .expense { color: #e5484d; } .income { color: #159570; } .transfer { color: #2fa886; }
+  h2 { font-size: 13px; margin: 16px 0 6px; border-left: 3px solid #3bc98c; padding-left: 8px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { border-bottom: 1px solid #e6eaf1; padding: 5px 6px; text-align: left; }
   th { background: #f2f5fa; font-size: 11px; color: #5b6472; }
@@ -623,7 +623,7 @@ export function buildMonthHtml(state, period) {
 <div class="sum">
   <div>总收入<b class="income">¥${fmt(inc)}</b></div>
   <div>总支出<b class="expense">¥${fmt(exp)}</b></div>
-  <div>结余<b class="${inc - exp >= 0 ? 'income' : 'expense'}">¥${fmt(inc - exp)}</b></div>
+  <div>${inc - exp >= 0 ? '结余' : '超支'}<b class="${inc - exp >= 0 ? 'income' : 'expense'}">¥${fmt(Math.abs(inc - exp))}</b></div>
 </div>
 ${catStats.length ? `<h2>支出分类统计</h2><table><tr><th>#</th><th>分类</th><th>笔数</th><th class="r">金额</th><th class="r">占比</th></tr>${catRows}</table>` : ''}
 ${incStats.length ? `<h2>收入分类统计</h2><table><tr><th>分类</th><th>笔数</th><th class="r">金额</th></tr>${incRows}</table>` : ''}
@@ -695,16 +695,46 @@ export function normalizeDiscIconAt(v) {
   return out
 }
 
+// ---------- v2.5 AI 上传脱敏（纯函数，ai.js 与单测共用） ----------
+// 把文本中可关联到个人的高敏数字串打码后再交给大模型，金额（≤2 位小数）与日期时间不受影响：
+// - 身份证（18 位且 GB 11643 校验码验证通过；防止把长卡号误判成身份证）→ 保留前 3 后 2
+// - 手机号（1[3-9] 号段 11 位，容忍空格/连字符分隔）→ 保留前 3 后 4
+// - 银行卡/订单号（其余 13-19 位连续数字）→ 保留前 4 后 3
+const QY_ID_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2]
+const QY_ID_CHECK = '10X98765432'
+function validId18(s) {
+  let sum = 0
+  for (let i = 0; i < 17; i++) {
+    const d = Number(s[i])
+    if (!Number.isInteger(d)) return false
+    sum += d * QY_ID_WEIGHTS[i]
+  }
+  return QY_ID_CHECK[sum % 11] === s[17].toUpperCase()
+}
+export function maskSensitive(text) {
+  let s = String(text || '')
+  if (!s) return s
+  s = s.replace(/(?<!\d)(\d{17}[\dXx])(?!\d)/g, (m, id) =>
+    validId18(id) ? id.slice(0, 3) + '*************' + id.slice(-2) : m)
+  s = s.replace(/(?<!\d)(1[3-9]\d)[ -]?(\d{4})[ -]?(\d{4})(?!\d)/g, '$1****$3')
+  s = s.replace(/(?<!\d)(\d{4})\d{6,12}(\d{3})(?!\d)/g, '$1******$2')
+  return s
+}
+
 // ---------- v1.5 收支监控：解析微信/支付宝通知文本（纯函数） ----------
 // 返回 { amount(元,2位小数), kind:'income'|'expense', source:'wechat'|'alipay', title, text } 或 null。
 // 只有「来源 + 金额 + 收支方向」三要素齐备才解析成功，避免验证码/物流等噪声误弹窗。
 // v1.6.8 扩充真实文案：带符号金额（微信支付-9.90）、¥金额、收款/收钱码/转账来向去向等。
-const QY_NOTIFY_INCOME_KW = /到账|收款|收到|已收钱|收钱码|入账|进账|收益|退款|退回|返现|红包|转入我|转账-来自|转账来自|来自[^|]{0,12}的?转账/
+// v2.4 深测修正：向你转账 → 收入（原「向X转账」通配误判为支出）；
+// 提现是资金搬家非收支，与「验证码」同列噪声（原被标题「微信支付」的“支付”误判为支出弹窗）
+const QY_NOTIFY_INCOME_KW = /到账|收款|收到|已收钱|收钱码|入账|进账|收益|退款|退回|返现|红包|转入我|转账-来自|转账来自|向你转账|来自[^|]{0,12}的?转账/
 const QY_NOTIFY_EXPENSE_KW = /支出|付款|支付|扫码付|商户消费|消费|扣款|扣费|转出|代扣|充值成功|转账给|向[^|，。\s]{1,12}转账|发起转账/
-const QY_NOTIFY_NOISE_KW = /验证码|校验码|登录|物流|快递|取件|投诉|客服|风险|信用卡还款提醒|账单日出账/
+const QY_NOTIFY_NOISE_KW = /验证码|校验码|登录|物流|快递|取件|投诉|客服|风险|信用卡还款提醒|账单日出账|提现/
 
 export function parseMoneyNotify(title, text, pkg = '') {
-  const s = `${title || ''} ${text || ''}`.replace(/\s+/g, ' ')
+  let s = `${title || ''} ${text || ''}`.replace(/\s+/g, ' ')
+  // 千分位归一（1,234.56 → 1234.56；负向断言防误吃「1,23」，循环处理百万位）
+  while (/(\d),(\d{3})(?!\d)/.test(s)) s = s.replace(/(\d),(\d{3})(?!\d)/g, '$1$2')
   if (!s.trim()) return null
   // 来源：包名优先，其次按文本关键词
   let source = null
@@ -726,12 +756,16 @@ export function parseMoneyNotify(title, text, pkg = '') {
     amount = Number(m[1])
   } else {
     m = s.match(/[¥￥]\s*(\d+(?:\.\d{1,2})?)/)
-    if (!m) m = s.match(/(\d+(?:\.\d{1,2})?)\s*元/)
+    // 万元计价（「到账1万元/收到转账1.5万元」）：先于普通「数字 元」匹配，命中后 ×10000
+    if (!m) m = s.match(/(\d+(?:\.\d{1,2})?)\s*万?\s*元/)
     if (!m && /支付|付款|收款|到账|消费|扣款|转出|转入|红包|转账/.test(s)) {
       // 强语境下的裸金额（如「微信支付 9.90」），取第一个两位小数
       m = s.match(/(\d+\.\d{1,2})/)
     }
-    if (m) amount = Number(m[1])
+    if (m) {
+      amount = Number(m[1])
+      if (/万元/.test(s)) amount *= 10000
+    }
   }
   if (!(amount > 0) || amount > 1e7) return null
 
