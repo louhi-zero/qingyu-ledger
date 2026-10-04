@@ -125,7 +125,7 @@ function TplEditor({ draft, onClose, onSave, onDelete }) {
             ))}
           </div>
           <select className="input" style={{ marginTop: 8 }} value={accountId || ''} onChange={(e) => setAccountId(e.target.value)}>
-            {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+            {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
           <input className="input" style={{ marginTop: 8 }} placeholder="备注（选填）" value={note} onChange={(e) => setNote(e.target.value)} maxLength={30} />
           <div className="btnrow" style={{ marginTop: 12 }}>

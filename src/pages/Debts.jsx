@@ -1,6 +1,7 @@
 import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { TopBar, Sheet, Seg, Empty } from '../ui.jsx'
 import { ACCOUNT_TYPES } from '../seed.js'
 import { accountBalance, fmt, fmtCur, toBase, annuityMonthly, parseD, uid, todayStr, nowTime, round2 } from '../utils.js'
@@ -149,7 +150,7 @@ export default function Debts({ nav }) {
             {debts.map((r) => (
               <div className="card" key={r.id}>
                 <div className="card-title">
-                  <span style={{ marginRight: 6 }}>{r.icon}</span>{r.name}
+                  <span style={{ marginRight: 6, display: "inline-flex", verticalAlign: "-0.15em" }}><ValueIcon value={r.icon} fallback="tag" size={16} /></span>{r.name}
                   <span style={{ marginLeft: 'auto' }}>{badge(r)}</span>
                 </div>
                 <div className="stat3" style={{ marginTop: 8 }}>
@@ -185,7 +186,7 @@ export default function Debts({ nav }) {
             {claims.map((r) => (
               <div className="card" key={r.id}>
                 <div className="card-title">
-                  <span style={{ marginRight: 6 }}>{r.icon}</span>{r.name}
+                  <span style={{ marginRight: 6, display: "inline-flex", verticalAlign: "-0.15em" }}><ValueIcon value={r.icon} fallback="tag" size={16} /></span>{r.name}
                   <span style={{ marginLeft: 'auto' }}>{badge(r)}</span>
                 </div>
                 <div className="stat3" style={{ marginTop: 8 }}>
@@ -259,7 +260,7 @@ export default function Debts({ nav }) {
             <div className="field">
               <label>{newKind === 'debt' ? '钱进哪个账户' : '从哪个账户借出'}</label>
               <select className="input" value={draft.accId} onChange={(e) => setDraft({ ...draft, accId: e.target.value })}>
-                {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="btnrow">
@@ -290,7 +291,7 @@ export default function Debts({ nav }) {
             <div className="field">
               <label>{move.kind === 'repay' ? '付款账户' : '钱进哪个账户'}</label>
               <select className="input" value={moveAcc} onChange={(e) => setMoveAcc(e.target.value)}>
-                {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="btnrow">

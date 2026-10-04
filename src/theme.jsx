@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useStore } from './store.jsx'
 import { getObjectUrl, replaceBlob, fileToJpeg, hashBlob } from './blobdb.js'
-import { Icon } from './ui/icons.jsx'
+import { Icon, ValueIcon } from './ui/icons.jsx'
 
 const ThemeCtx = createContext({ wallUrl: null, palette: [] })
 export const useTheme = () => useContext(ThemeCtx)
@@ -242,7 +242,7 @@ export function useBookIconUrl(ledgerId) {
 export function BookIconImg({ ledgerId, icon, className = '' }) {
   const url = useBookIconUrl(ledgerId)
   if (url) return <img className={className} src={url} alt="" decoding="async" draggable={false} />
-  return <span className={className}>{icon || <><Icon name="book" size="1em" className="qy-inline-icon" /></>}</span>
+  return <span className={className} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><ValueIcon value={icon} fallback="book" size={20} /></span>
 }
 export function AiFace({ className = '', style }) {
   const { state } = useStore()

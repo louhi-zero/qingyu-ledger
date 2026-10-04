@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 33 / 2.7', gradle.includes('versionCode 33') && gradle.includes('versionName "2.7"'))
+assert('版本 versionCode 34 / 2.8', gradle.includes('versionCode 34') && gradle.includes('versionName "2.8"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.6', pkgJson.version === '2.7')
+assert('package.json 版本 2.6', pkgJson.version === '2.8')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.6', APP_VERSION === '2.7')
+assert('update.js 版本单一源为 2.6', APP_VERSION === '2.8')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -1167,11 +1167,11 @@ assert('seed 默认分类接入 SVG 线性图标（v2.6 codex：svg 库 + svg: �
   && seedSrc.includes('"./icons/cat/salary.svg"') && seedSrc.includes('"./icons/cat/bonus.svg"')
   && seedSrc.includes('"./icons/cat/invest.svg"')
   && seedSrc.includes('"svg:croissant"'))
-assert('CatIcon 组件：图标库路径渲染图片 / emoji 回落（ui.jsx）',
-  uiSrc.includes('export function CatIcon') && uiSrc.includes('isImgIcon(icon)'))
+assert('CatIcon 组件：v2.8 统一 ValueIcon 归一（svg:key/路径/emoji 全解析）',
+  uiSrc.includes('export function CatIcon') && uiSrc.includes('<ValueIcon value={icon} fallback="tag"') && !uiSrc.includes('isImgIcon(icon)'))
 assert('分类图标渲染点去 emoji 文本化（Home/AddTx/Templates/Budget/Charts/Recurring/Trash/Review/Import）',
   homeJs.includes('<CatIcon icon={info.icon} size={18} />')
-  && readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={15} />')
+  && readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8').includes('cat-trigger') && readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8').includes('选择总类别')
   && readFileSync(new URL('../src/pages/Templates.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={18} />')
   && readFileSync(new URL('../src/pages/Budget.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={20} />')
   && readFileSync(new URL('../src/pages/ChartsPage.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={17} />')

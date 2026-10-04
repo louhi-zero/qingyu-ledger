@@ -1728,3 +1728,13 @@ span.ledger-switch-img {
 .ilib-it img { width: 26px; height: 26px; object-fit: contain; }
 .ilib-it:active { transform: scale(.92); }
 .ilib-it.on { border-color: var(--brand); background: var(--brand-weak); }
+
+/* v2.8 总类别抽屉触发按钮（替代一级分类横滑条） */
+.catbar { display: flex; gap: 8px; margin-bottom: 8px; }
+.cat-trigger {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 10px 14px; border-radius: 12px; cursor: pointer;
+  background: var(--card2); border: 1px solid var(--line); color: var(--ink);
+}
+.cat-trigger b { font-size: 14.5px; flex: 1; text-align: left; }
+.cat-trigger .caret { font-size: 11px; color: var(--ink3); }

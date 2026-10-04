@@ -82,7 +82,7 @@ export default function Home() {
         right={
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="iconbtn" onClick={() => setView(view === 'list' ? 'calendar' : 'list')} title="切换视图">
-              {view === 'list' ? "svg:calendar" : "svg:clipboard"}
+              <Icon name={view === 'list' ? "calendar" : "stats"} size="1em" className="qy-inline-icon" />
             </button>
             <button className="iconbtn" onClick={() => setSearchOpen(true)} title="搜索"><Icon name="search" size="1em" className="qy-inline-icon" /></button>
           </div>

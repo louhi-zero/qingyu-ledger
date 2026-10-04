@@ -1,6 +1,7 @@
 import { Icon } from "../ui/icons.jsx"
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { Seg, Confirm, Empty, Sheet, CatIcon } from '../ui.jsx'
 import { fmt, uid, todayStr, nowTime, addDays, accountName } from '../utils.js'
 import { getObjectUrl, replaceBlob, fileToJpeg, blobToDataUrl } from '../blobdb.js'
@@ -28,6 +29,7 @@ export default function AddTx({ open, editTx, onClose }) {
   const [time, setTime] = useState(editTx?.time || nowTime())
   const [note, setNote] = useState(editTx?.note || '')
   const [showKp, setShowKp] = useState(true)
+  const [catDrawer, setCatDrawer] = useState(false) // v2.8 总类别抽屉
   const [delConfirm, setDelConfirm] = useState(false)
   const [noteEditOpen, setNoteEditOpen] = useState(false)
   const [timeOpen, setTimeOpen] = useState(false)
@@ -325,13 +327,15 @@ export default function AddTx({ open, editTx, onClose }) {
             <div className={`num ${amount ? '' : 'ph'}`}>{amount || '0.00'}</div>
           </div>
 
-          {/* 分类选择 */}
+          {/* 分类选择（v2.8 一级类别收进抽屉：触发按钮 + 底部宫格抽屉，二级宫格保持直选） */}
           {type !== 'transfer' ? (
             <>
               <div className="catbar">
-                {cats.map((c) => (
-                  <button key={c.id} className={`chip ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => selCat(c, false)}><CatIcon icon={c.icon} size={15} /> {c.name}</button>
-                ))}
+                <button className="cat-trigger" onClick={() => setCatDrawer(true)} aria-label="选择总类别">
+                  <CatIcon icon={mainCat?.icon} size={16} />
+                  <b>{mainCat?.name}</b>
+                  <span className="caret" aria-hidden="true">▾</span>
+                </button>
               </div>
               <div className="grid4" style={{ marginBottom: 6 }}>
                 {(mainCat?.children || []).map((s) => (
@@ -425,6 +429,17 @@ export default function AddTx({ open, editTx, onClose }) {
         <NoteEditor open={noteEditOpen} onClose={() => setNoteEditOpen(false)} note={note} setNote={setNote} />
         <TimeSheet open={timeOpen} onClose={() => setTimeOpen(false)} time={time} setTime={setTime} />
         <AccountSheet state={state} open={accOpen} onClose={() => setAccOpen(false)} onPick={(id) => { accSetter?.(id); setAccOpen(false) }} />
+
+        {/* v2.8 总类别抽屉：宫格列出全部一级分类，选中即收起 */}
+        <Sheet open={catDrawer} onClose={() => setCatDrawer(false)} title="选择总类别">
+          <div className="grid4" style={{ padding: '2px 0 8px' }}>
+            {cats.map((c) => (
+              <button key={c.id} className={`gitem ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => { selCat(c, false); setCatDrawer(false) }}>
+                <div className="gi"><CatIcon icon={c.icon} size={20} /></div><span>{c.name}</span>
+              </button>
+            ))}
+          </div>
+        </Sheet>
 
         {/* v1.6.9 账本选择弹层 */}
         <Sheet open={ledgerOpen} onClose={() => setLedgerOpen(false)} title="存入哪个账本">
@@ -565,7 +580,7 @@ function AccountSheet({ state, open, onClose, onPick }) {
         <div className="sheet-body">
           {state.accounts.length ? state.accounts.map((a) => (
             <div className="selectline" key={a.id} style={{ marginBottom: 8 }} onClick={() => onPick(a.id)}>
-              <span>{a.icon} {a.name}</span><span className="arrow">›</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ValueIcon value={a.icon} fallback="tag" size={16} /> {a.name}</span><span className="arrow">›</span>
             </div>
           )) : <Empty icon="svg:account" text="还没有账户，去「资产」添加一个" />}
         </div>

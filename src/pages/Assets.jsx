@@ -1,6 +1,7 @@
 import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { TopBar, Sheet, Confirm, Empty } from '../ui.jsx'
 import { ACCOUNT_TYPES } from '../seed.js'
 import { accountBalance, netWorth, fmt, fmtCur, toBase, uid, round2, netWorthSeries } from '../utils.js'
@@ -111,7 +112,7 @@ export default function Assets({ nav }) {
             </div>
             {groups.credit.map((a) => (
               <div key={a.id} className="cell" onClick={() => setEdit({ ...a, initial: String(a.initial) })}>
-                <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
+                <div className="cico" style={{ background: a.color + '22' }}><ValueIcon value={a.icon} fallback="tag" size={18} /></div>
                 <div className="cmain">
                   <div className="ctitle">{a.name}</div>
                   <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>
@@ -132,7 +133,7 @@ export default function Assets({ nav }) {
             <div className="gtitle">资产账户 · {groups.asset.length}</div>
             {groups.asset.map((a) => (
               <div key={a.id} className="cell" onClick={() => setEdit({ ...a, initial: String(a.initial) })}>
-                <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
+                <div className="cico" style={{ background: a.color + '22' }}><ValueIcon value={a.icon} fallback="tag" size={18} /></div>
                 <div className="cmain">
                   <div className="ctitle">{a.name}</div>
                   <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>
@@ -155,7 +156,7 @@ export default function Assets({ nav }) {
             </div>
             {groups.debt.map((a) => (
               <div key={a.id} className="cell" onClick={() => setEdit({ ...a, initial: String(a.initial) })}>
-                <div className="cico" style={{ background: a.color + '22' }}>{a.icon}</div>
+                <div className="cico" style={{ background: a.color + '22' }}><ValueIcon value={a.icon} fallback="tag" size={18} /></div>
                 <div className="cmain">
                   <div className="ctitle">{a.name}</div>
                   <div className="cdesc">{a.typeName}{Number(a.initial) ? ` · 期初 ${fmtCur(a.initial, a.currency)}` : ''}</div>

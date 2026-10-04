@@ -2,20 +2,14 @@ import { Icon } from "./ui/icons.jsx"
 import React, { useEffect } from 'react'
 import { useStore } from './store.jsx'
 import { fmt } from './utils.js'
-import { isImgIcon } from './catIcons.js'
+import { ValueIcon } from './ui/icons.jsx'
 
 // v2.6 分类图标：图标库路径（'./icons/...'）渲染图片，其余按 emoji 文本渲染
 // （兼容旧数据、子分类与用户自定义 emoji）；size 为 px
-export function CatIcon({ icon, size = 20, style = {} }) {
-  if (isImgIcon(icon)) {
-    return (
-      <img
-        src={icon} alt="" draggable={false}
-        style={{ width: size, height: size, objectFit: 'contain', verticalAlign: '-0.15em', ...style }}
-      />
-    )
-  }
-  return <span style={{ fontSize: size, lineHeight: 1, ...style }}>{icon}</span>
+// v2.8 统一归一：svg:key / 图标库路径 / emoji 全部经 iconMeta 解析为内联 SVG
+// （codex 半成品的双分支 img/文本会裂图或泄露 "svg:xxx" 字面量）
+export function CatIcon({ icon, size = 20, style = {}, color }) {
+  return <ValueIcon value={icon} fallback="tag" size={size} style={{ verticalAlign: '-0.15em', ...style }} color={color} />
 }
 
 // 顶部导航
@@ -108,7 +102,7 @@ export function Cell({ icon, title, desc, right, onClick, children }) {
 export function Empty({ icon = "svg:leaf", text, children }) {
   return (
     <div className="empty">
-      <div className="eico">{icon}</div>
+      <div className="eico"><ValueIcon value={icon} fallback="leaf" size={34} /></div>
       <div className="etxt">{text}</div>
       {children}
     </div>
@@ -181,7 +175,7 @@ export function EmojiPicker({ value, onChange }) {
             fontSize: 22, padding: '8px 0', borderRadius: 12, cursor: 'pointer',
             border: 'none', background: value === e ? 'var(--brand-weak)' : 'var(--card)',
             boxShadow: value === e ? 'inset 0 0 0 2px var(--brand)' : 'var(--shadow-sm)',
-          }}>{e}</button>
+          }}><ValueIcon value={e} fallback="tag" size={22} /></button>
       ))}
     </div>
   )

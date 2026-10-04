@@ -1,6 +1,7 @@
 import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { TopBar, Sheet, Empty } from '../ui.jsx'
 import { accountBalance, creditDue, creditCycleStart, daysToDue, fmt, uid, todayStr, nowTime, round2 } from '../utils.js'
 
@@ -83,7 +84,7 @@ export default function CreditCards({ nav }) {
           return (
             <div className="card" key={c.id}>
               <div className="card-title">
-                <span style={{ marginRight: 6 }}>{c.icon}</span>{c.name}
+                <span style={{ marginRight: 6, display: "inline-flex", verticalAlign: "-0.15em" }}><ValueIcon value={c.icon} fallback="tag" size={16} /></span>{c.name}
                 <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setSettingCard({ ...c })}><Icon name="settings" size="1em" className="qy-inline-icon" /> 设置</button>
               </div>
 
@@ -189,7 +190,7 @@ export default function CreditCards({ nav }) {
             <div className="field">
               <label>付款账户</label>
               <select className="input" value={repayFrom} onChange={(e) => setRepayFrom(e.target.value)}>
-                {payAccounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                {payAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="btnrow">

@@ -1,4 +1,4 @@
-import { Icon } from "./ui/icons.jsx"
+import { Icon, ValueIcon } from "./ui/icons.jsx"
 /* v2.3 启动流程重构：Splash 启动页 + Intro 功能介绍页（对标主流 App onboarding）
  *
  * Splash 启动页：每次启动都展示（SPLASH_MS 2200ms，可点击跳过）
@@ -96,9 +96,9 @@ export function Intro({ onStart }) {
         {SLIDES.map((s, i) => (
           <div className={'intro-slide' + (i === idx ? ' on' : '')} key={i} aria-hidden={i !== idx}>
             <div className="intro-art">
-              <span className="intro-blob">{s.emoji}</span>
-              <span className="intro-chip c1" aria-hidden="true">{s.deco[0]}</span>
-              <span className="intro-chip c2" aria-hidden="true">{s.deco[1]}</span>
+              <span className="intro-blob"><ValueIcon value={s.emoji} fallback="bolt" size={44} color="#fff" /></span>
+              <span className="intro-chip c1" aria-hidden="true"><ValueIcon value={s.deco[0]} fallback="tag" size={20} /></span>
+              <span className="intro-chip c2" aria-hidden="true"><ValueIcon value={s.deco[1]} fallback="tag" size={20} /></span>
             </div>
             <h2>{s.title}</h2>
             <p>{s.desc}</p>

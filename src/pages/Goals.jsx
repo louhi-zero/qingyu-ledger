@@ -1,6 +1,7 @@
 import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { TopBar, Sheet, Seg, Empty, EmojiPicker, Switch } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
 import { fmt, parseD, uid, todayStr, nowTime, round2, addDays } from '../utils.js'
@@ -115,7 +116,7 @@ export default function Goals({ nav }) {
           return (
             <div className="card" key={g.id}>
               <div className="card-title">
-                <span style={{ marginRight: 6 }}>{g.icon}</span>{g.name}
+                <span style={{ marginRight: 6, display: "inline-flex", verticalAlign: "-0.15em" }}><ValueIcon value={g.icon} fallback="budget" size={16} /></span>{g.name}
                 {done
                   ? <span className="chip on" style={{ background: 'var(--green)', color: '#fff' }}><Icon name="party" size="1em" className="qy-inline-icon" /> 已达成</span>
                   : <button className="chip" style={{ marginLeft: 'auto' }} onClick={() => setEdit({ ...g, target: String(g.target), deadline: g.deadline || '' })}>编辑</button>}

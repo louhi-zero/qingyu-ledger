@@ -13,6 +13,7 @@
     ]
   },
   "android": {
+    "webContentsDebuggingEnabled": true,
     "allowMixedContent": false,
     "backgroundColor": "#f3f5fa"
   },
