@@ -18,7 +18,7 @@ import {
   collectProfile, buildArchive, validateArchive, shouldUpload,
   parseProfileArchive, profilePatch, PROFILE_ARCHIVE_KIND,
 } from '../src/userarchive.js'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 
 let passed = 0
 let failed = 0
@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 31 / 2.5', gradle.includes('versionCode 31') && gradle.includes('versionName "2.5"'))
+assert('版本 versionCode 32 / 2.6', gradle.includes('versionCode 32') && gradle.includes('versionName "2.6"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.5', pkgJson.version === '2.5')
+assert('package.json 版本 2.6', pkgJson.version === '2.6')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.5', APP_VERSION === '2.5')
+assert('update.js 版本单一源为 2.6', APP_VERSION === '2.6')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -1122,14 +1122,66 @@ assert('图标体系：icons.jsx 内联 SVG + currentColor（32 图标）',
 assert('tab/快捷宫格/发现页入口已去 emoji（Icon key 化）',
   appJs.includes("home: 'wallet'") && appJs.includes('<Icon name={DEFAULT_TAB_ICONS[key]}')
   && homeJs.includes('<Icon name="targetArrow"') && discoverSrcV25.includes('<Icon name={t.icon}'))
-assert('主题：薄荷绿主色 + theme-color 同步 + 玻璃更透',
-  css.includes('--brand: #3bc98c;') && indexHtml.includes('content="#3bc98c"')
+assert('主题：黑白灰主色 + 语义三色（橙支出/绿收入/蓝转账）+ 玻璃更透',
+  css.includes('--brand: #23272f;') && css.includes('--income: #1e9e6e;') && css.includes('--expense: #e07840;')
+  && css.includes('--transfer: #2f6fd6;')
   && css.includes('--g-tint: rgba(255, 255, 255, .48);'))
+assert('v2.6 背景循环播放 + 视频背景（Backdrop 轮换/淡入淡出/视频层/设置项/seed）',
+  themeSrcV25.includes('BUILTIN_WALLS') && themeSrcV25.includes('bgRotateSec') && themeSrcV25.includes('bd-video')
+  && themeSrcV25.includes('saveBgVideo') && css.includes('.bd-img.on { opacity: 1; }')
+  && seedSrc.includes('bgRotate: true') && settingsJs.includes('背景循环播放')
+  && settingsJs.includes('视频动态背景') && settingsJs.includes('bgvideo'))
+assert('v2.6 语义三色图标系统（SEMANTIC + 发现页宫格语义着色）',
+  iconsSrc.includes('SEMANTIC') && discoverSrcV25.includes('SEMANTIC_COLOR(t.key)'))
+assert('v2.6 应用图标/内置背景资产入库（樱花图标 + 四张轮播背景）',
+  existsSync(new URL('../public/bg/bg-room.jpg', import.meta.url))
+  && existsSync(new URL('../public/bg/bg-night.jpg', import.meta.url))
+  && existsSync(new URL('../public/bg/bg-sunset.jpg', import.meta.url))
+  && existsSync(new URL('../public/bg/bg-sakura.jpg', import.meta.url))
+  && themeSrcV25.includes("BUILTIN_WALLS = ['./bg/bg-room.jpg', './bg/bg-night.jpg', './bg/bg-sunset.jpg', './bg/bg-sakura.jpg']"))
 assert('字体跟随系统：system-ui 前置 + sysFont 开关接线（seed/theme/styles/设置页）',
   seedSrc.includes('sysFont: true') && themeSrcV25.includes('dataset.sysfont')
   && css.includes(':root[data-sysfont="off"] body')
   && settingsJs.includes('字体跟随系统'))
 assert('收款码资产入库', existsSync(new URL('../public/donate/wechat.png', import.meta.url)) && existsSync(new URL('../public/donate/alipay.jpg', import.meta.url)))
+
+// ---------- v2.6 分类线性图标库（28 枚） ----------
+console.log('v2.6 分类图标库：')
+const catIconsSrc = readFileSync(new URL('../src/catIcons.js', import.meta.url), 'utf-8')
+assert('catIcons.js：28 枚清单（支出 14 / 收入 6 / 功能 8）+ 白名单 isImgIcon',
+  (catIconsSrc.match(/\['[a-z]+', '[^']+'\]/g) || []).length === 28
+  && catIconsSrc.includes("expense: toList([") && catIconsSrc.includes("income: toList([") && catIconsSrc.includes("func: toList([")
+  && catIconsSrc.includes('export function isImgIcon(icon)'))
+// 图标文件全部实际入库
+let libPngs = 0
+for (const d of ['cat', 'func']) {
+  const dir = new URL(`../public/icons/${d}/`, import.meta.url)
+  if (existsSync(dir)) libPngs += readdirSync(dir).filter((f) => f.endsWith('.png')).length
+}
+assert('图标库 PNG 全部落盘（cat + func 共 28 枚，单枚 ≤4KB）', libPngs === 28)
+assert('seed 默认分类接入线性图标（餐饮/购物/交通/居家/娱乐/医疗/教育/人情/宠物 + 工资/奖金/理财）',
+  seedSrc.includes("cat('餐饮', './icons/cat/food.png'") && seedSrc.includes("cat('购物', './icons/cat/shop.png'")
+  && seedSrc.includes("cat('交通出行', './icons/cat/transport.png'") && seedSrc.includes("cat('居家生活', './icons/cat/home.png'")
+  && seedSrc.includes("cat('娱乐休闲', './icons/cat/game.png'") && seedSrc.includes("cat('医疗健康', './icons/cat/medical.png'")
+  && seedSrc.includes("cat('教育学习', './icons/cat/edu.png'") && seedSrc.includes("cat('人情往来', './icons/cat/gift.png'")
+  && seedSrc.includes("cat('宠物', './icons/cat/pet.png'")
+  && seedSrc.includes("cat('工资', './icons/cat/salary.png'") && seedSrc.includes("cat('奖金', './icons/cat/bonus.png'")
+  && seedSrc.includes("cat('理财收益', './icons/cat/invest.png'"))
+assert('CatIcon 组件：图标库路径渲染图片 / emoji 回落（ui.jsx）',
+  uiSrc.includes('export function CatIcon') && uiSrc.includes('isImgIcon(icon)'))
+assert('分类图标渲染点去 emoji 文本化（Home/AddTx/Templates/Budget/Charts/Recurring/Trash/Review/Import）',
+  homeJs.includes('<CatIcon icon={info.icon} size={18} />')
+  && readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={15} />')
+  && readFileSync(new URL('../src/pages/Templates.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={18} />')
+  && readFileSync(new URL('../src/pages/Budget.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={20} />')
+  && readFileSync(new URL('../src/pages/ChartsPage.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={17} />')
+  && readFileSync(new URL('../src/pages/Recurring.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={20} />')
+  && readFileSync(new URL('../src/pages/Trash.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={18} />')
+  && readFileSync(new URL('../src/pages/Review.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={14} />'))
+assert('分类管理：图标库/Emoji 双来源选择器 + 图标库网格样式',
+  readFileSync(new URL('../src/pages/CategoryManage.jsx', import.meta.url), 'utf-8').includes("options={[{ value: 'lib', label: '图标库' }, { value: 'emoji', label: 'Emoji' }]}")
+  && css.includes('.ilib {') && css.includes('.ilib-it.on'))
+assert('设置页去 🗑️ emoji（Icon trash 替代）', settingsJs.includes('<Icon name="trash"') && !settingsJs.includes('🗑️'))
 
 assert('Profile 意见反馈 → openFeedback（旧本地 Sheet 已移除）',
   profileSrcV25.includes('openFeedback()') && profileSrcV25.includes('按返回键回到应用')

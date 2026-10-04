@@ -610,8 +610,8 @@ export function buildMonthHtml(state, period) {
   .sum { display: flex; gap: 10px; margin-bottom: 14px; }
   .sum div { flex: 1; border-radius: 10px; padding: 10px 12px; background: #f2f5fa; }
   .sum b { display: block; font-size: 16px; margin-top: 2px; }
-  .expense { color: #e5484d; } .income { color: #159570; } .transfer { color: #2fa886; }
-  h2 { font-size: 13px; margin: 16px 0 6px; border-left: 3px solid #3bc98c; padding-left: 8px; }
+  .expense { color: #e5484d; } .income { color: #159570; } .transfer { color: #2f6fd6; }
+  h2 { font-size: 13px; margin: 16px 0 6px; border-left: 3px solid #2a2f3a; padding-left: 8px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { border-bottom: 1px solid #e6eaf1; padding: 5px 6px; text-align: left; }
   th { background: #f2f5fa; font-size: 11px; color: #5b6472; }

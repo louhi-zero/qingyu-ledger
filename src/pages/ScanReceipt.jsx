@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Empty } from '../ui.jsx'
+import { isImgIcon } from '../catIcons.js'
 import { fileToJpeg, blobToDataUrl, replaceBlob } from '../blobdb.js'
 import { loadAiCfg, parseReceiptImage } from '../ai.js'
 import { fmt, todayStr, uid, round2 } from '../utils.js'
@@ -79,11 +80,12 @@ export default function ScanReceipt({ nav }) {
   }
 
   const cats = state.categories.expense
+  // v2.6 图片图标无法拼进纯文本，回落为仅分类名
   const catName = (id) => {
     for (const c of cats) {
-      if (c.id === id) return `${c.icon} ${c.name}`
+      if (c.id === id) return isImgIcon(c.icon) ? c.name : `${c.icon} ${c.name}`
       const sub = (c.children || []).find((x) => x.id === id)
-      if (sub) return `${sub.icon} ${c.name}·${sub.name}`
+      if (sub) return isImgIcon(sub.icon) ? `${c.name}·${sub.name}` : `${sub.icon} ${c.name}·${sub.name}`
     }
     return '自动识别'
   }

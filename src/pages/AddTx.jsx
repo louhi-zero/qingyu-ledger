@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { Seg, Confirm, Empty, Sheet } from '../ui.jsx'
+import { Seg, Confirm, Empty, Sheet, CatIcon } from '../ui.jsx'
 import { fmt, uid, todayStr, nowTime, addDays, accountName } from '../utils.js'
 import { getObjectUrl, replaceBlob, fileToJpeg, blobToDataUrl } from '../blobdb.js'
 import { loadAiCfg, parseTxText, parseReceiptImage } from '../ai.js'
@@ -329,13 +329,13 @@ export default function AddTx({ open, editTx, onClose }) {
             <>
               <div className="catbar">
                 {cats.map((c) => (
-                  <button key={c.id} className={`chip ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => selCat(c, false)}>{c.icon} {c.name}</button>
+                  <button key={c.id} className={`chip ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => selCat(c, false)}><CatIcon icon={c.icon} size={15} /> {c.name}</button>
                 ))}
               </div>
               <div className="grid4" style={{ marginBottom: 6 }}>
                 {(mainCat?.children || []).map((s) => (
                   <button key={s.id} className={`gitem ${subId === s.id ? 'on' : ''}`} onClick={() => selCat(s, true)}>
-                    <div className="gi">{s.icon}</div><span>{s.name}</span>
+                    <div className="gi"><CatIcon icon={s.icon} size={20} /></div><span>{s.name}</span>
                   </button>
                 ))}
                 {!mainCat?.children?.length && (

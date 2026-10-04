@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar } from '../ui.jsx'
+import { TopBar, CatIcon } from '../ui.jsx'
 import {
   genReview, currentPeriod, periodAdd, periodLabel, fmt,
 } from '../utils.js'
@@ -93,7 +93,7 @@ export default function Review({ nav }) {
                 <div className="rk">{i + 1}</div>
                 <div className="rmain">
                   <div className="rname">
-                    <span>{c.icon} {c.name}</span>
+                    <span><CatIcon icon={c.icon} size={14} /> {c.name}</span>
                     <span className="rv">¥{fmt(c.value)} · {Math.round((c.value / r.exp) * 100)}%</span>
                   </div>
                   <div className="rbar"><i style={{ width: `${Math.round((c.value / r.top[0].value) * 100)}%`, background: c.color }} /></div>

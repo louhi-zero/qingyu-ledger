@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { Seg, StatRow, Bar, Amount, Sheet } from '../ui.jsx'
-import { Icon, BRAND_COLORS } from '../ui/icons.jsx'
+import { Icon, BRAND_COLORS, SEMANTIC_COLOR } from '../ui/icons.jsx'
 import { openExternal, LINKS } from '../links.js'
 import { Ring } from '../charts.jsx'
 import { AiFace, useDiscIconImgs } from '../theme.jsx'
@@ -221,7 +221,7 @@ export default function Discover() {
                 <div className={`gi${discImgs[t.key] ? ' gi-img' : ''}`}>
                   {discImgs[t.key]
                     ? <img src={discImgs[t.key]} alt="" decoding="async" draggable="false" />
-                    : <Icon name={t.icon} size={22} color="var(--brand)" />}
+                    : <Icon name={t.icon} size={22} color={SEMANTIC_COLOR(t.key)} />}
                 </div>
                 <span>{t.name}</span>
               </button>

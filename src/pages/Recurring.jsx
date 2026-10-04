@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Sheet, Confirm, Switch, Empty } from '../ui.jsx'
+import { TopBar, Sheet, Confirm, Switch, Empty, CatIcon } from '../ui.jsx'
 import {
   uid, todayStr, findCat, catInfo, accountName, fmt, FREQ_CN,
 } from '../utils.js'
@@ -67,7 +67,7 @@ export default function Recurring({ nav }) {
               const info = catInfo(state, { type: r.type, categoryId: r.categoryId })
               return (
                 <div key={r.id} className="cell" onClick={() => setEdit({ ...r, amount: String(r.amount) })}>
-                  <div className="cico">{info.icon}</div>
+                  <div className="cico"><CatIcon icon={info.icon} size={20} /></div>
                   <div className="cmain">
                     <div className="ctitle">
                       ¥{fmt(r.amount)} · {FREQ_CN[r.freq]}{r.interval > 1 ? `(每${r.interval}${r.freq === 'daily' ? '天' : r.freq === 'weekly' ? '周' : r.freq === 'monthly' ? '月' : '年'})` : ''}
@@ -105,7 +105,7 @@ export default function Recurring({ nav }) {
                 {cats.map((c) => (
                   <button key={c.id} className={`chip ${edit.categoryId === c.id ? 'on' : ''}`}
                     onClick={() => setEdit({ ...edit, categoryId: c.id })}>
-                    {c.icon} {c.name}
+                    <CatIcon icon={c.icon} size={14} /> {c.name}
                   </button>
                 ))}
               </div>

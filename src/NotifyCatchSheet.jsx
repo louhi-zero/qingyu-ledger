@@ -10,6 +10,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from './store.jsx'
 import { Sheet, Seg } from './ui.jsx'
+import { isImgIcon } from './catIcons.js'
 import { uid, todayStr, nowTime, round2 } from './utils.js'
 import { loadAiCfg, aiParsePayScreenshot, humanizeError } from './ai.js'
 
@@ -142,7 +143,7 @@ export default function NotifyCatchSheet({ caught, queueLen = 0, onClose }) {
       <div className="field">
         <label>分类</label>
         <select className="input" value={catId} onChange={(e) => setCatId(e.target.value)}>
-          {catsOf(kind).map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+          {catsOf(kind).map((c) => <option key={c.id} value={c.id}>{isImgIcon(c.icon) ? c.name : `${c.icon} ${c.name}`}</option>)}
         </select>
       </div>
       <div className="field">

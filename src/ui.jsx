@@ -1,6 +1,21 @@
 import React, { useEffect } from 'react'
 import { useStore } from './store.jsx'
 import { fmt } from './utils.js'
+import { isImgIcon } from './catIcons.js'
+
+// v2.6 分类图标：图标库路径（'./icons/...'）渲染图片，其余按 emoji 文本渲染
+// （兼容旧数据、子分类与用户自定义 emoji）；size 为 px
+export function CatIcon({ icon, size = 20, style = {} }) {
+  if (isImgIcon(icon)) {
+    return (
+      <img
+        src={icon} alt="" draggable={false}
+        style={{ width: size, height: size, objectFit: 'contain', verticalAlign: '-0.15em', ...style }}
+      />
+    )
+  }
+  return <span style={{ fontSize: size, lineHeight: 1, ...style }}>{icon}</span>
+}
 
 // 顶部导航
 export function TopBar({ title, right, onBack, sub }) {

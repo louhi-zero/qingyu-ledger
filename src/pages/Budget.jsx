@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Sheet, Bar, Empty } from '../ui.jsx'
+import { TopBar, Sheet, Bar, Empty, CatIcon } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
 import {
   currentPeriod, periodAdd, periodLabel, txsOfPeriod, sumBy,
@@ -116,7 +116,7 @@ export default function Budget({ nav }) {
                 const p = Math.round((spent / bud) * 100)
                 return (
                   <div key={c.id} className="cell" onClick={() => { setEditCat({ id: c.id, name: c.name, icon: c.icon, color: c.color }); setCatInput(bud) }}>
-                    <div className="cico">{c.icon}</div>
+                    <div className="cico"><CatIcon icon={c.icon} size={20} /></div>
                     <div className="cmain">
                       <div className="ctitle">{c.name}</div>
                       <div style={{ marginTop: 5 }}><Bar value={spent} max={bud} danger={p > 100} warn={p > 80} height={7} /></div>
@@ -131,7 +131,7 @@ export default function Budget({ nav }) {
               {/* 未设预算但有支出 */}
               {stats.filter((s) => !byCat[s.id]).map((s) => (
                 <div key={s.id} className="cell" onClick={() => { setEditCat({ id: s.id, name: s.name, icon: s.icon, color: s.color }); setCatInput('') }}>
-                  <div className="cico">{s.icon}</div>
+                  <div className="cico"><CatIcon icon={s.icon} size={20} /></div>
                   <div className="cmain">
                     <div className="ctitle">{s.name}</div>
                     <div className="cdesc">已支出 ¥{fmt(s.value)} · 未设预算</div>
@@ -168,7 +168,7 @@ export default function Budget({ nav }) {
       </Sheet>
 
       {/* 设置分类预算 */}
-      <Sheet open={!!editCat} onClose={() => setEditCat(null)} title={editCat ? `${editCat.icon} ${editCat.name}预算` : ''}>
+      <Sheet open={!!editCat} onClose={() => setEditCat(null)} title={editCat ? `${editCat.name}预算` : ''}>
         <div className="field">
           <label>每月计划支出（元）</label>
           <input className="input" type="number" inputMode="decimal" autoFocus

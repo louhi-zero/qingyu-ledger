@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Empty, Confirm } from '../ui.jsx'
+import { TopBar, Empty, Confirm, CatIcon } from '../ui.jsx'
 import { catInfo, fmt, accountName } from '../utils.js'
 import { blobDel } from '../blobdb.js'
 
@@ -61,7 +61,7 @@ export default function Trash({ nav }) {
           const left = Math.max(0, KEEP_DAYS - days)
           return (
             <div key={t.id} className="cell" style={{ alignItems: 'center' }}>
-              <div className="cico" style={{ background: info.color + '22', opacity: .7 }}>{info.icon}</div>
+              <div className="cico" style={{ background: info.color + '22', opacity: .7 }}><CatIcon icon={info.icon} size={18} /></div>
               <div className="cmain">
                 <div className="ctitle">{t.type === 'transfer' ? '转账' : info.name}
                   <span className="muted" style={{ fontWeight: 400, fontSize: 12, marginLeft: 6 }}>

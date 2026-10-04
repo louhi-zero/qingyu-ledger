@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Seg, Sheet, Empty, Confirm } from '../ui.jsx'
+import { TopBar, Seg, Sheet, Empty, Confirm, CatIcon } from '../ui.jsx'
 import { fmt, uid, catInfo, accountName } from '../utils.js'
 
 // v1.2 记账模板：常用账单一键套用
@@ -54,7 +54,7 @@ export default function Templates({ nav }) {
               const info = catInfo(state, { type: t.type, categoryId: t.categoryId })
               return (
                 <div key={t.id} className="txitem" onClick={() => setEditOpen({ ...t })}>
-                  <div className="txicon" style={{ background: info.color + '1c' }}>{info.icon}</div>
+                  <div className="txicon" style={{ background: info.color + '1c' }}><CatIcon icon={info.icon} size={18} /></div>
                   <div className="txmain">
                     <div className="txname">{t.name}</div>
                     <div className="txnote">{[info.name, accountName(state, t.accountId), t.note].filter(Boolean).join(' · ')}</div>
@@ -120,7 +120,7 @@ function TplEditor({ draft, onClose, onSave, onDelete }) {
           <input className="input" style={{ marginTop: 8 }} type="number" inputMode="decimal" placeholder="金额" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <div className="catbar" style={{ margin: '10px 0 4' }}>
             {cats.map((c) => (
-              <button key={c.id} className={`chip ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => setCategoryId(c.id)}>{c.icon} {c.name}</button>
+              <button key={c.id} className={`chip ${mainCat?.id === c.id ? 'on' : ''}`} onClick={() => setCategoryId(c.id)}><CatIcon icon={c.icon} size={15} /> {c.name}</button>
             ))}
           </div>
           <select className="input" style={{ marginTop: 8 }} value={accountId || ''} onChange={(e) => setAccountId(e.target.value)}>

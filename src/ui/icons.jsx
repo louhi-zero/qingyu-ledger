@@ -31,6 +31,9 @@ import brandQq from '../assets/icons/tabler-brand-qq.svg?raw'
 import messageCircle from '../assets/icons/tabler-message-circle.svg?raw'
 import droplet from '../assets/icons/tabler-droplet.svg?raw'
 import typography from '../assets/icons/tabler-typography.svg?raw'
+import clock from '../assets/icons/tabler-clock.svg?raw'
+import video from '../assets/icons/tabler-video.svg?raw'
+import trash from '../assets/icons/tabler-trash.svg?raw'
 import robot from '../assets/icons/tabler-robot.svg?raw'
 import deviceGamepad from '../assets/icons/tabler-device-gamepad.svg?raw'
 import bilibili from '../assets/icons/simple-icons-bilibili.svg?raw'
@@ -41,7 +44,7 @@ export const ICONS = {
   wallet, chartBar, compass, user, userCircle, targetArrow, buildingBank, book2, books,
   wand, camera, creditCard, trendingDown, pigMoney, briefcase, bolt, home, currencyDollar,
   receipt, download, repeat, bellRinging, heartHandshake, usersGroup, palette, brandQq,
-  messageCircle, droplet, typography, robot, deviceGamepad, bilibili, tiktok, tencentqq,
+  messageCircle, droplet, typography, clock, video, trash, robot, deviceGamepad, bilibili, tiktok, tencentqq,
 }
 
 /* size：px；iconify SVG 内建 width/height=1em，经 fontSize 控制尺寸 */
@@ -56,6 +59,14 @@ export function Icon({ name, size = 22, color, className = '', style = {} }) {
       aria-hidden="true"
     />
   )
+}
+
+/* 语义着色（对齐 32 枚线性图标集）：支出类橙 / 收入类绿 / 功能类蓝，其余中性 */
+export const SEMANTIC = { expense: '#d4813f', income: '#1e9e6e', func: '#2f6fd6' }
+export function SEMANTIC_COLOR(key) {
+  if (key === 'goals') return SEMANTIC.income
+  if (['templates', 'loan', 'fx', 'invoice', 'import', 'recurring', 'ledgers', 'review', 'creditCards'].includes(key)) return SEMANTIC.func
+  return SEMANTIC.expense
 }
 
 /* 品牌社交图标（simple-icons 单色 → 品牌色染色） */

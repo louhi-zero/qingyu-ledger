@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { Icon } from '../ui/icons.jsx'
 import { useNav } from '../App.jsx'
-import { TopBar, Sheet, Empty, Seg, Amount } from '../ui.jsx'
+import { TopBar, Sheet, Empty, Seg, Amount, CatIcon } from '../ui.jsx'
 import { BookIconImg } from '../theme.jsx'
 import {
   fmt, todayStr, addDays, periodOf, periodAdd, periodLabel, weekdayOf,
@@ -193,7 +193,7 @@ export default function Home() {
                       const info = catInfo(state, t)
                       return (
                         <div key={t.id} className="txitem" onClick={() => nav.openAdd(t)}>
-                          <div className="txicon" style={{ background: info.color + '1c' }}>{info.icon}</div>
+                          <div className="txicon" style={{ background: info.color + '1c' }}><CatIcon icon={info.icon} size={18} /></div>
                           <div className="txmain">
                             <div className="txname">
                               {t.type === 'transfer' ? `${accountName(state, t.accountId)} → ${accountName(state, t.toAccountId)}` : info.name}
@@ -240,7 +240,7 @@ export default function Home() {
                 const info = catInfo(state, t)
                 return (
                   <div key={t.id} className="txitem" onClick={() => { setSearchOpen(false); nav.openAdd(t) }}>
-                    <div className="txicon" style={{ background: info.color + '1c' }}>{info.icon}</div>
+                    <div className="txicon" style={{ background: info.color + '1c' }}><CatIcon icon={info.icon} size={18} /></div>
                     <div className="txmain">
                       <div className="txname">{info.name}</div>
                       <div className="txnote">{t.date} {[t.note, accountName(state, t.accountId)].filter(Boolean).join(' · ')}</div>
@@ -300,7 +300,7 @@ function DayList({ date }) {
         const info = catInfo(state, t)
         return (
           <div key={t.id} className="txitem" onClick={() => { nav.openAdd(t) }}>
-            <div className="txicon" style={{ background: info.color + '1c' }}>{info.icon}</div>
+            <div className="txicon" style={{ background: info.color + '1c' }}><CatIcon icon={info.icon} size={18} /></div>
             <div className="txmain">
               <div className="txname">{t.type === 'transfer' ? '转账' : info.name}</div>
               <div className="txnote">{[t.note, t.time].filter(Boolean).join(' · ')}</div>

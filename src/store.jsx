@@ -22,7 +22,7 @@ export function migrateState(s) {
   // v1.1 顶层新字段
   if (!s.aiReports || typeof s.aiReports !== 'object' || Array.isArray(s.aiReports)) s.aiReports = {}
   if (!s.assetsMeta || typeof s.assetsMeta !== 'object') s.assetsMeta = {}
-  for (const k of ['avatar', 'wallpaper', 'welcomebg', 'aiface']) {
+  for (const k of ['avatar', 'wallpaper', 'welcomebg', 'aiface', 'bgvideo']) {
     const m = s.assetsMeta[k]
     if (!m || typeof m !== 'object') s.assetsMeta[k] = { at: null, hash: null }
     else {

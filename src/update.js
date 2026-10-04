@@ -17,7 +17,7 @@
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '2.5'
+export const APP_VERSION = '2.6'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`

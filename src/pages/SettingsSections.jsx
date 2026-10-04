@@ -10,7 +10,7 @@ import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
 import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs, useTheme } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { DISCOVER_TOOLS } from './Discover.jsx'
-import { Icon } from '../ui/icons.jsx'
+import { Icon, SEMANTIC, SEMANTIC_COLOR } from '../ui/icons.jsx'
 import { getNotifyCatch, isNotifyListening, openNotifySettings } from '../notifyCatch.js'
 import { getA11yStatus, openA11ySettings } from '../a11ycatch.js'
 import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify } from '../utils.js'
@@ -124,6 +124,7 @@ function useSettingsCtx() {
   const wallpaperRef = useRef(null)
   const welcomeFileRef = useRef(null)
   const aiFaceFileRef = useRef(null)
+  const bgVideoRef = useRef(null)
 
   const openName = () => { setName(state.settings.nickname); setNameOpen(true) }
 
@@ -149,7 +150,7 @@ function useSettingsCtx() {
         setAiFaceOpen(false)
       }
     } catch (e) {
-      toast(String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底照片' : '图片读取失败，请换一张试试', 'err')
+      toast(kind === 'bgvideo' ? String(e?.message || '视频读取失败') : (String(e?.message || '').includes('白底') ? '仅支持白底图片，请换一张白底照片' : '图片读取失败，请换一张试试'), 'err')
     } finally {
       setBusyImg(false)
     }
@@ -180,7 +181,7 @@ function useSettingsCtx() {
     welcomeOpen, setWelcomeOpen, aiFaceOpen, setAiFaceOpen, aiFaceTab, setAiFaceTab,
     fxOpen, setFxOpen, name, setName, busyImg, pending, setPending,
     confirmClear, setConfirmClear, restoreRef, avatarFileRef,
-    wallpaperRef, welcomeFileRef, aiFaceFileRef, openName, pickImage, readRestore,
+    wallpaperRef, welcomeFileRef, aiFaceFileRef, bgVideoRef, openName, pickImage, readRestore,
     tabIconOpen, setTabIconOpen, tabIconPage, setTabIconPage, tabIconFileRef,
     discIconOpen, setDiscIconOpen, discIconKey, setDiscIconKey, discIconFileRef,
   }
@@ -302,7 +303,7 @@ function AppearanceSection({ ctx }) {
               {TAB_KEYS.map((k) => (
                 tabImgs[k]
                   ? <img key={k} src={tabImgs[k]} alt="" decoding="async" draggable={false} />
-                  : <i key={k}>{DEFAULT_TAB_ICONS[k]}</i>
+                  : <i key={k}><Icon name={DEFAULT_TAB_ICONS[k]} size={16} color="var(--ink3)" /></i>
               ))}
             </span>
             <b>底部菜单图标</b>
@@ -313,7 +314,7 @@ function AppearanceSection({ ctx }) {
               {DISCOVER_TOOLS.slice(0, 4).map((t) => (
                 s.discIconAt?.[t.key] && discImgsCtx[t.key]
                   ? <img key={t.key} src={discImgsCtx[t.key]} alt="" decoding="async" draggable={false} />
-                  : <i key={t.key}>{t.icon}</i>
+                  : <i key={t.key}><Icon name={t.icon} size={16} color={SEMANTIC_COLOR(t.key)} /></i>
               ))}
             </span>
             <b>发现页功能图标</b>
@@ -327,6 +328,47 @@ function AppearanceSection({ ctx }) {
           }}>
             <div className="cico">↩️</div>
             <div className="cmain"><div className="ctitle">恢复默认背景</div></div>
+            <div className="cright"><span className="arrow">›</span></div>
+          </div>
+        )}
+        {/* v2.6 内置背景循环播放 */}
+        <div className="cell" onClick={() => set((d) => { d.settings.bgRotate = d.settings.bgRotate === false ? true : false })}>
+          <div className="cico"><Icon name="repeat" size={20} color={SEMANTIC.func} /></div>
+          <div className="cmain">
+            <div className="ctitle">背景循环播放</div>
+            <div className="cdesc">内置四张插画与自定义壁纸定时轮换，淡入淡出</div>
+          </div>
+          <div className="cright"><Switch on={s.bgRotate !== false} onChange={() => set((d) => { d.settings.bgRotate = d.settings.bgRotate === false ? true : false })} /></div>
+        </div>
+        {s.bgRotate !== false && (
+          <div className="cell range-cell">
+            <div className="cico"><Icon name="clock" size={20} color={SEMANTIC.func} /></div>
+            <div className="cmain">
+              <div className="ctitle">轮换间隔</div>
+              <div className="cdesc">每 {s.bgRotateSec || 60} 秒切换一张背景</div>
+            </div>
+            <div className="cright" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="range" min={30} max={300} step={30} value={s.bgRotateSec || 60}
+                aria-label="轮换间隔"
+                onChange={(e) => set((d) => { d.settings.bgRotateSec = Number(e.target.value) })}
+              />
+            </div>
+          </div>
+        )}
+        {/* v2.6 视频动态背景 */}
+        <div className="cell" onClick={() => ctx.bgVideoRef.current?.click()}>
+          <div className="cico"><Icon name="video" size={20} color={SEMANTIC.func} /></div>
+          <div className="cmain">
+            <div className="ctitle">视频动态背景</div>
+            <div className="cdesc">{s.bgVideoAt ? '已设置 · 点击更换（静音循环播放）' : '上传本地视频作为动态背景（≤80MB）'}</div>
+          </div>
+          <div className="cright"><span className="arrow">›</span></div>
+        </div>
+        {s.bgVideoAt && (
+          <div className="cell" onClick={async () => { await media.clearBgVideo(); toast('已移除视频背景') }}>
+            <div className="cico"><Icon name="trash" size={20} color="var(--ink2)" /></div>
+            <div className="cmain"><div className="ctitle">移除视频背景</div><div className="cdesc">移除后回到图片背景 / 轮播</div></div>
             <div className="cright"><span className="arrow">›</span></div>
           </div>
         )}
@@ -833,7 +875,7 @@ function DataSection({ ctx, nav }) {
           <div className="cright"><span className="arrow">›</span></div>
         </div>
         <div className="cell" onClick={() => ctx.setConfirmClear(true)}>
-          <div className="cico">🗑️</div>
+          <div className="cico"><Icon name="trash" size={20} color="var(--ink2)" /></div>
           <div className="cmain"><div className="ctitle" style={{ color: 'var(--expense)' }}>清空全部数据</div></div>
           <div className="cright"><span className="arrow">›</span></div>
         </div>

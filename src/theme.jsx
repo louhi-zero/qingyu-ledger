@@ -51,7 +51,7 @@ async function extractPalette(url) {
   return colors
 }
 
-const FALLBACK_GLOWS = ['#34d399', '#38bdf8']
+const FALLBACK_GLOWS = ['#9aa3b2', '#7d8698']
 
 export function ThemeProvider({ children }) {
   const { state } = useStore()
@@ -124,12 +124,50 @@ export function ThemeProvider({ children }) {
 }
 
 // ---------- 背景层（挂在 .phone 内） ----------
+// v2.6 背景循环播放：内置四张背景 + 用户自定义壁纸共同参与轮换（bgRotate 开关 / bgRotateSec 间隔）；
+// 上传视频背景（IndexedDB 'bgvideo'）时视频层替代图片层（自动播放/循环/静音/不显示控件）。
+const BUILTIN_WALLS = ['./bg/bg-room.jpg', './bg/bg-night.jpg', './bg/bg-sunset.jpg', './bg/bg-sakura.jpg']
+
 export function Backdrop() {
+  const { state } = useStore()
   const { wallUrl, palette } = useTheme()
+  const s = state.settings
+  const videoUrl = useAssetUrl(s.bgVideoAt, 'bgvideo')
   const glows = palette.length ? palette : FALLBACK_GLOWS
+
+  // 轮播列表：用户壁纸在首，其后内置三张；轮播关闭则固定用户壁纸或首张内置
+  const walls = React.useMemo(() => {
+    const list = []
+    if (wallUrl) list.push(wallUrl)
+    list.push(...BUILTIN_WALLS)
+    return s.bgRotate && list.length > 1 ? list : [list[0]]
+  }, [wallUrl, s.bgRotate])
+
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    setIdx(0)
+    if (!s.bgRotate || walls.length < 2) return undefined
+    const ms = Math.max(15, Number(s.bgRotateSec) || 60) * 1000
+    const timer = setInterval(() => setIdx((i) => (i + 1) % walls.length), ms)
+    return () => clearInterval(timer)
+  }, [s.bgRotate, s.bgRotateSec, walls.length])
+
   return (
     <div className="backdrop" aria-hidden="true">
-      {wallUrl && <img className="bd-img" src={wallUrl} alt="" decoding="async" draggable={false} />}
+      {videoUrl ? (
+        <video className="bd-video" src={videoUrl} autoPlay loop muted playsInline disablePictureInPicture />
+      ) : (
+        walls.map((src, i) => (
+          <img
+            key={src.slice(-24) + i}
+            className={`bd-img${i === idx % walls.length ? ' on' : ''}`}
+            src={src}
+            alt=""
+            decoding="async"
+            draggable={false}
+          />
+        ))
+      )}
       <div className="bd-veil" />
       <div className="bd-glows">
         {glows.map((c, i) => (
@@ -299,6 +337,24 @@ export function useMediaActions() {
         set((d) => {
           d.settings.aiFaceAt = null
           d.assetsMeta.aiface = { at: null, hash: null }
+        })
+      },
+      // v2.6 视频动态背景：原样存 IndexedDB（视频不压缩），上限 80MB 提示
+      async saveBgVideo(file) {
+        if (file.size > 80 * 1024 * 1024) throw new Error('视频超过 80MB，请先压缩')
+        const hash = await hashBlob(file)
+        const at = new Date().toISOString()
+        await replaceBlob('bgvideo', file)
+        set((d) => {
+          d.settings.bgVideoAt = at
+          d.assetsMeta.bgvideo = { at, hash }
+        })
+      },
+      async clearBgVideo() {
+        await replaceBlob('bgvideo', null)
+        set((d) => {
+          d.settings.bgVideoAt = null
+          d.assetsMeta.bgvideo = { at: null, hash: null }
         })
       },
       // v1.6 底部菜单图标图片：严格白底校验（四角非近白直接抛错），96×96 居中裁切

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
-import { TopBar, Seg, Empty } from '../ui.jsx'
+import { TopBar, Seg, Empty, CatIcon } from '../ui.jsx'
 import { Donut, Bars } from '../charts.jsx'
 import { AiFace } from '../theme.jsx'
 import {
@@ -228,7 +228,7 @@ export default function ChartsPage() {
                 {catStats.map((c, i) => (
                   <div className="rankrow" key={c.id}>
                     <span className="rk">{i + 1}</span>
-                    <div className="txicon" style={{ background: c.color + '1c', width: 34, height: 34, fontSize: 17 }}>{c.icon}</div>
+                    <div className="txicon" style={{ background: c.color + '1c', width: 34, height: 34 }}><CatIcon icon={c.icon} size={17} /></div>
                     <div className="rmain">
                       <div className="rname"><span>{c.name} <span className="muted">×{c.count}</span></span><span className="rv">¥{fmt(c.value)}</span></div>
                       <div className="rbar"><i style={{ width: `${statTotal ? (c.value / statTotal) * 100 : 0}%`, background: c.color }} /></div>

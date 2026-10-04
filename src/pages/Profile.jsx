@@ -59,7 +59,7 @@ export default function Profile() {
   }
   // v1.5 头部晕光：壁纸主色优先，无壁纸时退回品牌渐变色
   const { palette } = useTheme()
-  const headGlows = palette.length ? palette : ['#3bc98c', '#38b6c9', '#45c4e0']
+  const headGlows = palette.length ? palette : ['#2a2f3a', '#4b5361', '#7d8698']
 
   const punch = () => {
     const today = new Date().toLocaleDateString('sv')

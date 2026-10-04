@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { TopBar, Sheet, Empty } from '../ui.jsx'
+import { TopBar, Sheet, Empty, CatIcon } from '../ui.jsx'
 import {
   parseBillCSV, uid, nowTime, todayStr, txsToCSV, downloadFile, txsOfLedger,
   findCat, catInfo, accountName, fmt, hashStr,
@@ -137,7 +137,7 @@ export default function ImportPage({ nav }) {
                     <input type="checkbox" checked={checked} style={{ width: 18, height: 18 }}
                       onChange={(e) => setSel((s) => ({ ...s, [d.sourceHash]: e.target.checked }))} />
                     <div className="txicon" style={{ background: d.type === 'income' ? 'var(--income-weak)' : 'var(--expense-weak)', fontSize: 16 }}>
-                      {info?.icon || (d.type === 'income' ? '💰' : '❓')}
+                      <CatIcon icon={info?.icon || (d.type === 'income' ? '💰' : '❓')} size={16} />
                     </div>
                     <div className="txmain">
                       <div className="txname" style={{ fontSize: 14 }}>{d.note || (d.type === 'income' ? '收入' : '支出')}</div>
