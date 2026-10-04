@@ -315,6 +315,14 @@ function Shell() {
         const { App } = await import('@capacitor/app')
         if (cancelled) return
         listenerPromise = App.addListener('backButton', () => {
+          // v2.6 外链返回修复：主 WebView 已导航到第三方页面（反馈表单/B站/QQ群等）时，
+          // 返回键只做历史回退回到应用——旧逻辑此时 nav 栈为空会直接走「双击退出」，
+          // 用户被踢出应用导致「退出要重进」
+          if (!/^(localhost|127\.0\.0\.1|appassets)$/.test(window.location.hostname)) {
+            if (window.history.length > 1) { window.history.back(); return }
+            window.location.href = '/'
+            return
+          }
           const n = navRef.current
           if (n.noticeLen > 0) return // 重要公告弹窗打开时吞掉返回键，必须点「知道了」
           if (n.addOpen) n.closeAdd()
