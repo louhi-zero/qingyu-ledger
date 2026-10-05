@@ -251,6 +251,15 @@ function AppearanceSection({ ctx }) {
           </div>
           <div className="cright"><Switch on={s.sysFont !== false} onChange={() => set((d) => { d.settings.sysFont = d.settings.sysFont === false ? true : false })} /></div>
         </div>
+        {/* v3.2 小岛模式（老年模式）：整体等比放大，字号/间距同步大一号不破版式 */}
+        <div className="cell" onClick={() => set((d) => { d.settings.islandMode = !d.settings.islandMode })}>
+          <div className="cico"><Icon name="beach" size={20} color="var(--brand)" /></div>
+          <div className="cmain">
+            <div className="ctitle">小岛模式</div>
+            <div className="cdesc">启用会对看不清字的人有显著的帮助哦</div>
+          </div>
+          <div className="cright"><Switch on={s.islandMode === true} onChange={() => set((d) => { d.settings.islandMode = !d.settings.islandMode })} /></div>
+        </div>
         {s.glassOn && (
           <div className="cell range-cell">
             <div className="cico"><Icon name="cloudFog" size="1em" className="qy-inline-icon" /></div>

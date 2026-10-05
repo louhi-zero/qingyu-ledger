@@ -78,6 +78,7 @@ export function emptyState() {
       defaultType: 'expense',
       hideAmount: false,
       dark: false,
+      islandMode: false, // v3.2 小岛模式（老年模式）：整体等比放大字号与间距（styles.css html.island）
       remindEnabled: false,
       remindTime: '21:00',
       welcomed: false,

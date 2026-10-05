@@ -127,6 +127,11 @@ export function AppProvider({ children }) {
     document.documentElement.dataset.theme = state.settings.dark ? 'dark' : 'light'
   }, [state.settings.dark])
 
+  // v3.2 小岛模式（老年模式）：根节点 class 切换，CSS 等比放大字号与间距（styles.css html.island）
+  useEffect(() => {
+    try { document.documentElement.classList.toggle('island', state.settings.islandMode === true) } catch { /* ignore */ }
+  }, [state.settings.islandMode])
+
   const set = useCallback((fn) => {
     setState((prev) => {
       const draft = structuredClone(prev)

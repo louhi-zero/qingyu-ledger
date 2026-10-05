@@ -25,7 +25,17 @@
   --grad-soft: linear-gradient(135deg, #f2f3f6 0%, #eef0f4 100%);
   --radius: 16px;
   --tabbar-h: 62px;
+  --island-zoom: 1; /* v3.2 小岛模式放大倍率（html.island 改写；dvh 按其倒数折算，防 root zoom 视口单位虚高溢出） */
 }
+
+/* ============ v3.2 小岛模式（老年模式） ============ */
+/* 整体等比放大：px 字号体系下唯一不破版式的方案——root zoom 等比缩放，
+   字号/间距/圆角同步放大（观感是「整体大一号」而非拉伸变形）。
+   注意：Chromium 下 root zoom 会等比放大 vh/dvh 的使用值（100dvh 实为 115dvh → 全页溢出滚动），
+   故所有 dvh 处统一 calc(XXdvh / var(--island-zoom)) 折算回真实视口比例 */
+html.island { zoom: var(--island-zoom); }
+html.island { --island-zoom: 1.15; }
+
 :root[data-theme="dark"] {
   --bg: #14161d;
   --card: #1e212b;
@@ -54,18 +64,18 @@ body {
   color: var(--ink);
   overscroll-behavior: none;
 }
-#root { min-height: 100dvh; }
+#root { min-height: calc(100dvh / var(--island-zoom)); }
 
 /* ---------- 手机壳(桌面居中预览) ---------- */
 .phone {
-  max-width: 430px; margin: 0 auto; min-height: 100dvh;
+  max-width: 430px; margin: 0 auto; min-height: calc(100dvh / var(--island-zoom));
   background: var(--bg); position: relative;
   box-shadow: 0 0 0 1px rgba(0,0,0,.04), 0 30px 80px -30px rgba(23,32,64,.35);
 }
 @media (max-width: 480px) { .phone { box-shadow: none; } }
 
 /* ---------- 页面 ---------- */
-.app { display: flex; flex-direction: column; min-height: 100dvh; }
+.app { display: flex; flex-direction: column; min-height: calc(100dvh / var(--island-zoom)); }
 .page-body {
   flex: 1; padding: calc(env(safe-area-inset-top, 0px) + 12px) 14px calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 16px);
 }
@@ -248,11 +258,11 @@ body {
 .sheet {
   width: 100%; max-width: 430px; background: var(--bg);
   border-radius: 24px 24px 0 0; animation: rise .22s ease;
-  max-height: 92dvh; display: flex; flex-direction: column;
+  max-height: calc(92dvh / var(--island-zoom)); display: flex; flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .sheet.center {
-  border-radius: 20px; max-width: 400px; max-height: 84dvh; animation: fadein .18s ease; margin: auto;
+  border-radius: 20px; max-width: 400px; max-height: calc(84dvh / var(--island-zoom)); animation: fadein .18s ease; margin: auto;
 }
 .sheet-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -373,7 +383,7 @@ textarea.input { resize: none; min-height: 90px; }
 .gitem:active { transform: scale(.94); }
 
 /* ---------- 记账面板 ---------- */
-.addsheet { max-height: 96dvh; border-radius: 24px 24px 0 0; background: var(--bg); }
+.addsheet { max-height: calc(96dvh / var(--island-zoom)); border-radius: 24px 24px 0 0; background: var(--bg); }
 .add-amount {
   display: flex; align-items: baseline; gap: 8px; padding: 6px 6px 2px; justify-content: center;
 }
@@ -824,7 +834,7 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 }
 .nmodal .ncard {
   background: var(--card); border-radius: 22px; box-shadow: var(--shadow);
-  width: 100%; max-width: 380px; max-height: 72dvh;
+  width: 100%; max-width: 380px; max-height: calc(72dvh / var(--island-zoom));
   display: flex; flex-direction: column; overflow: hidden;
   animation: npop .18s cubic-bezier(.3, 0, .25, 1);
 }

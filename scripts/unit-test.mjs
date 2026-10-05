@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 36 / 3.0', gradle.includes('versionCode 36') && gradle.includes('versionName "3.0"'))
+assert('版本 versionCode 37 / 3.1', gradle.includes('versionCode 37') && gradle.includes('versionName "3.1"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -606,6 +606,35 @@ assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被�
     manifestSrcV31.includes('android:scheme="qingyu"') && manifestSrcV31.includes('android.intent.category.BROWSABLE'))
   assert('App 深链监听：getLaunchUrl 冷启动 + appUrlOpen 热启动 + 白名单 go()',
     appSrcV31.includes('App.getLaunchUrl()') && appSrcV31.includes("'appUrlOpen'") && appSrcV31.includes('parseAppUrl(url)'))
+}
+
+// ---------- v3.2 小岛模式（老年模式） + OPPO 启动灰屏修复 + 脱敏防回归 ----------
+{
+  const seedSrcV32 = readFileSync(new URL('../src/seed.js', import.meta.url), 'utf-8')
+  const storeSrcV32 = readFileSync(new URL('../src/store.jsx', import.meta.url), 'utf-8')
+  const stylesSrcV32 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+  const settingsSectSrcV32 = readFileSync(new URL('../src/pages/SettingsSections.jsx', import.meta.url), 'utf-8')
+  const indexHtmlV32 = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+  const aiSrcV32 = readFileSync(new URL('../src/ai.js', import.meta.url), 'utf-8')
+  assert('小岛模式：seed 默认关 + store 根节点 class 切换（跟随设置即时生效）',
+    seedSrcV32.includes('islandMode: false')
+    && storeSrcV32.includes("classList.toggle('island', state.settings.islandMode === true)"))
+  assert('小岛模式 CSS：root zoom 等比放大 + dvh 按倒数折算（防 Chromium root zoom 视口单位虚高溢出）',
+    stylesSrcV32.includes('html.island { zoom: var(--island-zoom); }')
+    && stylesSrcV32.includes('html.island { --island-zoom: 1.15; }')
+    && stylesSrcV32.includes('min-height: calc(100dvh / var(--island-zoom))')
+    && !/min-height: 100dvh/.test(stylesSrcV32) && !/max-height: \d+dvh/.test(stylesSrcV32.replace(/calc\(\d+dvh \/ var\(--island-zoom\)\)/g, '')))
+  assert('设置页：小岛模式开关（beach 图标）+ 灰色小字备注（cdesc）',
+    settingsSectSrcV32.includes('小岛模式')
+    && settingsSectSrcV32.includes('启用会对看不清字的人有显著的帮助哦')
+    && settingsSectSrcV32.includes('name="beach"'))
+  assert('OPPO 灰屏修复：index.html 内联零 JS 启动画面（图标 data URI 内联零请求，WebView 解析即渲染，React 挂载后自动替换）',
+    indexHtmlV32.includes('boot-splash') && indexHtmlV32.includes('src="data:image/png;base64,')
+    && indexHtmlV32.includes('@keyframes bootSlide'))
+  assert('AI 上传脱敏防回归：账单载荷递归打码 + 通知兜底文本打码 + 默认开启',
+    aiSrcV32.includes('return maskSensitive(v)')
+    && aiSrcV32.includes('cfg.mask !== false ? maskSensitive(title) : title')
+    && seedSrcV32.includes('aiMask: true'))
 }
 assert('buildMessages 支持 custom/char 双模式',
   aiSrc.includes("mode === 'custom'") && aiSrc.includes("mode === 'char'")
