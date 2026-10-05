@@ -144,7 +144,7 @@ export default function NotifyCatchSheet({ caught, queueLen = 0, onClose }) {
       <div className="field">
         <label>分类</label>
         <select className="input" value={catId} onChange={(e) => setCatId(e.target.value)}>
-          {catsOf(kind).map((c) => <option key={c.id} value={c.id}>{isImgIcon(c.icon) ? c.name : `${c.icon} ${c.name}`}</option>)}
+          {catsOf(kind).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
       <div className="field">

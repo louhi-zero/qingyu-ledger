@@ -137,7 +137,7 @@ export default function Recurring({ nav }) {
               <select className="input" value={edit.accountId || ''}
                 onChange={(e) => setEdit({ ...edit, accountId: e.target.value || null })}>
                 <option value="">不指定</option>
-                {accounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="field">

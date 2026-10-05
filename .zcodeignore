@@ -1,0 +1,60 @@
+node_modules/
+dist/
+release/
+_electron*
+*.log
+.DS_Store
+
+# 本机分析产物与 IDE 内部文档
+_analysis/
+.trae/
+
+# Capacitor / Android 构建产物（android/ 工程本身入库，CI 与协作者依赖它）
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/app/release/
+*.keystore
+*.jks
+android/app/keystore.properties
+.idea/
+
+# 会话本地产物（不发布）
+.e2e/
+.vscode/
+.zcode/
+diag-out.txt
+docs/README-v1.md.bak
+
+# ===== ↑ 以上同步自 .gitignore（「从 .gitignore 同步」只重写以上部分）=====
+.git/
+.hg/
+.svn/
+bower_components/
+jspm_packages/
+__pycache__/
+site-packages/
+venv/
+coverage/
+htmlcov/
+lcov-report/
+cmakefiles/
+cmake-build-*/
+bazel-*/
+pods/
+deriveddata/
+storybook-static/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+cdk.out/
+*.egg-info/
+*.dist-info/
+eggs/
+pip-wheel-metadata/
+wheels/
+# ----- ↑ 以上为 ZCode 默认排除规则（自定义规则请写在本行下方，不会被同步/恢复改动）-----
+# 自定义规则写在下方（本行提示可删除）

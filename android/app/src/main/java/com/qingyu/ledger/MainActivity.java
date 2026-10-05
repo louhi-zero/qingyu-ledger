@@ -14,6 +14,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(QyA11yPlugin.class);
         // v1.7.0 应用内更新：注册 APK 下载/安装插件
         registerPlugin(UpdatePlugin.class);
+        // v3.1 敏感配置安全存储：AndroidKeyStore AES-256 加密（API Key 不落明文）
+        registerPlugin(SecureStorePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

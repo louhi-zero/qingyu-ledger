@@ -38,6 +38,12 @@ import ScanReceipt from './pages/ScanReceipt.jsx'
 import Trash from './pages/Trash.jsx'
 import { ThemeProvider, Backdrop, useTabIconImgs } from './theme.jsx'
 import { Splash, Intro } from './Welcome.jsx'
+import { initSecureStore } from './securestore.js'
+
+// v3.1 敏感配置（AI API Key）启动即 hydrate：AndroidKeyStore → 内存缓存，
+// 早于页面渲染与离线通知重放，loadAiCfg 的同步读才有 Keystore 数据；
+// Web/桌面/Node 无原生插件为 no-op（回落 localStorage 原行为），单测安全
+initSecureStore()
 
 const NavCtx = createContext(null)
 export const useNav = () => useContext(NavCtx)

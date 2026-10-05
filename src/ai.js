@@ -5,7 +5,8 @@
  *   2. Capacitor APK：启用 CapacitorHttp 后全局 fetch 已被原生替换，直接 fetch
  *   3. 浏览器：直连 fetch（智谱若拦截 CORS，会给出使用桌面版/APK 的中文引导）
  *
- * 隐私：API Key/模型/BaseURL 仅存本机 localStorage（qingyu_ai_cfg_v1），
+ * 隐私：API Key/模型/BaseURL 仅存本机——v3.1 起原生端走 AndroidKeyStore AES-256 加密
+ * （securestore.js，密钥不可导出），Web/桌面回落 localStorage（qingyu_ai_cfg_v1）；
  * 不进入云备份快照；备注是否上传由 settings.aiIncludeNotes 控制；
  * v2.5 起上传前默认脱敏（settings.aiMask，手机号/身份证/银行卡打码；截图识别为原图无法打码）。
  * 金额口径：只读取 utils 已 round2 的数值用于展示，AI 不参与任何金额计算。
@@ -16,9 +17,11 @@ import {
   yearBounds, addDays, parseD, todayStr, pad2, parseTxTextLocal, guessCategoryId,
   maskSensitive,
 } from './utils.js'
+import { SECURE_KEY_AI, secureGetJson, secureSetJson } from './securestore.js'
 
 // ---------- 本机配置（不云同步） ----------
-export const AI_CFG_KEY = 'qingyu_ai_cfg_v1'
+// v3.1 原生端走 AndroidKeyStore 加密存储（securestore.js），Web/桌面回落 localStorage 明文
+export const AI_CFG_KEY = 'qingyu_ai_cfg_v1' // 旧键名，保留供 securestore 迁移与测试引用
 export const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
 export const DEFAULT_MODEL = 'glm-4.7-flash'
 
@@ -27,9 +30,8 @@ export function defaultAiCfg() {
 }
 export function loadAiCfg() {
   try {
-    const raw = localStorage.getItem(AI_CFG_KEY)
-    if (!raw) return defaultAiCfg()
-    const c = JSON.parse(raw)
+    const c = secureGetJson(SECURE_KEY_AI) // 启动后为 Keystore 数据；未 hydrate 时回落 localStorage
+    if (!c) return defaultAiCfg()
     return {
       key: typeof c.key === 'string' ? c.key : '',
       model: c.model || DEFAULT_MODEL,
@@ -40,11 +42,12 @@ export function loadAiCfg() {
   }
 }
 export function saveAiCfg(cfg) {
-  localStorage.setItem(AI_CFG_KEY, JSON.stringify({
+  // 异步持久化（Keystore/回落 localStorage）；内存缓存同步生效，loadAiCfg 立即可读
+  secureSetJson(SECURE_KEY_AI, {
     key: cfg.key || '',
     model: cfg.model || DEFAULT_MODEL,
     baseUrl: (cfg.baseUrl || DEFAULT_BASE_URL).trim(),
-  }))
+  })
 }
 
 // ---------- 回复风格 ----------

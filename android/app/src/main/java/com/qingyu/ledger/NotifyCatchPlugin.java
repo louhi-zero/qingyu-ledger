@@ -1,5 +1,6 @@
 package com.qingyu.ledger;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -48,9 +49,27 @@ public class NotifyCatchPlugin extends Plugin {
 
     @PluginMethod
     public void isListening(PluginCall call) {
+        // v3.1 修复：静态 listening 标志在「服务先于插件绑定」时丢失（onListenerConnected
+        // 早于 load，setListening 时 instance 为 null）——改为系统实时查询，开启后立即可见
         JSObject r = new JSObject();
-        r.put("value", listening);
+        r.put("value", isListenerEnabled(getContext()) || listening);
         call.resolve(r);
+    }
+
+    /** 通知使用权是否已在系统侧启用（enabled_notification_listeners 精确匹配本服务） */
+    static boolean isListenerEnabled(Context ctx) {
+        try {
+            String flat = Settings.Secure.getString(
+                    ctx.getContentResolver(), "enabled_notification_listeners");
+            if (flat == null || flat.isEmpty()) return false;
+            ComponentName self = new ComponentName(ctx, NotifyCatchService.class);
+            for (String item : flat.split(":")) {
+                if (item == null || item.trim().isEmpty()) continue;
+                ComponentName cn = ComponentName.unflattenFromString(item.trim());
+                if (self.equals(cn)) return true;
+            }
+        } catch (Exception ignored) { /* 读取失败回落静态标志 */ }
+        return false;
     }
 
     @PluginMethod

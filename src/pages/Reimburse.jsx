@@ -137,7 +137,7 @@ export default function Reimburse({ nav }) {
                   className="input" style={{ width: 'auto', padding: '6px 10px' }}
                   value={toAccountId || ''} onChange={(e) => setToAccountId(e.target.value)}
                 >
-                  {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                  {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
             )}

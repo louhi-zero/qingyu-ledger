@@ -84,7 +84,7 @@ export default function ScanReceipt({ nav }) {
   // v2.6 图片图标无法拼进纯文本，回落为仅分类名
   const catName = (id) => {
     for (const c of cats) {
-      if (c.id === id) return isImgIcon(c.icon) ? c.name : `${c.icon} ${c.name}`
+      if (c.id === id) return c.name
       const sub = (c.children || []).find((x) => x.id === id)
       if (sub) return isImgIcon(sub.icon) ? `${c.name}·${sub.name}` : `${sub.icon} ${c.name}·${sub.name}`
     }
@@ -143,8 +143,8 @@ export default function ScanReceipt({ nav }) {
                 <select className="input" value={categoryId || ''} onChange={(e) => setCategoryId(e.target.value || null)}>
                   <option value="">自动识别</option>
                   {cats.map((c) => (
-                    <optgroup key={c.id} label={`${c.icon} ${c.name}`}>
-                      <option value={c.id}>{c.icon} {c.name}</option>
+                    <optgroup key={c.id} label={c.name}>
+                      <option value={c.id}>{c.name}</option>
                       {(c.children || []).map((s) => <option key={s.id} value={s.id}>{s.icon} {c.name}·{s.name}</option>)}
                     </optgroup>
                   ))}
@@ -153,7 +153,7 @@ export default function ScanReceipt({ nav }) {
               <div className="field">
                 <label>账户</label>
                 <select className="input" value={accountId || state.accounts[0]?.id || ''} onChange={(e) => setAccountId(e.target.value || null)}>
-                  {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                  {state.accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
               <div className="field">

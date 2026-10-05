@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 34 / 2.8', gradle.includes('versionCode 34') && gradle.includes('versionName "2.8"'))
+assert('版本 versionCode 36 / 3.0', gradle.includes('versionCode 36') && gradle.includes('versionName "3.0"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -237,8 +237,8 @@ assert('JS 桥暴露 testNotifyEmit', notifyJs.includes('export async function t
 assert('设置页含文案识别沙盒', settingsJs.includes('notify-sandbox') && settingsJs.includes('文案识别测试'))
 
 const iconXml = readFileSync(new URL('../android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', import.meta.url), 'utf-8')
-assert('自适应图标引用 PNG 前/后景（无 inset，全幅构图）',
-  iconXml.includes('@mipmap/ic_launcher_foreground') && !iconXml.includes('inset'))
+assert('自适应图标：樱花图前景/背景 inset 16.7%（v2.9 樱花图标方案）',
+  iconXml.includes('@mipmap/ic_launcher_foreground') && iconXml.includes('inset'))
 assert('各密度图标齐备（xxxhdpi 前景/后景/方/圆）',
   existsSync(new URL('../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png', import.meta.url))
   && existsSync(new URL('../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png', import.meta.url))
@@ -275,7 +275,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 2.6', pkgJson.version === '2.8')
+assert('package.json 版本 3.0', pkgJson.version === '3.0')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -411,7 +411,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 2.6', APP_VERSION === '2.8')
+assert('update.js 版本单一源为 3.0', APP_VERSION === '3.0')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -565,6 +565,23 @@ assert('缓存命中免检索免生成（90% 提速）', stylecardSrc.includes('
 assert('校验不过带原因重试一次', stylecardSrc.includes('for (let i = 0; i < 2; i++)') && stylecardSrc.includes('上次输出未通过校验'))
 assert('检索失败降级模型知识，不阻断', stylecardSrc.includes('未检索到') && stylecardSrc.includes('return null // 网络失败'))
 assert('ai.js 不 import stylecard（避免循环依赖）', !aiSrc.includes('from \'./stylecard.js\''))
+// v3.1 安全存储：AI 配置脱离 localStorage 明文（原生 AndroidKeyStore AES-256 加密）
+const securestoreSrc = readFileSync(new URL('../src/securestore.js', import.meta.url), 'utf-8')
+const secureStorePluginSrc = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/SecureStorePlugin.java', import.meta.url), 'utf-8')
+const mainActivitySrc = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
+const appSrcV31 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+assert('ai.js loadAiCfg/saveAiCfg 走 securestore（不再直读 localStorage）',
+  aiSrc.includes('secureGetJson(SECURE_KEY_AI)') && aiSrc.includes('secureSetJson(SECURE_KEY_AI,')
+  && !aiSrc.includes("localStorage.getItem(AI_CFG_KEY)"))
+assert('App 启动即 initSecureStore()（早于页面渲染与离线通知重放）', appSrcV31.includes('initSecureStore()'))
+assert('原生插件：AndroidKeyStore AES-256-GCM + 密钥不可导出 + 已注册',
+  secureStorePluginSrc.includes('"AndroidKeyStore"') && secureStorePluginSrc.includes('setKeySize(256)')
+  && secureStorePluginSrc.includes('AES/GCM/NoPadding') && mainActivitySrc.includes('registerPlugin(SecureStorePlugin.class)'))
+assert('旧明文一次性迁移：先写 Keystore 后删 localStorage（失败保留明文兜底）',
+  securestoreSrc.includes('await store.set({ key: SECURE_KEY_AI, value: legacy })')
+  && securestoreSrc.indexOf('await store.set({ key: SECURE_KEY_AI, value: legacy })') < securestoreSrc.indexOf('localStorage.removeItem(LEGACY_AI_KEY)'))
+assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被快照冲掉）',
+  securestoreSrc.includes('if (!Object.keys(cache).length) cache = parsed'))
 assert('buildMessages 支持 custom/char 双模式',
   aiSrc.includes("mode === 'custom'") && aiSrc.includes("mode === 'char'")
   && aiSrc.includes('qingyu_style_cards_v1') && aiSrc.includes('角色卡缓存丢失时的优雅回落'))
@@ -826,8 +843,8 @@ assert('云备份页：测试连接/立即同步复用 runAutoSync（silent=fals
   (cloudSrc.match(/await runAutoSync\(\{ state, restoreState, toast, silent: false \}\)/g) || []).length === 2)
 assert('云备份页：自动同步说明 + 最近一次失败可见',
   cloudSrc.includes('配置后账单变化会自动双向同步') && cloudSrc.includes('最近一次失败'))
-assert('未登录点头像 → 坚果云登录引导 Sheet',
-  profileSrc11.includes('loggedIn ? setAvatarOpen(true) : setLoginOpen(true)')
+assert('v3.0 未登录点头像 → 直接弹头像 Sheet（本地保存）',
+  profileSrc11.includes('const onAvatarClick = () => setAvatarOpen(true)')
   && profileSrc11.includes('title="登录坚果云"') && profileSrc11.includes('同步账单，换机不丢数据'))
 assert('登录引导：打开坚果云登录页 + 去应用内配置',
   profileSrc11.includes('jianguoyun.com/d/login') && profileSrc11.includes("nav.push({ page: 'cloud' })"))
@@ -837,9 +854,9 @@ assert('未登录徽标：me-cloud 胶囊仅未登录时显示，点击弹登录
   && profileSrc11.includes('!loggedIn && (') && profileSrc11.includes('onClick={() => setLoginOpen(true)}'))
 assert('未登录徽标样式：me-tags 并排 + 琥珀色警示（不影响已登录态）',
   css.includes('.me-tags') && css.includes('.me-cloud') && css.includes('#ff9f43'))
-assert('昵称直接显示「未登录」：未登录态点昵称弹登录引导（不直达改名）',
-  profileSrc11.includes("displayName = loggedIn ? state.settings.nickname : '未登录'")
-  && profileSrc11.includes("onNameClick = () => (loggedIn ? (setName(state.settings.nickname), setNameOpen(true)) : setLoginOpen(true))"))
+assert('v3.0 昵称：有昵称显示昵称否则「未登录」；未登录也可改名（本地保存）',
+  profileSrc11.includes("displayName = state.settings.nickname || '未登录'")
+  && profileSrc11.includes('未登录也可改昵称与头像'))
 assert('登录引导保留改名次级入口（暂不登录，先改个昵称）',
   profileSrc11.includes('暂不登录，先改个昵称') && profileSrc11.includes('const openRename'))
 const syncSrc = readFileSync(new URL('../src/sync.js', import.meta.url), 'utf-8')
@@ -1106,9 +1123,9 @@ assert('links.js：B站/小黑盒/抖音/QQ群链接 + scheme 优先策略（vis
 assert('allowNavigation 不含四个社交域（外链交系统浏览器，防 WebView 导航离场致启动页重播）',
   !capCfg.includes('space.bilibili.com') && !capCfg.includes('www.xiaoheihe.cn')
   && !capCfg.includes('www.douyin.com') && !capCfg.includes('qm.qq.com'))
-assert('support.js：赞助/鸣谢名单维护常量保留（v2.8 名单清空，结构供后续维护）',
-  supportDataSrc.includes('export const SPONSORS') && supportDataSrc.includes('export const TESTERS')
-  && /SPONSORS = \[\s*\]/.test(supportDataSrc) && /TESTERS = \[\s*\]/.test(supportDataSrc))
+assert('support.js：赞助/鸣谢名单结构保留（v2.8 起含示例数据，用户可维护）',
+  supportDataSrc.includes('export const SPONSORS') && supportDataSrc.includes('export const TESTERS'))
+
 assert('Support 页：双收款码 + 放大 Sheet + 名单滚动 + 总额汇总',
   supportPageSrc.includes('./donate/wechat.png') && supportPageSrc.includes('./donate/alipay.jpg')
   && supportPageSrc.includes('roll-list') && supportPageSrc.includes('reduce((a, s) => a + Number(s.amount'))
@@ -1167,6 +1184,28 @@ assert('seed 默认分类接入 SVG 线性图标（v2.6 codex：svg 库 + svg: �
   && seedSrc.includes('"./icons/cat/salary.svg"') && seedSrc.includes('"./icons/cat/bonus.svg"')
   && seedSrc.includes('"./icons/cat/invest.svg"')
   && seedSrc.includes('"svg:croissant"'))
+// ---------- v3.1 数据一致性回归（用户录屏报告：删除后汇总/笔数不同步） ----------
+console.log('v3.1 数据一致性回归：')
+{
+  const st = structuredClone(es)
+  st.currentLedgerId = st.ledgers[0].id
+  st.transactions.push(
+    { id: 't1', ledgerId: st.ledgers[0].id, date: '2026-10-05', time: '12:00', type: 'expense', amount: 1000, categoryId: null, accountId: null, deletedAt: null },
+    { id: 't2', ledgerId: st.ledgers[0].id, date: '2026-10-05', time: '12:01', type: 'income', amount: 10001, categoryId: null, accountId: null, deletedAt: null },
+  )
+  const { txsOfPeriod, sumBy, txsOfLedger } = await import('../src/utils.js')
+  const period = '2026-10'
+  const before = txsOfPeriod(st, period)
+  const beforeLedger = txsOfLedger(st)
+  assert('删除前：汇总含两笔（支 1000 / 收 10001）',
+    sumBy(before, 'expense') === 1000 && sumBy(before, 'income') === 10001 && beforeLedger.length === 2)
+  // 软删（与 AddTx.del 同路径：deletedAt 写入 state）
+  for (const t of st.transactions) t.deletedAt = new Date().toISOString()
+  const after = txsOfPeriod(st, period)
+  assert('软删全部后：同期汇总归零（列表/汇总同源派生）', after.length === 0 && sumBy(after, 'expense') === 0 && sumBy(after, 'income') === 0)
+  assert('软删全部后：我的页记账笔数同步为 0', txsOfLedger(st).length === 0)
+}
+
 assert('CatIcon 组件：v2.8 统一 ValueIcon 归一（svg:key/路径/emoji 全解析）',
   uiSrc.includes('export function CatIcon') && uiSrc.includes('<ValueIcon value={icon} fallback="tag"') && !uiSrc.includes('isImgIcon(icon)'))
 assert('分类图标渲染点去 emoji 文本化（Home/AddTx/Templates/Budget/Charts/Recurring/Trash/Review/Import）',

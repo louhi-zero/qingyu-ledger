@@ -228,7 +228,7 @@ export default function Goals({ nav }) {
               <div className="field">
                 <label>{move.mode === 'in' ? '从哪个账户存出' : '钱进哪个账户'}</label>
                 <select className="input" value={moveAcc} onChange={(e) => setMoveAcc(e.target.value)}>
-                  {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                  {myAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
             )}

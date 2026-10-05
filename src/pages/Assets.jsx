@@ -192,7 +192,7 @@ export default function Assets({ nav }) {
                 {ACCOUNT_TYPES.map((t) => (
                   <button key={t.type} className={`gitem ${edit.type === t.type ? 'on' : ''}`}
                     onClick={() => setEdit({ ...edit, type: t.type, icon: t.icon })}>
-                    <div className="gi">{t.icon}</div>
+                    <div className="gi" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ValueIcon value={t.icon} fallback="budget" size={20} /></div>
                     <span>{t.name}</span>
                   </button>
                 ))}

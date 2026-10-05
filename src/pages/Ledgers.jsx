@@ -5,6 +5,7 @@ import { TopBar, Sheet, Confirm } from '../ui.jsx'
 import { LEDGER_TEMPLATES } from '../seed.js'
 import { txsOfLedger, uid, fmt } from '../utils.js'
 import { useBookIconUrl, useMediaActions } from '../theme.jsx'
+import { ValueIcon } from '../ui/icons.jsx'
 import { replaceBlob } from '../blobdb.js'
 
 function blankLedger() {
@@ -15,7 +16,7 @@ function blankLedger() {
 function LedgerIcon({ l, className = 'gi', style }) {
   const url = useBookIconUrl(l.id)
   if (url) return <div className={`${className} gi-img`} style={style}><img className="gi-img-img" src={url} alt="" decoding="async" draggable={false} /></div>
-  return <div className={className} style={style}>{l.icon}</div>
+  return <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ValueIcon value={l.icon} fallback="book" size={22} /></div>
 }
 
 export default function Ledgers({ nav }) {
@@ -132,7 +133,7 @@ export default function Ledgers({ nav }) {
                 {LEDGER_TEMPLATES.map((t) => (
                   <button key={t.name} className={`gitem ${edit.template === t.name ? 'on' : ''}`}
                     onClick={() => setEdit({ ...edit, template: t.name, icon: t.icon })}>
-                    <div className="gi">{t.icon}</div>
+                    <div className="gi" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ValueIcon value={t.icon} fallback="book" size={22} /></div>
                     <span>{t.name}</span>
                   </button>
                 ))}
@@ -145,7 +146,7 @@ export default function Ledgers({ nav }) {
                 <div className="bookicon-preview">
                   {editIconUrl
                     ? <img src={editIconUrl} alt="" decoding="async" draggable={false} />
-                    : (edit.icon || <><Icon name="book" size="1em" className="qy-inline-icon" /></>)}
+                    : <ValueIcon value={edit.icon} fallback="book" size={22} />}
                 </div>
                 <button className="btn ghost" style={{ flex: 1, margin: 0 }} disabled={busyIcon} onClick={() => iconFileRef.current?.click()}>
                   {busyIcon ? '处理中…' : <><Icon name="image" size="1em" className="qy-inline-icon" /> 上传自定义图标</>}
