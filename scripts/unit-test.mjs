@@ -582,6 +582,31 @@ assert('旧明文一次性迁移：先写 Keystore 后删 localStorage（失败�
   && securestoreSrc.indexOf('await store.set({ key: SECURE_KEY_AI, value: legacy })') < securestoreSrc.indexOf('localStorage.removeItem(LEGACY_AI_KEY)'))
 assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被快照冲掉）',
   securestoreSrc.includes('if (!Object.keys(cache).length) cache = parsed'))
+
+// ---------- v3.1 外链 scheme 直达 + 反馈返回免重启 ----------
+{
+  const { parseAppUrl } = await import('../src/deeplink.js')
+  assert('深链解析：tab 页返回 {tab,title}', JSON.stringify(parseAppUrl('qingyu://open?page=charts')) === JSON.stringify({ tab: 'charts', title: '图表' }))
+  assert('深链解析：二级页返回 {page,title}', parseAppUrl('qingyu://open?page=aiSettings')?.page === 'aiSettings')
+  assert('深链白名单：未登记键/错误 scheme/非法输入一律 null',
+    parseAppUrl('qingyu://open?page=hack') === null
+    && parseAppUrl('other://open?page=ai') === null
+    && parseAppUrl(null) === null
+    && parseAppUrl('qingyu://open?page=') === null)
+  const feedbackSrcV31 = readFileSync(new URL('../src/feedback.js', import.meta.url), 'utf-8')
+  assert('反馈外链：导航前打 qingyu_ext_nav_v1 时间戳（先标记后跳转）',
+    feedbackSrcV31.indexOf("localStorage.setItem('qingyu_ext_nav_v1'") >= 0
+    && feedbackSrcV31.indexOf("localStorage.setItem('qingyu_ext_nav_v1'") < feedbackSrcV31.indexOf('window.location.href = FEEDBACK_URL'))
+  const appSrcV31 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+  assert('App 启动：10 分钟内外链标记跳过启动页并清除（免重启观感）',
+    appSrcV31.includes("localStorage.getItem('qingyu_ext_nav_v1')")
+    && appSrcV31.includes('10 * 60 * 1000') && appSrcV31.includes("localStorage.removeItem('qingyu_ext_nav_v1')"))
+  const manifestSrcV31 = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf-8')
+  assert('Manifest 注册 qingyu scheme（VIEW + BROWSABLE）',
+    manifestSrcV31.includes('android:scheme="qingyu"') && manifestSrcV31.includes('android.intent.category.BROWSABLE'))
+  assert('App 深链监听：getLaunchUrl 冷启动 + appUrlOpen 热启动 + 白名单 go()',
+    appSrcV31.includes('App.getLaunchUrl()') && appSrcV31.includes("'appUrlOpen'") && appSrcV31.includes('parseAppUrl(url)'))
+}
 assert('buildMessages 支持 custom/char 双模式',
   aiSrc.includes("mode === 'custom'") && aiSrc.includes("mode === 'char'")
   && aiSrc.includes('qingyu_style_cards_v1') && aiSrc.includes('角色卡缓存丢失时的优雅回落'))

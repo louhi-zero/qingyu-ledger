@@ -18,6 +18,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- v3.1 外链 scheme 直达：qingyu://open?page=<key>（App.jsx 经 deeplink.js 白名单解析；
+                 仅声明 scheme 不含 host 限定，路由键在 JS 侧白名单校验，未登记一律不导航） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="qingyu" />
+            </intent-filter>
         </activity>
 
         <provider

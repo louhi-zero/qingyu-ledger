@@ -13,6 +13,9 @@ export const FEEDBACK_URL = 'https://docs.qq.com/form/page/DWXJvZ0pZV3BoREdu'
 export function openFeedback() {
   try {
     if (Capacitor.isNativePlatform()) {
+      // v3.1 返回免重启：主 WebView 离开 localhost 前打外链时间戳，App 启动检测到
+      // 10 分钟内的标记即跳过启动页（回退重载的观感从「重启」变「秒回」，状态本就持久化）
+      try { localStorage.setItem('qingyu_ext_nav_v1', String(Date.now())) } catch { /* ignore */ }
       window.location.href = FEEDBACK_URL
       return true
     }

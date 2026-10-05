@@ -39,6 +39,7 @@ import Trash from './pages/Trash.jsx'
 import { ThemeProvider, Backdrop, useTabIconImgs } from './theme.jsx'
 import { Splash, Intro } from './Welcome.jsx'
 import { initSecureStore } from './securestore.js'
+import { parseAppUrl } from './deeplink.js'
 
 // v3.1 敏感配置（AI API Key）启动即 hydrate：AndroidKeyStore → 内存缓存，
 // 早于页面渲染与离线通知重放，loadAiCfg 的同步读才有 Keystore 数据；
@@ -129,6 +130,32 @@ function Shell() {
     const h = () => setStack((s) => (s.length ? s.slice(0, -1) : s))
     window.addEventListener('popstate', h)
     return () => window.removeEventListener('popstate', h)
+  }, [])
+
+  // v3.1 外链 scheme 直达：qingyu://open?page=<key>（冷启动 getLaunchUrl + 热启动 appUrlOpen；
+  // deeplink.js 白名单解析，tab 页清栈切换、二级页 push 入栈；非法/未登记键一律忽略）
+  useEffect(() => {
+    let cancelled = false
+    let listenerPromise = null
+    const go = (url) => {
+      const r = parseAppUrl(url)
+      if (!r) return
+      if (r.tab) { setStack([]); setTab(r.tab) }
+      else push({ page: r.page, title: r.title })
+    }
+    ;(async () => {
+      try {
+        const { App } = await import('@capacitor/app')
+        if (cancelled) return
+        const launch = await App.getLaunchUrl()
+        if (!cancelled && launch?.url) go(launch.url)
+        listenerPromise = App.addListener('appUrlOpen', (d) => go(d?.url))
+      } catch { /* 浏览器/桌面静默 */ }
+    })()
+    return () => {
+      cancelled = true
+      listenerPromise?.then((h) => h.remove?.()).catch(() => {})
+    }
   }, [])
 
   const openAdd = useCallback((tx = null) => { setEditTx(tx); setAddOpen(true) }, [])
@@ -353,7 +380,16 @@ function Shell() {
   // 测试钩子：localStorage 'qingyu_splash_off'==='1' 跳过整个启动流程（冒烟/截图脚本用）
   const [phase, setPhase] = useState(() => {
     try {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem('qingyu_splash_off') === '1') return 'app'
+      if (typeof localStorage !== 'undefined') {
+        if (localStorage.getItem('qingyu_splash_off') === '1') return 'app'
+        // v3.1 反馈返回免重启：主 WebView 从腾讯文档表单回退 localhost 会整页重载，
+        // 10 分钟内外链标记直接跳过启动页/引导（状态本就持久化在 localStorage，观感即秒回）
+        const extTs = Number(localStorage.getItem('qingyu_ext_nav_v1') || 0)
+        if (extTs && Date.now() - extTs < 10 * 60 * 1000) {
+          localStorage.removeItem('qingyu_ext_nav_v1')
+          return 'app'
+        }
+      }
     } catch { /* ignore */ }
     return 'splash'
   })
