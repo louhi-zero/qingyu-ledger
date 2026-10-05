@@ -48,10 +48,10 @@ export default function Profile() {
   const cloudReady = !!getWebdavCfg()
   const syncOff = state.settings.cloudSyncOff === true
   const loggedIn = cloudReady && !syncOff
-  const displayName = loggedIn ? state.settings.nickname : '未登录'
-  const onAvatarClick = () => (loggedIn ? setAvatarOpen(true) : setLoginOpen(true))
-  // v2.0.1 未登录点昵称 → 登录引导（不再直达改名）；改名保留在引导 Sheet 的次级入口
-  const onNameClick = () => (loggedIn ? (setName(state.settings.nickname), setNameOpen(true)) : setLoginOpen(true))
+  // v3.0 未登录也可改昵称与头像（本地保存）；displayName 有昵称显示昵称，否则「未登录」
+  const displayName = state.settings.nickname || '未登录'
+  const onAvatarClick = () => setAvatarOpen(true)
+  const onNameClick = () => { setName(state.settings.nickname); setNameOpen(true) }
   const openRename = () => {
     setLoginOpen(false)
     setName(state.settings.nickname)

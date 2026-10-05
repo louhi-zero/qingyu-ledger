@@ -306,15 +306,16 @@ export function UpdateCard({ onClick }) {
     error: 'upd-card-err',
   }[status] || 'upd-card-idle'
 
+  // v3.0 修复：此前直接渲染 "svg:xxx" 字符串导致图标显示为原文，改用 Icon 组件
   const icon = {
-    idle: "svg:checkCircle",
-    checking: "svg:search",
-    available: "svg:party",
-    downloading: "svg:download",
-    verifying: "svg:lock",
-    ready: "svg:tag",
-    error: "svg:warning",
-  }[status] || "svg:checkCircle"
+    idle: 'checkCircle',
+    checking: 'search',
+    available: 'party',
+    downloading: 'download',
+    verifying: 'lock',
+    ready: 'tag',
+    error: 'warning',
+  }[status] || 'checkCircle'
 
   const title = {
     idle: '已是最新版本',
@@ -379,7 +380,7 @@ export function UpdateCard({ onClick }) {
       onClick={() => onClick && onClick()}
       aria-label={`软件更新：${title}`}
     >
-      <div className="upd-card-ico">{icon}</div>
+      <div className="upd-card-ico"><Icon name={icon} size={22} /></div>
       <div className="upd-card-body">
         <div className="upd-card-title">{title}</div>
         <div className="upd-card-sub">{sub}</div>
