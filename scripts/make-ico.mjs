@@ -56,7 +56,7 @@ function decodePng(buf) {
           v = cur + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)
         }
       }
-      out[lineStart + x] = v < 0 ? 0 : v > 255 ? 255 : v
+      out[lineStart + x] = v & 0xff // PNG 规范：反滤波结果 mod 256（不能用饱和 clamp，高频图会毁图）
     }
   }
   return { w, h, ch, data: out }

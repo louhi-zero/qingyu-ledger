@@ -355,8 +355,14 @@ function Shell() {
   const splashDone = useCallback(() => {
     setPhase(welcomed ? 'app' : 'intro')
   }, [welcomed])
-  const startApp = useCallback(() => {
+  // v2.8 引导页登录选择：mode='local' 直入主界面；mode='login' 打开云备份页引导登录坚果云
+  // （云备份页配置/测试连接成功即登录，随后自动同步导入用户数据与账单）
+  const startApp = useCallback((mode = 'local') => {
     set((d) => { d.settings.welcomed = true })
+    if (mode === 'login') {
+      setStack((s) => (s.length ? s : [...s, { page: 'cloud', title: '云备份' }]))
+      try { history.pushState({ qy: true }, '') } catch { /* ignore */ }
+    }
     setPhase('app')
   }, [set])
 

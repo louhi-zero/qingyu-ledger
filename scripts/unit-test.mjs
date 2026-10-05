@@ -1103,12 +1103,12 @@ assert('links.js：B站/小黑盒/抖音/QQ群链接 + scheme 优先策略（vis
   linksSrc.includes('space.bilibili.com/3546602511797107') && linksSrc.includes('bilibili://space/3546602511797107')
   && linksSrc.includes('xiaoheihe.cn/app/user/profile/104962942') && linksSrc.includes('douyin.com/user/self')
   && linksSrc.includes('qm.qq.com/q/ekDzByBiso') && linksSrc.includes("document.visibilityState === 'visible'"))
-assert('allowNavigation 增补四域（B站/黑盒/抖音/QQ 中转）',
-  capCfg.includes('space.bilibili.com') && capCfg.includes('www.xiaoheihe.cn')
-  && capCfg.includes('www.douyin.com') && capCfg.includes('qm.qq.com'))
-assert('support.js：赞助名单（id+amount）与内测鸣谢（id）两个维护常量',
-  supportDataSrc.includes('export const SPONSORS') && supportDataSrc.includes('amount: 10')
-  && supportDataSrc.includes('export const TESTERS'))
+assert('allowNavigation 不含四个社交域（外链交系统浏览器，防 WebView 导航离场致启动页重播）',
+  !capCfg.includes('space.bilibili.com') && !capCfg.includes('www.xiaoheihe.cn')
+  && !capCfg.includes('www.douyin.com') && !capCfg.includes('qm.qq.com'))
+assert('support.js：赞助/鸣谢名单维护常量保留（v2.8 名单清空，结构供后续维护）',
+  supportDataSrc.includes('export const SPONSORS') && supportDataSrc.includes('export const TESTERS')
+  && /SPONSORS = \[\s*\]/.test(supportDataSrc) && /TESTERS = \[\s*\]/.test(supportDataSrc))
 assert('Support 页：双收款码 + 放大 Sheet + 名单滚动 + 总额汇总',
   supportPageSrc.includes('./donate/wechat.png') && supportPageSrc.includes('./donate/alipay.jpg')
   && supportPageSrc.includes('roll-list') && supportPageSrc.includes('reduce((a, s) => a + Number(s.amount'))
@@ -1208,6 +1208,12 @@ assert('功能介绍页：五页价值轮播（含 AI 分析/高度自定义特�
   && welcomeJs.includes('开始使用') && welcomeJs.includes('先随便看看'))
 assert('介绍页支持触屏滑动翻页（±40px 阈值）',
   welcomeJs.includes('onTouchStart') && welcomeJs.includes('onTouchEnd') && welcomeJs.includes('dx < -40'))
+assert('v2.8 引导页登录选择：末页「开始使用」→ 登录并同步 / 先本地使用 双选项',
+  welcomeJs.includes("onStart('login')") && welcomeJs.includes("onStart('local')")
+  && welcomeJs.includes('登录并同步') && welcomeJs.includes('先本地使用')
+  && welcomeJs.includes('setChoice(true)'))
+assert('v2.8 App 接线：选择登录 → 打开云备份页（登录引导用户数据）',
+  appSrcV3.includes("mode === 'login'") && appSrcV3.includes("page: 'cloud', title: '云备份'"))
 assert('App 接线：Splash/Intro 状态机 + welcomed 分流 + qingyu_splash_off 测试钩子',
   appSrcV3.includes("import { Splash, Intro } from './Welcome.jsx'")
   && appSrcV3.includes("phase === 'splash'") && appSrcV3.includes("phase === 'intro'")

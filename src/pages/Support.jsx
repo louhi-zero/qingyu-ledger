@@ -1,24 +1,17 @@
 /* v2.5 赞助与鸣谢页：收款码（微信/支付宝，点击放大）+ 赞助名单 + 内测鸣谢名单
  * 名单数据维护在 src/support.js（SPONSORS / TESTERS 两个常量数组）
+ * v2.8 移除「找到作者」分组：社交入口与发现页作者卡重复，统一保留发现页入口
  */
 import React, { useState } from 'react'
-import { useStore } from '../store.jsx'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet } from '../ui.jsx'
-import { Icon, BRAND_COLORS } from '../ui/icons.jsx'
-import { openExternal, LINKS } from '../links.js'
 import { SPONSORS, TESTERS } from '../support.js'
 import { round2 } from '../utils.js'
 
 export default function Support({ nav }) {
-  const { toast } = useStore()
   const nav2 = useNav()
   const [zoom, setZoom] = useState(null) // { title, src }
   const total = round2(SPONSORS.reduce((a, s) => a + Number(s.amount || 0), 0))
-
-  const openLink = (url, scheme) => {
-    if (!openExternal(url, scheme)) toast('无法打开链接', 'err')
-  }
 
   return (
     <>
@@ -72,31 +65,6 @@ export default function Support({ nav }) {
           ) : (
             <div className="muted" style={{ fontSize: 12.5, padding: '4px 16px 12px' }}>内测结束后在此鸣谢参与用户</div>
           )}
-        </div>
-
-        {/* 社区 */}
-        <div className="group">
-          <div className="gtitle">找到作者</div>
-          <div className="cell" onClick={() => openExternal(LINKS.qqGroup.url)}>
-            <div className="cico"><Icon name="brandQq" size={20} color={BRAND_COLORS.tencentqq} /></div>
-            <div className="cmain"><div className="ctitle">加入闲聊群</div><div className="cdesc">QQ 群【{LINKS.qqGroup.name}】· 反馈与交流</div></div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-          <div className="cell" onClick={() => openExternal(LINKS.bilibili.url, LINKS.bilibili.scheme)}>
-            <div className="cico"><Icon name="bilibili" size={20} color={BRAND_COLORS.bilibili} /></div>
-            <div className="cmain"><div className="ctitle">B站主页</div><div className="cdesc">更新动态与教程视频</div></div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-          <div className="cell" onClick={() => openExternal(LINKS.xiaoheihe.url)}>
-            <div className="cico"><Icon name="deviceGamepad" size={20} color={BRAND_COLORS.xiaoheihe} /></div>
-            <div className="cmain"><div className="ctitle">小黑盒</div><div className="cdesc">作者主页</div></div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
-          <div className="cell" onClick={() => openExternal(LINKS.douyin.url)}>
-            <div className="cico"><Icon name="tiktok" size={20} color={BRAND_COLORS.tiktok} /></div>
-            <div className="cmain"><div className="ctitle">抖音</div><div className="cdesc">作者主页</div></div>
-            <div className="cright"><span className="arrow">›</span></div>
-          </div>
         </div>
       </div>
 

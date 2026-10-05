@@ -151,6 +151,20 @@ export default function CloudBackup({ nav }) {
     <>
       <TopBar title="云备份" onBack={nav.pop} />
       <div className="page-body no-tab">
+        {/* v2.8 登录引导卡：从功能引导页选择「登录并同步」进入时，展示三步登录说明（配置后自动消失） */}
+        {!savedCfg.url && (
+          <div className="group">
+            <div className="gtitle">登录引导</div>
+            <div className="cell" style={{ display: 'block' }}>
+              <div style={{ fontSize: 13, lineHeight: 2 }}>
+                ① 点右上「一键填入坚果云」，自动填好服务器地址<br />
+                ② 账号填坚果云注册邮箱，密码填坚果云「应用专用密码」<br />
+                ③ 点「测试连接」——通过即登录成功，账单与个人资料自动与云端双向同步（首次使用会建立云端备份）
+              </div>
+              <div className="cdesc" style={{ marginTop: 8 }}>只想先本地记账？返回后正常使用，随时可回到本页开启同步。</div>
+            </div>
+          </div>
+        )}
         <div className="group">
           <div className="gtitle">WebDAV 配置</div>
           <div className="cell" style={{ display: 'block' }}>

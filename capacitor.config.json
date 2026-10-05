@@ -5,11 +5,7 @@
   "backgroundColor": "#f3f5fa",
   "server": {
     "allowNavigation": [
-      "docs.qq.com",
-      "space.bilibili.com",
-      "www.xiaoheihe.cn",
-      "www.douyin.com",
-      "qm.qq.com"
+      "docs.qq.com"
     ]
   },
   "android": {

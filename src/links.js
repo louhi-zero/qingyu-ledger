@@ -2,9 +2,12 @@
  *
  * 打开策略（openExternal）：
  * - 原生：优先 scheme 直拉对应 App（B站 bilibili://space/...，WebView 停留原地）；
- *   1.2s 内页面仍可见（未装 App，scheme 静默失败）→ fallback 用 https 链接
- *   导航（依赖 capacitor.config.json allowNavigation 白名单域），
- *   网页版会再引导进入 App；未匹配白名单的外域由 Capacitor 转交系统浏览器
+ *   1.2s 内页面仍可见（未装 App，scheme 静默失败）→ fallback https：
+ *   Capacitor 对不在 server.allowNavigation 白名单的 http(s) 域自动转交系统浏览器，
+ *   WebView 停留原地（React 应用不销毁）。
+ *   ⚠ 不要把社交域名加回 allowNavigation：那会让主 WebView 整页导航离场，
+ *   用户返回后 React 重新初始化 → 启动页重播（v2.8 已修复的 bug）。
+ *   docs.qq.com（反馈表单）是唯一有意保留的白名单域。
  * - 浏览器 / Electron：新标签打开
  */
 import { Capacitor } from '@capacitor/core'

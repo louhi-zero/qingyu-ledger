@@ -77,13 +77,15 @@ const SLIDES = [
 
 export function Intro({ onStart }) {
   const [idx, setIdx] = useState(0)
+  // v2.8 引导结束时的登录选择：'choice' 显示「登录并同步 / 先本地使用」双选项
+  const [choice, setChoice] = useState(false)
   const touchX = useRef(null)
   const last = SLIDES.length - 1
-  const next = () => { idx >= last ? onStart() : setIdx(idx + 1) }
-  const prev = () => { if (idx > 0) setIdx(idx - 1) }
+  const next = () => { idx >= last && !choice ? setChoice(true) : idx < last && setIdx(idx + 1) }
+  const prev = () => { if (choice) { setChoice(false); return } if (idx > 0) setIdx(idx - 1) }
   const onTouchStart = (e) => { touchX.current = e.touches?.[0]?.clientX ?? null }
   const onTouchEnd = (e) => {
-    if (touchX.current == null) return
+    if (touchX.current == null || choice) return
     const dx = (e.changedTouches?.[0]?.clientX ?? touchX.current) - touchX.current
     touchX.current = null
     if (dx < -40) next()
@@ -91,7 +93,7 @@ export function Intro({ onStart }) {
   }
   return (
     <div className="intro" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <button className="intro-skip" onClick={onStart} type="button">跳过</button>
+      <button className="intro-skip" onClick={() => onStart('local')} type="button">跳过</button>
       <div className="intro-track" style={{ transform: `translateX(-${idx * 100}%)` }}>
         {SLIDES.map((s, i) => (
           <div className={'intro-slide' + (i === idx ? ' on' : '')} key={i} aria-hidden={i !== idx}>
@@ -106,15 +108,33 @@ export function Intro({ onStart }) {
         ))}
       </div>
       <div className="intro-foot">
-        <div className="intro-dots">
-          {SLIDES.map((_, i) => (
-            <button key={i} type="button" className={i === idx ? 'on' : ''} onClick={() => setIdx(i)} aria-label={`第 ${i + 1} 页`} />
-          ))}
-        </div>
-        <button className="btn intro-next" onClick={next} type="button">
-          {idx === last ? <><Icon name="rocket" size="1em" className="qy-inline-icon" /> 开始使用</> : '下一步'}
-        </button>
-        <button className="intro-demo" onClick={onStart} type="button">先随便看看（稍后可在设置加载示例数据）</button>
+        {choice ? (
+          // v2.8 登录选择：登录 → 云备份页引导配置坚果云（登录后自动导入用户数据）；本地 → 跳过登录直入
+          <div className="intro-choice">
+            <button className="btn" onClick={() => onStart('login')} type="button">
+              <Icon name="cloud" size="1em" className="qy-inline-icon" /> 登录并同步（推荐）
+            </button>
+            <button className="btn ghost" style={{ marginTop: 10 }} onClick={() => onStart('local')} type="button">
+              先本地使用，跳过登录
+            </button>
+            <div className="muted" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+              登录后账单与个人资料自动双向同步；本地使用随时可在「我的 → 云备份」开启
+            </div>
+            <button className="intro-demo" style={{ marginTop: 4 }} onClick={() => onStart('local')} type="button">先随便看看（稍后可在设置加载示例数据）</button>
+          </div>
+        ) : (
+          <>
+            <div className="intro-dots">
+              {SLIDES.map((_, i) => (
+                <button key={i} type="button" className={i === idx ? 'on' : ''} onClick={() => setIdx(i)} aria-label={`第 ${i + 1} 页`} />
+              ))}
+            </div>
+            <button className="btn intro-next" onClick={next} type="button">
+              {idx === last ? <><Icon name="rocket" size="1em" className="qy-inline-icon" /> 开始使用</> : '下一步'}
+            </button>
+            <button className="intro-demo" onClick={() => onStart('local')} type="button">先随便看看（稍后可在设置加载示例数据）</button>
+          </>
+        )}
       </div>
     </div>
   )
