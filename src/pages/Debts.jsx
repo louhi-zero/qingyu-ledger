@@ -135,7 +135,8 @@ export default function Debts({ nav }) {
 
         {rows.length === 0 && (
           <div className="card">
-            <Empty icon="svg:trendDown" text="还没有借入借出记录\n借朋友的钱、花呗分期、车贷房贷都能在这里管理">
+            {/* v3.1 修复：JSX 属性字符串不处理 \n 转义（原样渲染「\n」字面量），改 JS 表达式传真实换行 */}
+            <Empty icon="svg:trendDown" text={'还没有借入借出记录\n借朋友的钱、花呗分期、车贷房贷都能在这里管理'}>
               <div className="btnrow">
                 <button className="btn" onClick={() => openNew('debt')}>＋ 记借入</button>
                 <button className="btn ghost" onClick={() => openNew('claim')}>＋ 记借出</button>

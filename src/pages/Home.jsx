@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { Icon } from '../ui/icons.jsx'
 import { useNav } from '../App.jsx'
@@ -25,6 +25,10 @@ export default function Home() {
   const [daySheet, setDaySheet] = useState(null) // 某日账单
   // v1.6.9 首页顶部账本快捷切换
   const [ledgerOpen, setLedgerOpen] = useState(false)
+  // v3.2 批量删除模式：左滑黄色「批量」按钮进入，勾选后批量软删入回收站
+  const [batchMode, setBatchMode] = useState(false)
+  const [selIds, setSelIds] = useState(() => new Set())
+  const exitBatch = () => { setBatchMode(false); setSelIds(new Set()) }
 
   const txs = useMemo(() => txsOfPeriod(state, period), [state, period])
   const expense = sumBy(txs, 'expense')
@@ -67,6 +71,23 @@ export default function Home() {
   }, [filtered])
 
   const ledger = state.ledgers.find((l) => l.id === state.currentLedgerId)
+
+  // v3.2 左滑/批量删除：软删入回收站（与编辑页删除同一管线，30 天可恢复）
+  const allListIds = groups.flatMap(([, list]) => list.map((t) => t.id))
+  const allSelected = allListIds.length > 0 && allListIds.every((id) => selIds.has(id))
+  const toggleSel = (id) => setSelIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleAll = () => setSelIds(allSelected ? new Set() : new Set(allListIds))
+  const delOne = (id) => {
+    set((d) => { const t = d.transactions.find((x) => x.id === id); if (t) t.deletedAt = new Date().toISOString() })
+    toast('已移入回收站，30 天内可在设置中恢复')
+  }
+  const delSelected = () => {
+    const n = selIds.size
+    if (!n) return
+    set((d) => { d.transactions.forEach((t) => { if (selIds.has(t.id)) t.deletedAt = new Date().toISOString() }) })
+    exitBatch()
+    toast(`已删除 ${n} 笔，已移入回收站`)
+  }
 
   return (
     <>
@@ -191,8 +212,8 @@ export default function Home() {
                   <div className="txlist">
                     {list.map((t) => {
                       const info = catInfo(state, t)
-                      return (
-                        <div key={t.id} className="txitem" onClick={() => nav.openAdd(t)}>
+                      const content = (
+                        <>
                           <div className="txicon" style={{ background: info.color + '1c' }}><CatIcon icon={info.icon} size={18} /></div>
                           <div className="txmain">
                             <div className="txname">
@@ -213,7 +234,22 @@ export default function Home() {
                             {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : ''}
                             {state.settings.hideAmount ? <span className="blur">88.88</span> : fmt(t.amount)}
                           </div>
-                        </div>
+                        </>
+                      )
+                      // v3.2 批量模式：行点击=勾选；普通模式：左滑露出 红=单删 / 黄=批量
+                      if (batchMode) {
+                        const on = selIds.has(t.id)
+                        return (
+                          <div key={t.id} className="txitem" onClick={() => toggleSel(t.id)}>
+                            <div className={`selbox ${on ? 'on' : ''}`}>{on && <Icon name="check" size={12} color="#fff" />}</div>
+                            {content}
+                          </div>
+                        )
+                      }
+                      return (
+                        <SwipeRow key={t.id} onEdit={() => nav.openAdd(t)} onDelete={() => delOne(t.id)} onBatch={() => setBatchMode(true)}>
+                          {content}
+                        </SwipeRow>
                       )
                     })}
                   </div>
@@ -225,6 +261,16 @@ export default function Home() {
           <CalendarView period={period} sd={sd} txs={txs} onDay={(d) => setDaySheet(d)} />
         )}
       </div>
+
+      {/* v3.2 批量删除操作栏（悬浮于 tabbar 之上） */}
+      {batchMode && (
+        <div className="batchbar">
+          <button className="btn ghost" style={{ padding: '5px 12px', fontSize: 12.5 }} onClick={toggleAll}>{allSelected ? '取消全选' : '全选'}</button>
+          <span className="muted" style={{ flex: 1, textAlign: 'center', fontSize: 12.5, whiteSpace: 'nowrap' }}>已选 {selIds.size} 笔</span>
+          <button className="btn" style={{ padding: '5px 12px', fontSize: 12.5, background: 'var(--red)' }} disabled={!selIds.size} onClick={delSelected}>删除所选</button>
+          <button className="btn ghost" style={{ padding: '5px 12px', fontSize: 12.5 }} onClick={exitBatch}>取消</button>
+        </div>
+      )}
 
       {/* 搜索 */}
       <Sheet open={searchOpen} onClose={() => setSearchOpen(false)} title="搜索账单">
@@ -281,9 +327,65 @@ export default function Home() {
               <button className="btn" onClick={() => setTagFilterOpen(false)}>看结果</button>
             </div>
           </>
-        ) : <Empty icon="#️⃣" text="还没有标签\n记一笔时可以给账单加标签" />}
+        ) : <Empty icon="#️⃣" text={'还没有标签\n记一笔时可以给账单加标签'} />}
       </Sheet>
     </>
+  )
+}
+
+// v3.2 左滑操作行：行内容横向拖动露出底层操作（红=单删，黄=批量删除）；
+// 松手按半宽吸附开/合；横向拖动超过阈值吞掉 click（防误触进编辑）；
+// touch-action: pan-y 保证纵向滚动仍走原生（CSS），横向由这里接管
+const SWIPE_W = 128 // 两个操作钮（64px × 2）总宽
+function SwipeRow({ children, onEdit, onDelete, onBatch }) {
+  const ref = useRef(null)
+  const st = useRef({ open: false, x0: 0, y0: 0, lock: null, moved: false, x: 0 })
+  const setX = (x, animate) => {
+    const el = ref.current
+    if (!el) return
+    el.style.transition = animate ? 'transform .2s ease' : 'none'
+    el.style.transform = `translateX(${x}px)`
+    st.current.x = x
+  }
+  const onStart = (e) => {
+    const t0 = e.touches[0]
+    const s = st.current
+    s.x0 = t0.clientX; s.y0 = t0.clientY; s.lock = null; s.moved = false
+    setX(s.open ? -SWIPE_W : 0, false) // 打断在途动画，从当前位置接续
+  }
+  const onMove = (e) => {
+    const s = st.current
+    const t0 = e.touches[0]
+    const dx = t0.clientX - s.x0
+    const dy = t0.clientY - s.y0
+    if (!s.lock) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      s.lock = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      if (s.lock === 'h') s.moved = true
+    }
+    if (s.lock !== 'h') return
+    const base = s.open ? -SWIPE_W : 0
+    setX(Math.max(-SWIPE_W - 40, Math.min(0, base + dx)), false) // 右侧 40px 橡皮筋，左界外略阻尼
+  }
+  const onEnd = () => {
+    const s = st.current
+    s.open = s.x < -SWIPE_W / 2
+    setX(s.open ? -SWIPE_W : 0, true)
+  }
+  return (
+    <div
+      className="txswipe"
+      onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
+      onClickCapture={(e) => {
+        if (st.current.moved) { e.preventDefault(); e.stopPropagation(); st.current.moved = false }
+      }}
+    >
+      <div className="swipe-actions">
+        <button className="swipe-btn del" onClick={onDelete}>删除</button>
+        <button className="swipe-btn batch" onClick={() => { st.current.open = false; setX(0, true); onBatch() }}>批量</button>
+      </div>
+      <div className="txitem swipe-inner" ref={ref} onClick={onEdit}>{children}</div>
+    </div>
   )
 }
 

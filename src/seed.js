@@ -79,6 +79,7 @@ export function emptyState() {
       hideAmount: false,
       dark: false,
       islandMode: false, // v3.2 小岛模式（老年模式）：整体等比放大字号与间距（styles.css html.island）
+      islandZoom: 1.15, // v3.2 小岛模式放大倍率（设置页拨杆 1.1~1.6，即时生效）
       remindEnabled: false,
       remindTime: '21:00',
       welcomed: false,

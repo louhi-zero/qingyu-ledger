@@ -260,6 +260,29 @@ function AppearanceSection({ ctx }) {
           </div>
           <div className="cright"><Switch on={s.islandMode === true} onChange={() => set((d) => { d.settings.islandMode = !d.settings.islandMode })} /></div>
         </div>
+        {/* v3.2 小岛模式字号拨杆：多档位（110%~160%），拖动即时生效（先写 CSS 变量不等 React） */}
+        {s.islandMode === true && (
+          <div className="cell range-cell">
+            <div className="cico"><Icon name="typography" size={20} color="var(--brand)" /></div>
+            <div className="cmain">
+              <div className="ctitle">字号大小</div>
+              <div className="cdesc">向右拨动字号越大，越大越清晰</div>
+            </div>
+            <div className="cright" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="range" min={1.1} max={1.6} step={0.05} value={Number(s.islandZoom) || 1.15}
+                aria-label="小岛模式字号大小"
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  // 先直接写 CSS 变量：拖动时缩放零延迟变化，不等待 React 重渲染
+                  document.documentElement.style.setProperty('--island-zoom', String(v))
+                  set((d) => { d.settings.islandZoom = v })
+                }}
+              />
+              <span className="muted" style={{ width: 42, textAlign: 'right' }}>{Math.round((Number(s.islandZoom) || 1.15) * 100)}%</span>
+            </div>
+          </div>
+        )}
         {s.glassOn && (
           <div className="cell range-cell">
             <div className="cico"><Icon name="cloudFog" size="1em" className="qy-inline-icon" /></div>

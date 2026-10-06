@@ -42,6 +42,9 @@ export default function AddTx({ open, editTx, onClose }) {
   // 打开时对齐账本（组件常驻挂载，useState 初始值是启动时快照；切换账本后记账须取最新）
   useEffect(() => {
     if (open) setLedgerId(editTx?.ledgerId || state.currentLedgerId)
+    // v3.1 修复：新建态每次打开都换新 id——组件常驻（key 固定）时 txIdRef 跨次保存残留，
+    // 第二笔记账复用第一笔 id，导致按 id 查找的编辑/删除全部错乱命中旧记录（连续两笔同 id）
+    if (open && !editTx) txIdRef.current = uid()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editTx])
   // v1.2 标签 / 报销 / 附件 / 模板

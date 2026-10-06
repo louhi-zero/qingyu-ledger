@@ -270,6 +270,8 @@ const addTxJs = readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url),
 assert('记账默认当前账本、编辑取账单原账本', addTxJs.includes('editTx?.ledgerId || state.currentLedgerId'))
 assert('保存落入所选账本（payload 携带 ledgerId）', addTxJs.includes('ledgerId: ledgerId || state.currentLedgerId'))
 assert('记账页账本选择弹层（存入哪个账本）', addTxJs.includes('存入哪个账本') && addTxJs.includes('setLedgerId(l.id)'))
+assert('新建态每次打开换新 id（组件常驻 txIdRef 残留 → 连续两笔同 id，按 id 编辑/删除错乱）',
+  addTxJs.includes('if (open && !editTx) txIdRef.current = uid()'))
 const css2 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
 assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
@@ -616,9 +618,16 @@ assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被�
   const settingsSectSrcV32 = readFileSync(new URL('../src/pages/SettingsSections.jsx', import.meta.url), 'utf-8')
   const indexHtmlV32 = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
   const aiSrcV32 = readFileSync(new URL('../src/ai.js', import.meta.url), 'utf-8')
-  assert('小岛模式：seed 默认关 + store 根节点 class 切换（跟随设置即时生效）',
+  assert('小岛模式：seed 默认关 + store 根节点 class 切换（跟随设置即时生效，行内变量覆盖倍率）',
     seedSrcV32.includes('islandMode: false')
-    && storeSrcV32.includes("classList.toggle('island', state.settings.islandMode === true)"))
+    && seedSrcV32.includes('islandZoom: 1.15')
+    && storeSrcV32.includes("classList.toggle('island', on)")
+    && storeSrcV32.includes("style.setProperty('--island-zoom', String(zoom))")
+    && storeSrcV32.includes("style.removeProperty('--island-zoom')"))
+  assert('小岛模式字号拨杆：110%~160% 多档位，拖动即时写 CSS 变量不等 React',
+    settingsSectSrcV32.includes('type="range" min={1.1} max={1.6} step={0.05}')
+    && settingsSectSrcV32.includes("document.documentElement.style.setProperty('--island-zoom', String(v))")
+    && settingsSectSrcV32.includes('字号大小'))
   assert('小岛模式 CSS：root zoom 等比放大 + dvh 按倒数折算（防 Chromium root zoom 视口单位虚高溢出）',
     stylesSrcV32.includes('html.island { zoom: var(--island-zoom); }')
     && stylesSrcV32.includes('html.island { --island-zoom: 1.15; }')
@@ -635,6 +644,24 @@ assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被�
     aiSrcV32.includes('return maskSensitive(v)')
     && aiSrcV32.includes('cfg.mask !== false ? maskSensitive(title) : title')
     && seedSrcV32.includes('aiMask: true'))
+  // v3.2 左滑删除 + 批量删除 + JSX 属性字面 \n 渲染修复
+  const homeSrcV32 = readFileSync(new URL('../src/pages/Home.jsx', import.meta.url), 'utf-8')
+  const debtsSrcV32 = readFileSync(new URL('../src/pages/Debts.jsx', import.meta.url), 'utf-8')
+  assert('左滑删除：SwipeRow 红=单删软删入回收站 + 黄=批量 + 拖动吞 click 防误触编辑',
+    homeSrcV32.includes('swipe-btn del') && homeSrcV32.includes('swipe-btn batch')
+    && homeSrcV32.includes('已移入回收站，30 天内可在设置中恢复')
+    && homeSrcV32.includes('onClickCapture') && homeSrcV32.includes('onTouchMove')
+    && homeSrcV32.includes('SWIPE_W'))
+  assert('批量模式：勾选圈 + 悬浮操作栏（全选/删除所选/取消）',
+    homeSrcV32.includes("className={`selbox ${on ? 'on' : ''}`}")
+    && homeSrcV32.includes('batchbar') && homeSrcV32.includes('删除所选') && homeSrcV32.includes('取消全选'))
+  assert('JSX 属性字符串不转义 \\n：Debts/Home 空状态改 JS 表达式传真实换行（修字面 \\n 渲染 bug）',
+    debtsSrcV32.includes("text={'还没有借入借出记录\\n借朋友的钱、花呗分期、车贷房贷都能在这里管理'}")
+    && homeSrcV32.includes("text={'还没有标签\\n记一笔时可以给账单加标签'}"))
+  assert('左滑样式齐备：操作钮/勾选圈/批量栏（tabbar 上方悬浮）',
+    stylesSrcV32.includes('.swipe-btn.del') && stylesSrcV32.includes('.swipe-btn.batch')
+    && stylesSrcV32.includes('.selbox.on') && stylesSrcV32.includes('.batchbar')
+    && stylesSrcV32.includes('touch-action: pan-y'))
 }
 assert('buildMessages 支持 custom/char 双模式',
   aiSrc.includes("mode === 'custom'") && aiSrc.includes("mode === 'char'")

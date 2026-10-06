@@ -1748,3 +1748,25 @@ span.ledger-switch-img {
 }
 .cat-trigger b { font-size: 14.5px; flex: 1; text-align: left; }
 .cat-trigger .caret { font-size: 11px; color: var(--ink3); }
+
+/* ============ v3.2 左滑删除 + 批量删除 ============ */
+/* 行容器：底层操作（红=单删 / 黄=批量），行内容覆盖其上可横向拖动；
+   touch-action: pan-y 让纵向滚动保持原生，横向手势由 SwipeRow 接管 */
+.txswipe { position: relative; overflow: hidden; }
+.txswipe .swipe-inner { position: relative; background: var(--card); touch-action: pan-y; }
+.swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.swipe-btn { width: 64px; border: none; color: #fff; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.swipe-btn.del { background: var(--red); }
+.swipe-btn.batch { background: #d9a514; }
+/* 批量模式勾选圈 */
+.selbox { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--ink3); flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
+.selbox.on { background: var(--brand); border-color: var(--brand); }
+/* 批量操作栏：悬浮于 tabbar 之上（--tabbar-h 随小岛模式 zoom 等比放大，无需另算） */
+.batchbar {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--tabbar-h) + 12px);
+  width: min(406px, calc(100% - 24px));
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 14px; padding: 8px 10px;
+  box-shadow: var(--shadow); z-index: 80;
+}

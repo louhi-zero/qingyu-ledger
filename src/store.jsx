@@ -127,10 +127,17 @@ export function AppProvider({ children }) {
     document.documentElement.dataset.theme = state.settings.dark ? 'dark' : 'light'
   }, [state.settings.dark])
 
-  // v3.2 小岛模式（老年模式）：根节点 class 切换，CSS 等比放大字号与间距（styles.css html.island）
+  // v3.2 小岛模式（老年模式）：根节点 class 切换，CSS 等比放大字号与间距（styles.css html.island）；
+  // 放大倍率 islandZoom 用行内变量覆盖样式表默认值（行内 > 规则），关闭时移除行内回落 1
   useEffect(() => {
-    try { document.documentElement.classList.toggle('island', state.settings.islandMode === true) } catch { /* ignore */ }
-  }, [state.settings.islandMode])
+    try {
+      const on = state.settings.islandMode === true
+      document.documentElement.classList.toggle('island', on)
+      const zoom = Number(state.settings.islandZoom) || 1.15
+      if (on) document.documentElement.style.setProperty('--island-zoom', String(zoom))
+      else document.documentElement.style.removeProperty('--island-zoom')
+    } catch { /* ignore */ }
+  }, [state.settings.islandMode, state.settings.islandZoom])
 
   const set = useCallback((fn) => {
     setState((prev) => {
