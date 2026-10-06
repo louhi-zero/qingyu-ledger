@@ -275,7 +275,7 @@ export const MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']
 // 无法核验，待发布后实测）。模式如有出入只需改本表。
 export const OWN_RELEASE_HOSTS = [
   { id: 'gitee', repo: 'Roxie-zero/whisper-accounting', build: (repo, tag, f) => `https://gitee.com/${repo}/releases/download/${tag}/${f}` },
-  { id: 'gitcode', repo: '', build: (repo, tag, f) => `https://raw.gitcode.com/${repo}/releases/download/${tag}/${f}` },
+  { id: 'gitcode', repo: 'Roxie-sama/atomgit', build: (repo, tag, f) => `https://raw.gitcode.com/${repo}/releases/download/${tag}/${f}` },
   { id: 'atomgit', repo: '', build: (repo, tag, f) => `https://atomgit.com/${repo}/-/releases/${tag}/downloads/${f}` },
 ]
 

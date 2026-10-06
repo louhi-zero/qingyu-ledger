@@ -16,7 +16,7 @@
 
 [下载安装](#-安装) · [核心功能](#-核心功能) · [界面预览](#-界面预览) · [从源码构建](#-从源码构建) · [赞助与鸣谢](#-赞助与鸣谢)
 
-**镜像仓库：** [Gitee](https://gitee.com/Roxie-zero/whisper-accounting)（国内直连）· GitCode / AtomGit 镜像筹备中
+**镜像仓库：** [Gitee](https://gitee.com/Roxie-zero/whisper-accounting) · [GitCode](https://gitcode.com/Roxie-sama/atomgit)（国内直连）· AtomGit 镜像筹备中
 
 </div>
 
@@ -120,7 +120,8 @@
 1. **GitHub Releases（推荐）**：[latest release](https://github.com/louhi-zero/qingyu-ledger/releases/latest) 下载 `qingyu-v*-android.apk`
    - 应用内也会自动检查更新（多源加速 + 断点续传 + SHA-256 校验），无需手动盯版
 2. **Gitee Releases（国内直连）**：[gitee.com/Roxie-zero/whisper-accounting/releases](https://gitee.com/Roxie-zero/whisper-accounting/releases) 下载同名 APK——与 GitHub 同包同 SHA-256，国内网络推荐走这里
-3. **源码构建**：见[下一节](#-从源码构建)
+3. **GitCode Releases（国内直连）**：[gitcode.com/Roxie-sama/atomgit/releases](https://gitcode.com/Roxie-sama/atomgit/releases) 同包镜像
+4. **源码构建**：见[下一节](#-从源码构建)
 
 > 安装时如提示「未知来源」，允许一次即可；应用不申请通讯录/位置等敏感权限。
 
