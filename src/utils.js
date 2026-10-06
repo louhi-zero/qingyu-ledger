@@ -695,6 +695,17 @@ export function normalizeDiscIconAt(v) {
   return out
 }
 
+// ---------- v3.2.1 小岛模式生效倍率钳制（纯函数，store.jsx / SettingsSections.jsx 与单测共用） ----------
+// zoom 会把有效布局宽度压到 视口/倍率：倍率过高时低于设计底线，行内元素逐行折成竖排堆叠。
+// 生效倍率 = min(用户档位, 屏宽/320)：保证版式宽度永不低于 320px（移动端最小设计宽）；
+// 返回值下限 1（小岛模式只放大不缩小），屏宽异常时原样返回用户档位
+export function islandZoomCap(viewportWidth, want = 1.15, floor = 320) {
+  const w = Number(viewportWidth)
+  const z = Number(want) || 1.15
+  if (!(w > 0)) return z
+  return Math.max(1, Math.min(z, w / floor))
+}
+
 // ---------- v2.5 AI 上传脱敏（纯函数，ai.js 与单测共用） ----------
 // 把文本中可关联到个人的高敏数字串打码后再交给大模型，金额（≤2 位小数）与日期时间不受影响：
 // - 身份证（18 位且 GB 11643 校验码验证通过；防止把长卡号误判成身份证）→ 保留前 3 后 2

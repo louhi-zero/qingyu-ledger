@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { emptyState, demoState, LEGACY_DEFAULT_ICONS, LEGACY_SUB_ICONS } from './seed.js'
-import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt } from './utils.js'
+import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt, islandZoomCap } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
 import { stableJson } from './sync.js'
@@ -143,12 +143,15 @@ export function AppProvider({ children }) {
   }, [state.settings.dark])
 
   // v3.2 小岛模式（老年模式）：根节点 class 切换，CSS 等比放大字号与间距（styles.css html.island）；
-  // 放大倍率 islandZoom 用行内变量覆盖样式表默认值（行内 > 规则），关闭时移除行内回落 1
+  // 放大倍率 islandZoom 用行内变量覆盖样式表默认值（行内 > 规则），关闭时移除行内回落 1。
+  // v3.2.1 生效倍率按屏宽钳制（islandZoomCap）：zoom 会把有效版式宽度压到 视口/倍率，
+  // 1.6 档在 390px 手机上只剩 ~244px、低于 320px 设计底线，行内元素会逐行竖排堆叠；
+  // 写回钳制后的实际倍率，dvh 折算自动跟随，版式宽度永不低于 320px
   useEffect(() => {
     try {
       const on = state.settings.islandMode === true
       document.documentElement.classList.toggle('island', on)
-      const zoom = Number(state.settings.islandZoom) || 1.15
+      const zoom = islandZoomCap(window.innerWidth, Number(state.settings.islandZoom) || 1.15)
       if (on) document.documentElement.style.setProperty('--island-zoom', String(zoom))
       else document.documentElement.style.removeProperty('--island-zoom')
     } catch { /* ignore */ }

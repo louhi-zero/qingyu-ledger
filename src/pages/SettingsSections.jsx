@@ -13,7 +13,16 @@ import { DISCOVER_TOOLS } from './Discover.jsx'
 import { Icon, SEMANTIC, SEMANTIC_COLOR } from '../ui/icons.jsx'
 import { getNotifyCatch, isNotifyListening, openNotifySettings } from '../notifyCatch.js'
 import { getA11yStatus, openA11ySettings } from '../a11ycatch.js'
-import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify } from '../utils.js'
+import { txsOfLedger, txsToCSV, downloadFile, todayStr, FX_RATES, parseMoneyNotify, islandZoomCap } from '../utils.js'
+
+// v3.2.1 滑杆上限与 store 生效钳制同一公式（islandZoomCap）：UI 不提供会塌版的档位。
+// 1.6 档在 390px 手机上有效版式宽度只剩 ~244px（低于 320px 设计底线），
+// 行内元素会逐行竖排堆叠；上限 = min(1.6, 屏宽/320)，桌面宽屏不受影响
+function islandZoomMax() {
+  if (typeof window === 'undefined') return 1.6
+  // 1.1 下限保护：屏宽 < 352px 时钳制值会低于滑杆 min，避免出现 min>max 的坏滑杆
+  return Math.max(1.1, islandZoomCap(window.innerWidth, 1.6))
+}
 
 const FX_CODES = Object.keys(FX_RATES).filter((c) => c !== 'CNY')
 
@@ -260,26 +269,30 @@ function AppearanceSection({ ctx }) {
           </div>
           <div className="cright"><Switch on={s.islandMode === true} onChange={() => set((d) => { d.settings.islandMode = !d.settings.islandMode })} /></div>
         </div>
-        {/* v3.2 小岛模式字号拨杆：多档位（110%~160%），拖动即时生效（先写 CSS 变量不等 React） */}
+        {/* v3.2 小岛模式字号拨杆：多档位（110%~160%），拖动即时生效（先写 CSS 变量不等 React）。
+            v3.2.1 档位上限与标签随屏宽钳制（islandZoomCap，与 store.jsx 生效钳制同一公式）：
+            zoom 会把有效版式宽度压到 视口/倍率，1.6 档在 390px 手机上只剩 ~244px、低于 320px 设计底线，
+            行内元素会逐行竖排堆叠；上限 = min(1.6, 屏宽/320)，桌面宽屏不受影响 */}
         {s.islandMode === true && (
           <div className="cell range-cell">
             <div className="cico"><Icon name="typography" size={20} color="var(--brand)" /></div>
             <div className="cmain">
               <div className="ctitle">字号大小</div>
-              <div className="cdesc">向右拨动字号越大，越大越清晰</div>
+              <div className="cdesc">向右拨动字号越大；上限随屏宽自动收放，版式不折行</div>
             </div>
             <div className="cright" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
-                type="range" min={1.1} max={1.6} step={0.05} value={Number(s.islandZoom) || 1.15}
+                type="range" min={1.1} max={islandZoomMax()} step={0.05}
+                value={Math.min(Number(s.islandZoom) || 1.15, islandZoomMax())}
                 aria-label="小岛模式字号大小"
                 onChange={(e) => {
                   const v = Number(e.target.value)
-                  // 先直接写 CSS 变量：拖动时缩放零延迟变化，不等待 React 重渲染
+                  // 先直接写 CSS 变量：拖动时缩放零延迟变化，不等待 React 重渲染（与 store 效果同一钳制公式）
                   document.documentElement.style.setProperty('--island-zoom', String(v))
                   set((d) => { d.settings.islandZoom = v })
                 }}
               />
-              <span className="muted" style={{ width: 42, textAlign: 'right' }}>{Math.round((Number(s.islandZoom) || 1.15) * 100)}%</span>
+              <span className="muted" style={{ width: 42, textAlign: 'right' }}>{Math.round(Math.min(Number(s.islandZoom) || 1.15, islandZoomMax()) * 100)}%</span>
             </div>
           </div>
         )}
