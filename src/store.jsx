@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { emptyState, demoState, LEGACY_DEFAULT_ICONS } from './seed.js'
+import { emptyState, demoState, LEGACY_DEFAULT_ICONS, LEGACY_SUB_ICONS } from './seed.js'
 import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
@@ -104,6 +104,11 @@ export function migrateState(s) {
       for (const c of s.categories[group]) {
         const key = LEGACY_DEFAULT_ICONS[c?.icon]
         if (key) c.icon = 'girl:' + key
+        // v3.1 子分类迁移：名称+旧默认图标双条件命中才换（用户自定义图标不动）；存储字段是 children
+        for (const sub of c.children || []) {
+          const hit = LEGACY_SUB_ICONS[sub?.name]
+          if (hit && sub.icon === hit[0]) sub.icon = 'girl:' + hit[1]
+        }
       }
     }
   }

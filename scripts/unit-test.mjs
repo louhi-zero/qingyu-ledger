@@ -1256,7 +1256,7 @@ for (const d of ['cat', 'func']) {
   if (existsSync(dir)) libPngs += readdirSync(dir).filter((f) => f.endsWith('.png')).length
 }
 assert('图标库 PNG 全部落盘（cat + func 共 28 枚，单枚 ≤4KB）', libPngs === 28)
-assert('seed 默认分类接入少女线稿风图标（v3.1：girl: 主分类 + svg: 子分类保留）',
+assert('seed 默认分类接入少女线稿风图标（v3.1：girl: 主分类 + girl: 35 子分类 + 无图项保留 svg:）',
   seedSrc.includes('"girl:food"') && seedSrc.includes('"girl:shop"')
   && seedSrc.includes('"girl:transport"') && seedSrc.includes('"girl:home"')
   && seedSrc.includes('"girl:game"') && seedSrc.includes('"girl:medical"')
@@ -1264,7 +1264,12 @@ assert('seed 默认分类接入少女线稿风图标（v3.1：girl: 主分类 + 
   && seedSrc.includes('"girl:pet"') && seedSrc.includes('"girl:reimburse"')
   && seedSrc.includes('"girl:salary"') && seedSrc.includes('"girl:bonus"')
   && seedSrc.includes('"girl:sport"') && seedSrc.includes('"girl:invest"')
-  && seedSrc.includes('"svg:croissant"'))
+  && seedSrc.includes('"girl:breakfast"') && seedSrc.includes('"girl:dinner"')
+  && seedSrc.includes('"girl:clothes"') && seedSrc.includes('"girl:bus"')
+  && seedSrc.includes('"girl:rent"') && seedSrc.includes('"girl:comm"')
+  && seedSrc.includes('"girl:movie"') && seedSrc.includes('"girl:clinic"')
+  && seedSrc.includes('"girl:tuition"') && seedSrc.includes('"girl:petcare"')
+  && seedSrc.includes('"svg:envelope"') && seedSrc.includes('"svg:coin"'))
 // ---------- v3.1 少女线稿风分类图标 ----------
 console.log('v3.1 少女线稿风：')
 {
@@ -1274,10 +1279,17 @@ console.log('v3.1 少女线稿风：')
   const storeSrc = readFileSync(new URL('../src/store.jsx', import.meta.url), 'utf-8')
   const girlDir = new URL('../public/girl/', import.meta.url)
   const girlPngs = existsSync(girlDir) ? readdirSync(girlDir).filter((f) => f.endsWith('.png')) : []
-  assert('public/girl/ 28 枚线稿 PNG 落盘', girlPngs.length === 28)
-  assert('iconRegistry：GIRL_KEYS 28 key + isGirlIcon + isLibraryIcon 认 girl: 前缀',
+  assert('public/girl/ 59 枚线稿 PNG 落盘（28 主分类/功能 + 35 子分类 - 4 重叠键）', girlPngs.length === 59)
+  assert('iconRegistry：GIRL_KEYS 含 28 主键 + 35 子键 + isGirlIcon 认 girl: 前缀',
     registrySrc.includes('export const GIRL_KEYS = new Set(') && registrySrc.includes('export const isGirlIcon')
-    && registrySrc.includes("value.startsWith('girl:')"))
+    && registrySrc.includes("value.startsWith('girl:')")
+    && registrySrc.includes("'breakfast', 'lunch', 'dinner', 'drink', 'snack', 'fruit'")
+    && registrySrc.includes("'petfood', 'petcare'"))
+  assert('seed 子分类迁移表：名称+旧默认图标双条件（svg:bowl 午餐/晚餐靠名称区分，存储字段 children）',
+    seedSrc.includes('export const LEGACY_SUB_ICONS')
+    && seedSrc.includes("'午餐': ['svg:bowl', 'lunch']") && seedSrc.includes("'晚餐': ['svg:bowl', 'dinner']")
+    && storeSrc.includes('LEGACY_SUB_ICONS[sub?.name]')
+    && storeSrc.includes("sub.icon = 'girl:' + hit[1]") && storeSrc.includes('c.children || []'))
   assert('catIcons：GIRL_ICONS 派生（值 girl:<key>，缩略图 ./girl/<key>.png）',
     catIconsSrc.includes('export const GIRL_ICONS') && catIconsSrc.includes('`girl:${icon.key}`')
     && catIconsSrc.includes('`./girl/${icon.key}.png`'))

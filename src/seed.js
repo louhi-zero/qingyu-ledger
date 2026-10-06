@@ -10,16 +10,16 @@ function cat(name, icon, color, children = [], custom = false) {
 export function defaultCategories() {
   return {
     expense: [
-      // v3.1 主分类默认少女线稿风（public/girl/<key>.png）；子分类与无匹配项保留 emoji / 线性图标
-      cat('餐饮', "girl:food", PAL[0], [['早餐', "svg:croissant"], ['午餐', "svg:bowl"], ['晚餐', "svg:bowl"], ['饮料', "svg:cup"], ['零食', "svg:cookie"], ['水果', "svg:apple"]]),
-      cat('购物', "girl:shop", PAL[1], [['服饰鞋包', "svg:shoe"], ['日用百货', "svg:roll"], ['数码家电', "svg:phone"], ['美妆护肤', "svg:lipstick"], ['网购', "svg:box"]]),
-      cat('交通出行', "girl:transport", PAL[2], [['公交地铁', "svg:train"], ['打车', "svg:transport"], ['加油', "svg:fuel"], ['火车机票', "svg:travel"], ['停车', "svg:parking"]]),
-      cat('居家生活', "girl:home", PAL[3], [['房租', "svg:home"], ['水电燃气', "svg:droplet"], ['物业', "svg:building"], ['通讯', "svg:signal"], ['装修', "svg:tools"]]),
-      cat('娱乐休闲', "girl:game", PAL[4], [['电影', "svg:film"], ['游戏', "svg:game"], ['旅行', "svg:beach"], ['订阅', "svg:tv"], ['运动', "svg:ball"]]),
-      cat('医疗健康', "girl:medical", PAL[5], [['挂号门诊', "svg:medical"], ['药品', "svg:pill"], ['体检', "svg:stethoscope"]]),
-      cat('教育学习', "girl:edu", PAL[6], [['书籍', "svg:books"], ['培训', "svg:edu"], ['学费', "svg:edu"], ['知识付费', "svg:bill"]]),
+      // v3.1 主分类+子分类默认少女线稿风（public/girl/<key>.png）；无总图项（人情往来子项/利息等）保留线性图标
+      cat('餐饮', "girl:food", PAL[0], [['早餐', "girl:breakfast"], ['午餐', "girl:lunch"], ['晚餐', "girl:dinner"], ['饮料', "girl:drink"], ['零食', "girl:snack"], ['水果', "girl:fruit"]]),
+      cat('购物', "girl:shop", PAL[1], [['服饰鞋包', "girl:clothes"], ['日用百货', "girl:daily"], ['数码家电', "girl:digital"], ['美妆护肤', "girl:beauty"], ['网购', "girl:online"]]),
+      cat('交通出行', "girl:transport", PAL[2], [['公交地铁', "girl:bus"], ['打车', "girl:taxi"], ['加油', "girl:fuel"], ['火车机票', "girl:train"], ['停车', "girl:parking"]]),
+      cat('居家生活', "girl:home", PAL[3], [['房租', "girl:rent"], ['水电燃气', "girl:utility"], ['物业', "girl:property"], ['通讯', "girl:comm"], ['装修', "girl:renovate"]]),
+      cat('娱乐休闲', "girl:game", PAL[4], [['电影', "girl:movie"], ['游戏', "girl:game"], ['旅行', "girl:travel"], ['订阅', "girl:subscribe"], ['运动', "girl:sport"]]),
+      cat('医疗健康', "girl:medical", PAL[5], [['挂号门诊', "girl:clinic"], ['药品', "girl:pill"], ['体检', "girl:checkup"]]),
+      cat('教育学习', "girl:edu", PAL[6], [['书籍', "girl:books"], ['培训', "girl:training"], ['学费', "girl:tuition"], ['知识付费', "girl:knowledge"]]),
       cat('人情往来', "girl:gift", PAL[7], [['礼金', "svg:envelope"], ['红包', "svg:salary"], ['请客', "svg:food"], ['慈善', "svg:heart"]]),
-      cat('宠物', "girl:pet", PAL[8], [['宠物食品', "svg:bone"], ['宠物医疗', "svg:pet"]]),
+      cat('宠物', "girl:pet", PAL[8], [['宠物食品', "girl:petfood"], ['宠物医疗', "girl:petcare"]]),
       cat('其他支出', "girl:reimburse", PAL[9]),
     ],
     income: [
@@ -51,6 +51,25 @@ export const LEGACY_DEFAULT_ICONS = {
   './icons/cat/invest.svg': 'invest',
   'svg:reimburse': 'reimburse',
   'svg:sport': 'sport',
+}
+
+// v3.1 子分类少女线稿迁移：子分类名 → [旧默认图标, girl 键]；双条件（名称+旧默认图标同时命中才替换，
+// 用户自定义图标不动；svg:bowl 午餐/晚餐共用旧值，靠名称区分）
+export const LEGACY_SUB_ICONS = {
+  '早餐': ['svg:croissant', 'breakfast'], '午餐': ['svg:bowl', 'lunch'], '晚餐': ['svg:bowl', 'dinner'],
+  '饮料': ['svg:cup', 'drink'], '零食': ['svg:cookie', 'snack'], '水果': ['svg:apple', 'fruit'],
+  '服饰鞋包': ['svg:shoe', 'clothes'], '日用百货': ['svg:roll', 'daily'], '数码家电': ['svg:phone', 'digital'],
+  '美妆护肤': ['svg:lipstick', 'beauty'], '网购': ['svg:box', 'online'],
+  '公交地铁': ['svg:train', 'bus'], '打车': ['svg:transport', 'taxi'], '加油': ['svg:fuel', 'fuel'],
+  '火车机票': ['svg:travel', 'train'], '停车': ['svg:parking', 'parking'],
+  '房租': ['svg:home', 'rent'], '水电燃气': ['svg:droplet', 'utility'], '物业': ['svg:building', 'property'],
+  '通讯': ['svg:signal', 'comm'], '装修': ['svg:tools', 'renovate'],
+  '电影': ['svg:film', 'movie'], '游戏': ['svg:game', 'game'], '旅行': ['svg:beach', 'travel'],
+  '订阅': ['svg:tv', 'subscribe'], '运动': ['svg:ball', 'sport'],
+  '挂号门诊': ['svg:medical', 'clinic'], '药品': ['svg:pill', 'pill'], '体检': ['svg:stethoscope', 'checkup'],
+  '书籍': ['svg:books', 'books'], '培训': ['svg:edu', 'training'], '学费': ['svg:edu', 'tuition'],
+  '知识付费': ['svg:bill', 'knowledge'],
+  '宠物食品': ['svg:bone', 'petfood'], '宠物医疗': ['svg:pet', 'petcare'],
 }
 
 export const ACCOUNT_TYPES = [

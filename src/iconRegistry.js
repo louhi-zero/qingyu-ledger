@@ -1040,12 +1040,18 @@ const LEGACY_ICONS = {
 const normalizeLegacy = value => value.replace(/[\uFE0F\u200D]/g, '')
 const NORMALIZED_LEGACY = new Map(Object.entries(LEGACY_ICONS).map(([value, key]) => [normalizeLegacy(value), key]))
 
-// v3.1 少女线稿风图标（public/girl/<key>.png）：key 与 ICON_CATALOG expense/income/func 三组一一对应
+// v3.1 少女线稿风图标（public/girl/<key>.png）：28 主分类/功能键 + 35 子分类键（早餐…宠物医疗）
 export const GIRL_KEYS = new Set([
   'food', 'transport', 'shop', 'home', 'medical', 'edu', 'phone', 'travel',
   'clothes', 'game', 'pet', 'gift', 'sport', 'box',
   'salary', 'bonus', 'invest', 'interest', 'reimburse', 'transfer',
   'bill', 'stats', 'budget', 'account', 'calendar', 'search', 'settings', 'backup',
+  // v3.1 子分类键（子分类总图 35 枚）
+  'breakfast', 'lunch', 'dinner', 'drink', 'snack', 'fruit',
+  'daily', 'digital', 'beauty', 'online', 'bus', 'taxi', 'fuel', 'train', 'parking',
+  'rent', 'utility', 'property', 'comm', 'renovate',
+  'movie', 'subscribe', 'clinic', 'checkup',
+  'training', 'tuition', 'knowledge', 'petfood', 'petcare',
 ])
 export const isGirlIcon = value => typeof value === 'string' && value.startsWith('girl:') && GIRL_KEYS.has(value.slice(5))
 
