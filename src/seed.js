@@ -10,29 +10,47 @@ function cat(name, icon, color, children = [], custom = false) {
 export function defaultCategories() {
   return {
     expense: [
-      // v2.6 主分类默认使用线性图标库（'./icons/' 路径）；子分类与无匹配项保留 emoji
-      cat('餐饮', "./icons/cat/food.svg", PAL[0], [['早餐', "svg:croissant"], ['午餐', "svg:bowl"], ['晚餐', "svg:bowl"], ['饮料', "svg:cup"], ['零食', "svg:cookie"], ['水果', "svg:apple"]]),
-      cat('购物', "./icons/cat/shop.svg", PAL[1], [['服饰鞋包', "svg:shoe"], ['日用百货', "svg:roll"], ['数码家电', "svg:phone"], ['美妆护肤', "svg:lipstick"], ['网购', "svg:box"]]),
-      cat('交通出行', "./icons/cat/transport.svg", PAL[2], [['公交地铁', "svg:train"], ['打车', "svg:transport"], ['加油', "svg:fuel"], ['火车机票', "svg:travel"], ['停车', "svg:parking"]]),
-      cat('居家生活', "./icons/cat/home.svg", PAL[3], [['房租', "svg:home"], ['水电燃气', "svg:droplet"], ['物业', "svg:building"], ['通讯', "svg:signal"], ['装修', "svg:tools"]]),
-      cat('娱乐休闲', "./icons/cat/game.svg", PAL[4], [['电影', "svg:film"], ['游戏', "svg:game"], ['旅行', "svg:beach"], ['订阅', "svg:tv"], ['运动', "svg:ball"]]),
-      cat('医疗健康', "./icons/cat/medical.svg", PAL[5], [['挂号门诊', "svg:medical"], ['药品', "svg:pill"], ['体检', "svg:stethoscope"]]),
-      cat('教育学习', "./icons/cat/edu.svg", PAL[6], [['书籍', "svg:books"], ['培训', "svg:edu"], ['学费', "svg:edu"], ['知识付费', "svg:bill"]]),
-      cat('人情往来', "./icons/cat/gift.svg", PAL[7], [['礼金', "svg:envelope"], ['红包', "svg:salary"], ['请客', "svg:food"], ['慈善', "svg:heart"]]),
-      cat('宠物', "./icons/cat/pet.svg", PAL[8], [['宠物食品', "svg:bone"], ['宠物医疗', "svg:pet"]]),
-      cat('其他支出', "svg:reimburse", PAL[9]),
+      // v3.1 主分类默认少女线稿风（public/girl/<key>.png）；子分类与无匹配项保留 emoji / 线性图标
+      cat('餐饮', "girl:food", PAL[0], [['早餐', "svg:croissant"], ['午餐', "svg:bowl"], ['晚餐', "svg:bowl"], ['饮料', "svg:cup"], ['零食', "svg:cookie"], ['水果', "svg:apple"]]),
+      cat('购物', "girl:shop", PAL[1], [['服饰鞋包', "svg:shoe"], ['日用百货', "svg:roll"], ['数码家电', "svg:phone"], ['美妆护肤', "svg:lipstick"], ['网购', "svg:box"]]),
+      cat('交通出行', "girl:transport", PAL[2], [['公交地铁', "svg:train"], ['打车', "svg:transport"], ['加油', "svg:fuel"], ['火车机票', "svg:travel"], ['停车', "svg:parking"]]),
+      cat('居家生活', "girl:home", PAL[3], [['房租', "svg:home"], ['水电燃气', "svg:droplet"], ['物业', "svg:building"], ['通讯', "svg:signal"], ['装修', "svg:tools"]]),
+      cat('娱乐休闲', "girl:game", PAL[4], [['电影', "svg:film"], ['游戏', "svg:game"], ['旅行', "svg:beach"], ['订阅', "svg:tv"], ['运动', "svg:ball"]]),
+      cat('医疗健康', "girl:medical", PAL[5], [['挂号门诊', "svg:medical"], ['药品', "svg:pill"], ['体检', "svg:stethoscope"]]),
+      cat('教育学习', "girl:edu", PAL[6], [['书籍', "svg:books"], ['培训', "svg:edu"], ['学费', "svg:edu"], ['知识付费', "svg:bill"]]),
+      cat('人情往来', "girl:gift", PAL[7], [['礼金', "svg:envelope"], ['红包', "svg:salary"], ['请客', "svg:food"], ['慈善', "svg:heart"]]),
+      cat('宠物', "girl:pet", PAL[8], [['宠物食品', "svg:bone"], ['宠物医疗', "svg:pet"]]),
+      cat('其他支出', "girl:reimburse", PAL[9]),
     ],
     income: [
-      cat('工资', "./icons/cat/salary.svg", '#ffb300'),
-      cat('奖金', "./icons/cat/bonus.svg", '#ff7043'),
-      cat('兼职', "svg:sport", '#8d6e63'),
-      cat('理财收益', "./icons/cat/invest.svg", '#26a69a', [['利息', "svg:coin"], ['分红', "svg:diamond"]]),
+      cat('工资', "girl:salary", '#ffb300'),
+      cat('奖金', "girl:bonus", '#ff7043'),
+      cat('兼职', "girl:sport", '#8d6e63'),
+      cat('理财收益', "girl:invest", '#26a69a', [['利息', "svg:coin"], ['分红', "svg:diamond"]]),
       cat('退款', "svg:undo", '#42a5f5'),
       cat('红包', "svg:envelope", '#ef5350'),
       cat('生意收入', "svg:business", '#7e57c2'),
       cat('其他收入', "svg:tag", '#9e9e9e'),
     ],
   }
+}
+
+// v3.1 旧默认主分类图标 → 少女线稿 key（migrateState 用：仅当图标仍为旧默认值时才覆盖，用户自定义不动）
+export const LEGACY_DEFAULT_ICONS = {
+  './icons/cat/food.svg': 'food',
+  './icons/cat/shop.svg': 'shop',
+  './icons/cat/transport.svg': 'transport',
+  './icons/cat/home.svg': 'home',
+  './icons/cat/game.svg': 'game',
+  './icons/cat/medical.svg': 'medical',
+  './icons/cat/edu.svg': 'edu',
+  './icons/cat/gift.svg': 'gift',
+  './icons/cat/pet.svg': 'pet',
+  './icons/cat/salary.svg': 'salary',
+  './icons/cat/bonus.svg': 'bonus',
+  './icons/cat/invest.svg': 'invest',
+  'svg:reimburse': 'reimburse',
+  'svg:sport': 'sport',
 }
 
 export const ACCOUNT_TYPES = [

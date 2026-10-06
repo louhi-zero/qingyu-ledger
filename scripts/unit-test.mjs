@@ -1256,15 +1256,40 @@ for (const d of ['cat', 'func']) {
   if (existsSync(dir)) libPngs += readdirSync(dir).filter((f) => f.endsWith('.png')).length
 }
 assert('图标库 PNG 全部落盘（cat + func 共 28 枚，单枚 ≤4KB）', libPngs === 28)
-assert('seed 默认分类接入 SVG 线性图标（v2.6 codex：svg 库 + svg: 子分类）',
-  seedSrc.includes('"./icons/cat/food.svg"') && seedSrc.includes('"./icons/cat/shop.svg"')
-  && seedSrc.includes('"./icons/cat/transport.svg"') && seedSrc.includes('"./icons/cat/home.svg"')
-  && seedSrc.includes('"./icons/cat/game.svg"') && seedSrc.includes('"./icons/cat/medical.svg"')
-  && seedSrc.includes('"./icons/cat/edu.svg"') && seedSrc.includes('"./icons/cat/gift.svg"')
-  && seedSrc.includes('"./icons/cat/pet.svg"')
-  && seedSrc.includes('"./icons/cat/salary.svg"') && seedSrc.includes('"./icons/cat/bonus.svg"')
-  && seedSrc.includes('"./icons/cat/invest.svg"')
+assert('seed 默认分类接入少女线稿风图标（v3.1：girl: 主分类 + svg: 子分类保留）',
+  seedSrc.includes('"girl:food"') && seedSrc.includes('"girl:shop"')
+  && seedSrc.includes('"girl:transport"') && seedSrc.includes('"girl:home"')
+  && seedSrc.includes('"girl:game"') && seedSrc.includes('"girl:medical"')
+  && seedSrc.includes('"girl:edu"') && seedSrc.includes('"girl:gift"')
+  && seedSrc.includes('"girl:pet"') && seedSrc.includes('"girl:reimburse"')
+  && seedSrc.includes('"girl:salary"') && seedSrc.includes('"girl:bonus"')
+  && seedSrc.includes('"girl:sport"') && seedSrc.includes('"girl:invest"')
   && seedSrc.includes('"svg:croissant"'))
+// ---------- v3.1 少女线稿风分类图标 ----------
+console.log('v3.1 少女线稿风：')
+{
+  const registrySrc = readFileSync(new URL('../src/iconRegistry.js', import.meta.url), 'utf-8')
+  const manageSrc = readFileSync(new URL('../src/pages/CategoryManage.jsx', import.meta.url), 'utf-8')
+  const iconsJsxSrc = readFileSync(new URL('../src/ui/icons.jsx', import.meta.url), 'utf-8')
+  const storeSrc = readFileSync(new URL('../src/store.jsx', import.meta.url), 'utf-8')
+  const girlDir = new URL('../public/girl/', import.meta.url)
+  const girlPngs = existsSync(girlDir) ? readdirSync(girlDir).filter((f) => f.endsWith('.png')) : []
+  assert('public/girl/ 28 枚线稿 PNG 落盘', girlPngs.length === 28)
+  assert('iconRegistry：GIRL_KEYS 28 key + isGirlIcon + isLibraryIcon 认 girl: 前缀',
+    registrySrc.includes('export const GIRL_KEYS = new Set(') && registrySrc.includes('export const isGirlIcon')
+    && registrySrc.includes("value.startsWith('girl:')"))
+  assert('catIcons：GIRL_ICONS 派生（值 girl:<key>，缩略图 ./girl/<key>.png）',
+    catIconsSrc.includes('export const GIRL_ICONS') && catIconsSrc.includes('`girl:${icon.key}`')
+    && catIconsSrc.includes('`./girl/${icon.key}.png`'))
+  assert('ValueIcon：girl: 前缀渲染线稿 <img>', iconsJsxSrc.includes('if (isGirlIcon(value))'))
+  assert('seed：LEGACY_DEFAULT_ICONS 旧默认映射（迁移单一源）',
+    seedSrc.includes('export const LEGACY_DEFAULT_ICONS') && seedSrc.includes("'./icons/cat/food.svg': 'food'")
+    && seedSrc.includes("'svg:sport': 'sport'"))
+  assert('migrateState：仅旧默认主分类换 girl:<key>，用户自定义与子分类不动',
+    storeSrc.includes('const key = LEGACY_DEFAULT_ICONS[c?.icon]') && storeSrc.includes("c.icon = 'girl:' + key"))
+  assert('选择器：少女 tab 默认 + GIRL_ICONS 网格写 girl:<key>',
+    manageSrc.includes("useState('girl')") && manageSrc.includes('GIRL_ICONS.map') && manageSrc.includes('<img src={it.thumb}'))
+}
 // ---------- v3.1 数据一致性回归（用户录屏报告：删除后汇总/笔数不同步） ----------
 console.log('v3.1 数据一致性回归：')
 {
@@ -1298,8 +1323,8 @@ assert('分类图标渲染点去 emoji 文本化（Home/AddTx/Templates/Budget/C
   && readFileSync(new URL('../src/pages/Recurring.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={20} />')
   && readFileSync(new URL('../src/pages/Trash.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={info.icon} size={18} />')
   && readFileSync(new URL('../src/pages/Review.jsx', import.meta.url), 'utf-8').includes('<CatIcon icon={c.icon} size={14} />'))
-assert('分类管理：图标库/Emoji 双来源选择器 + 图标库网格样式',
-  readFileSync(new URL('../src/pages/CategoryManage.jsx', import.meta.url), 'utf-8').includes("options={[{ value: 'lib', label: '图标库' }, { value: 'emoji', label: 'Emoji' }]}")
+assert('分类管理：少女/图标库/Emoji 三来源选择器 + 图标库网格样式',
+  readFileSync(new URL('../src/pages/CategoryManage.jsx', import.meta.url), 'utf-8').includes("options={[{ value: 'girl', label: '少女' }, { value: 'lib', label: '图标库' }, { value: 'emoji', label: 'Emoji' }]}")
   && css.includes('.ilib {') && css.includes('.ilib-it.on'))
 assert('设置页去 🗑️ emoji（Icon trash 替代）', settingsJs.includes('<Icon name="trash"') && !settingsJs.includes('🗑️'))
 

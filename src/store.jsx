@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { emptyState, demoState } from './seed.js'
+import { emptyState, demoState, LEGACY_DEFAULT_ICONS } from './seed.js'
 import { uid, todayStr, nowTime, nextRunDates, periodOf, netWorth, normalizeTabIconAt, normalizeDiscIconAt } from './utils.js'
 import { blobDel } from './blobdb.js'
 import { syncDailyReminder } from './notify.js'
@@ -94,6 +94,16 @@ export function migrateState(s) {
         if (!a.dueDate) a.dueDate = null
       } else {
         delete a.rate; delete a.dueDate
+      }
+    }
+  }
+  // v3.1 少女线稿风迁移：仅当主分类图标仍为旧默认值（图标库路径 / svg:key）时换 girl:<key>，用户自定义与子分类不动
+  if (s.categories && typeof s.categories === 'object') {
+    for (const group of ['expense', 'income']) {
+      if (!Array.isArray(s.categories[group])) continue
+      for (const c of s.categories[group]) {
+        const key = LEGACY_DEFAULT_ICONS[c?.icon]
+        if (key) c.icon = 'girl:' + key
       }
     }
   }

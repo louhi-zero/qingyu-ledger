@@ -1040,6 +1040,15 @@ const LEGACY_ICONS = {
 const normalizeLegacy = value => value.replace(/[\uFE0F\u200D]/g, '')
 const NORMALIZED_LEGACY = new Map(Object.entries(LEGACY_ICONS).map(([value, key]) => [normalizeLegacy(value), key]))
 
+// v3.1 少女线稿风图标（public/girl/<key>.png）：key 与 ICON_CATALOG expense/income/func 三组一一对应
+export const GIRL_KEYS = new Set([
+  'food', 'transport', 'shop', 'home', 'medical', 'edu', 'phone', 'travel',
+  'clothes', 'game', 'pet', 'gift', 'sport', 'box',
+  'salary', 'bonus', 'invest', 'interest', 'reimburse', 'transfer',
+  'bill', 'stats', 'budget', 'account', 'calendar', 'search', 'settings', 'backup',
+])
+export const isGirlIcon = value => typeof value === 'string' && value.startsWith('girl:') && GIRL_KEYS.has(value.slice(5))
+
 export function iconName(value, fallback = 'tag') {
   if (typeof value !== 'string') return fallback
   const key = value.startsWith('svg:') ? value.slice(4) : value.match(/^(?:\.\/|\/)?icons\/(?:cat|func|extra)\/([\w-]+)\.(?:svg|png)$/)?.[1] || value
@@ -1057,6 +1066,7 @@ export function iconMeta(value, fallback = 'tag') {
 
 export function isLibraryIcon(value) {
   if (typeof value !== 'string') return false
+  if (value.startsWith('girl:')) return isGirlIcon(value)
   if (value.startsWith('svg:')) return BY_KEY.has(value.slice(4))
   return ICON_CATALOG.some(icon => icon.src === value || icon.src.replace(/\.svg$/, '.png') === value)
 }

@@ -37,7 +37,7 @@ import bilibili from '../assets/icons/simple-icons-bilibili.svg?raw'
 import tiktok from '../assets/icons/simple-icons-tiktok.svg?raw'
 import tencentqq from '../assets/icons/simple-icons-tencentqq.svg?raw'
 
-import { iconMeta } from '../iconRegistry.js'
+import { iconMeta, isGirlIcon } from '../iconRegistry.js'
 import qy_food from '../assets/icons/qy-food.svg?raw'
 import qy_transport from '../assets/icons/qy-transport.svg?raw'
 import qy_shop from '../assets/icons/qy-shop.svg?raw'
@@ -364,7 +364,21 @@ export const BRAND_COLORS = {
 }
 
 // Photos are handled by their owners; all stored built-in values become SVG here.
+// v3.1 girl:<key> 前缀走少女线稿 PNG（public/girl/），其余照旧归一为内联 SVG
 export function ValueIcon({ value, fallback = 'tag', size = 22, color, className, style }) {
+  if (isGirlIcon(value)) {
+    return (
+      <img
+        src={`./girl/${value.slice(5)}.png`}
+        width={size}
+        height={size}
+        className={className}
+        style={{ display: 'inline-block', objectFit: 'contain', verticalAlign: '-0.15em', ...style }}
+        alt=""
+        draggable={false}
+      />
+    )
+  }
   const icon = iconMeta(value, fallback)
   return <Icon name={icon.key} size={size} color={color || style?.color || SEMANTIC[icon.group] || SEMANTIC.func} className={className} style={style} />
 }

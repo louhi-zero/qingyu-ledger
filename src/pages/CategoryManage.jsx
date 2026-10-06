@@ -2,7 +2,7 @@ import { Icon } from "../ui/icons.jsx"
 import React, { useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Seg, Confirm, Empty, EmojiPicker, CatIcon } from '../ui.jsx'
-import { ALL_CAT_ICONS } from '../catIcons.js'
+import { ALL_CAT_ICONS, GIRL_ICONS } from '../catIcons.js'
 import { uid } from '../utils.js'
 
 export default function CategoryManage({ nav }) {
@@ -11,7 +11,7 @@ export default function CategoryManage({ nav }) {
   const [editCat, setEditCat] = useState(null) // 编辑一级分类 {draft, isNew}
   const [editSub, setEditSub] = useState(null) // 编辑二级 {catId, draft, isNew}
   const [emojiTarget, setEmojiTarget] = useState(null) // {kind:'cat'|'sub'}
-  const [iconTab, setIconTab] = useState('lib') // v2.6 图标选择双来源：lib=图标库 / emoji
+  const [iconTab, setIconTab] = useState('girl') // v3.1 图标选择三来源：girl=少女线稿 / lib=图标库 / emoji
   const [delCat, setDelCat] = useState(null)
   const [delSub, setDelSub] = useState(null)
 
@@ -180,12 +180,31 @@ export default function CategoryManage({ nav }) {
       {/* 图标选择：v2.6 图标库（线性图标）+ Emoji 双来源 */}
       <Sheet open={!!emojiTarget && (!!editCat || !!editSub)} onClose={() => setEmojiTarget(null)} title="选择图标">
         <Seg
-          options={[{ value: 'lib', label: '图标库' }, { value: 'emoji', label: 'Emoji' }]}
+          options={[{ value: 'girl', label: '少女' }, { value: 'lib', label: '图标库' }, { value: 'emoji', label: 'Emoji' }]}
           value={iconTab}
           onChange={setIconTab}
           style={{ marginBottom: 12 }}
         />
-        {iconTab === 'lib' ? (
+        {iconTab === 'girl' ? (
+          <div className="ilib">
+            {GIRL_ICONS.map((it) => (
+              <button
+                key={it.key} type="button" title={it.name} aria-label={it.name}
+                className={`ilib-it${activeDraft?.icon === it.src ? ' on' : ''}`}
+                onClick={() => {
+                  if (emojiTarget.kind === 'cat') {
+                    setEditCat({ ...editCat, draft: { ...editCat.draft, icon: it.src } })
+                  } else {
+                    setEditSub({ ...editSub, draft: { ...editSub.draft, icon: it.src } })
+                  }
+                  setEmojiTarget(null)
+                }}
+              >
+                <img src={it.thumb} alt="" draggable={false} />
+              </button>
+            ))}
+          </div>
+        ) : iconTab === 'lib' ? (
           <div className="ilib">
             {ALL_CAT_ICONS.map((it) => (
               <button
