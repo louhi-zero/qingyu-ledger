@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 37 / 3.1', gradle.includes('versionCode 37') && gradle.includes('versionName "3.1"'))
+assert('版本 versionCode 38 / 3.2', gradle.includes('versionCode 38') && gradle.includes('versionName "3.2"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -277,7 +277,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.1', pkgJson.version === '3.1')
+assert('package.json 版本 3.2', pkgJson.version === '3.2')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -413,7 +413,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.1', APP_VERSION === '3.1')
+assert('update.js 版本单一源为 3.2', APP_VERSION === '3.2')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -624,10 +624,12 @@ assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被�
     && storeSrcV32.includes("classList.toggle('island', on)")
     && storeSrcV32.includes("style.setProperty('--island-zoom', String(zoom))")
     && storeSrcV32.includes("style.removeProperty('--island-zoom')"))
-  assert('小岛模式字号拨杆：110%~160% 多档位，拖动即时写 CSS 变量不等 React',
-    settingsSectSrcV32.includes('type="range" min={1.1} max={1.6} step={0.05}')
+  assert('小岛模式字号拨杆：110%~160% 多档位，拖动即时写 CSS 变量不等 React；上限随屏宽钳制（islandZoomCap 同一公式，窄屏不塌版）',
+    settingsSectSrcV32.includes('type="range" min={1.1} max={islandZoomMax()} step={0.05}')
+    && settingsSectSrcV32.includes('Math.min(Number(s.islandZoom) || 1.15, islandZoomMax())')
     && settingsSectSrcV32.includes("document.documentElement.style.setProperty('--island-zoom', String(v))")
-    && settingsSectSrcV32.includes('字号大小'))
+    && settingsSectSrcV32.includes('字号大小')
+    && settingsSectSrcV32.includes('上限随屏宽自动收放'))
   assert('小岛模式 CSS：root zoom 等比放大 + dvh 按倒数折算（防 Chromium root zoom 视口单位虚高溢出）',
     stylesSrcV32.includes('html.island { zoom: var(--island-zoom); }')
     && stylesSrcV32.includes('html.island { --island-zoom: 1.15; }')
