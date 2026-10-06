@@ -2,7 +2,7 @@
 # 网格用墨迹投影自动检测（4 行，行内按空白分列），断言 8/6/6/8 布局；
 # 每格底部的中文标签通过"末段矮且与主体有间隙"规则剔除。
 # 白底转透明：alpha = 255 - 灰度，RGB 置黑（白底合成后与原图逐像素一致）。
-# 输出 256×256 透明 PNG，主体等比缩放居中留 6% 边距。
+# 输出 256×256 透明 PNG，线稿满幅 cover 铺满（顶对齐裁底部溢出，半身像不伤头，无白边）。
 # 另出 design/girl-contact-sheet.png 拼图供人工核验。
 import sys
 from pathlib import Path
@@ -17,7 +17,6 @@ GAP = 10           # 行/列分割最小空白
 LABEL_MAX_H = 60   # 低于此高度且位于底部的段视为文字标签
 LABEL_BAND_H = 40  # 整幅行投影中，标签行 band 的高度上限
 CANVAS = 256
-MARGIN = 0.06
 
 KEYS = [
     ['food', 'transport', 'shop', 'home', 'medical', 'edu', 'phone', 'travel'],
@@ -96,14 +95,15 @@ def main():
 
     for key, art in crops:
         aw, ah = art.size
-        scale = min((1 - 2 * MARGIN) * CANVAS / aw, (1 - 2 * MARGIN) * CANVAS / ah)
+        # v3.1.1 满幅：取 max 比例铺满 256×256（cover），纵向顶对齐裁底部溢出（半身像裁胸口不伤头），横向居中
+        scale = max(CANVAS / aw, CANVAS / ah)
         nw, nh = max(1, round(aw * scale)), max(1, round(ah * scale))
         g = art.resize((nw, nh), Image.LANCZOS)
         canvas = Image.new('RGBA', (CANVAS, CANVAS), (0, 0, 0, 0))
         alpha = g.point(lambda v: 255 - v)
         black = Image.new('RGBA', (nw, nh), (0, 0, 0, 255))
         black.putalpha(alpha)
-        canvas.paste(black, ((CANVAS - nw) // 2, (CANVAS - nh) // 2), black)
+        canvas.paste(black, ((CANVAS - nw) // 2, 0), black)
         canvas.save(out_dir / f'{key}.png', optimize=True)
 
     # 拼图核验：浅灰底 + 网格线，放大到 128 显示

@@ -200,7 +200,7 @@ export default function CategoryManage({ nav }) {
                   setEmojiTarget(null)
                 }}
               >
-                <img src={it.thumb} alt="" draggable={false} />
+                <img src={it.thumb} alt="" draggable={false} className="girl" />
               </button>
             ))}
           </div>

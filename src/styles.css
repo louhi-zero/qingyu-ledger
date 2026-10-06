@@ -1736,6 +1736,8 @@ span.ledger-switch-img {
   padding: 0; transition: transform .12s ease, background .16s ease, border-color .16s ease;
 }
 .ilib-it img { width: 26px; height: 26px; object-fit: contain; }
+/* v3.1.1 少女线稿满格：人物撑满整个格子（无白边），圆角随格子 */
+.ilib-it img.girl { width: 100%; height: 100%; border-radius: inherit; }
 .ilib-it:active { transform: scale(.92); }
 .ilib-it.on { border-color: var(--brand); background: var(--brand-weak); }
 
