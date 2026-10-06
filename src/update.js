@@ -22,7 +22,7 @@ export const APP_VERSION = '3.2'
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
 const RELEASE_PAGE = (tag) => `https://github.com/${REPO}/releases/tag/${tag}`
-const REPO_DOWNLOAD_HOST = 'github.com' // 仅信任官方 release 链接，不跟随镜像
+const REPO_DOWNLOAD_HOST = 'github.com' // 版本 API/校验文本仅信任官方域；APK 下载走多源加速（OWN_RELEASE_HOSTS + MIRROR_PREFIXES）
 
 const LS_CHECK_CACHE = 'qingyu_update_check_v1' // { at, info }
 const LS_DISMISSED = 'qingyu_update_dismissed_v1' // 用户点「稍后」的 tag
@@ -267,11 +267,31 @@ export function releasePageUrl(tag) {
 // 校验失败自动删文件并换下一个候选（最终回落官方直连），速度与安全兼得。
 export const MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']
 
-// 仅对 GitHub 域直链生成镜像候选（镜像1 → 镜像2 → 官方直连）；其余 URL 原样单候选
+// v3.2.1 自有平台直连渠道：gitee/gitcode/atomgit 同名镜像仓库（账号已注册）。
+// 在各平台发布同名 release 并上传同名 APK+.sha256 后自动生效；
+// 未发布时这些候选快速 404 → 换源逻辑自动跳下一通道，不影响可用性。
+// 模式依据：gitee 官方文档模式；gitcode 资产域经 API 实测为 raw.gitcode.com（附件路径
+// GitHub 风格，待发布后实测）；atomgit 为 GitLab 风格（其 API 匿名访问需 private-token，
+// 无法核验，待发布后实测）。模式如有出入只需改本表。
+export const OWN_RELEASE_HOSTS = [
+  { id: 'gitee', build: (o, r, tag, f) => `https://gitee.com/${o}/${r}/releases/download/${tag}/${f}` },
+  { id: 'gitcode', build: (o, r, tag, f) => `https://raw.gitcode.com/${o}/${r}/releases/download/${tag}/${f}` },
+  { id: 'atomgit', build: (o, r, tag, f) => `https://atomgit.com/${o}/${r}/-/releases/${tag}/downloads/${f}` },
+]
+
+// GitHub release 资产直链 → [自有平台×3 → 前缀代理×2 → 官方直连兜底]；其余 URL 原样单候选
+const GITHUB_ASSET_RE = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/releases\/download\/([^/\s]+)\/([^\s?#]+)/
+
 export function buildDownloadCandidates(url) {
   const u = String(url || '')
-  if (!/^https:\/\/github\.com\//.test(u)) return [u]
-  return [...MIRROR_PREFIXES.map((m) => m + u), u]
+  const m = GITHUB_ASSET_RE.exec(u)
+  if (!m) return [u]
+  const [, owner, repo, tag, file] = m // tag/file 保留原串（含转义段），各平台同构复用
+  return [
+    ...OWN_RELEASE_HOSTS.map((h) => h.build(owner, repo, tag, file)),
+    ...MIRROR_PREFIXES.map((p) => p + u),
+    u,
+  ]
 }
 
 // 多源顺序下载：单源停滞 stallMs 无任何进度 → 自动取消并换下一源；
@@ -282,12 +302,13 @@ export function buildDownloadCandidates(url) {
 export async function downloadWithFallback(info, onProgress, opts = {}) {
   const { stallMs = 15_000, shouldAbort = () => false, onSource, transport, resume = true } = opts
   const doDownload = transport || downloadApk
-  const candidates = buildDownloadCandidates(info.apkUrl)
+  const official = String(info.apkUrl || '')
+  const candidates = buildDownloadCandidates(official)
   let lastErr = null
   for (let i = 0; i < candidates.length; i++) {
     if (shouldAbort()) throw new Error('CANCELLED')
     const url = candidates[i]
-    const viaMirror = i < MIRROR_PREFIXES.length
+    const viaMirror = url !== official // 自有平台直连与前缀代理都算加速通道，仅官方原链不算
     try { onSource?.(url, viaMirror) } catch { /* ignore */ }
     let lastTick = Date.now()
     const wrapped = (pct, ev) => { lastTick = Date.now(); onProgress?.(pct, ev) }

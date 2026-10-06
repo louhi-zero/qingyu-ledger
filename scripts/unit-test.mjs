@@ -419,10 +419,28 @@ assert('update.js 版本单一源为 3.2', APP_VERSION === '3.2')
 console.log('v2.0.2 更新下载加速：')
 const updateSrc = readFileSync(new URL('../src/update.js', import.meta.url), 'utf-8')
 const updateCtxSrc = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
-assert('下载多源加速：镜像候选生成（gh-proxy/ghfast → 官方直连兜底，仅 GitHub 域）',
+assert('下载多源加速：候选生成（自有平台×3 → gh-proxy/ghfast 前缀代理 → 官方直连兜底，仅 GitHub 域展开）',
   updateSrc.includes("MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']")
-  && updateSrc.includes('if (!/^https:\\/\\/github\\.com\\//.test(u)) return [u]')
-  && updateSrc.includes('return [...MIRROR_PREFIXES.map((m) => m + u), u]'))
+  && updateSrc.includes('export const OWN_RELEASE_HOSTS = [')
+  && updateSrc.includes('https://gitee.com/${o}/${r}/releases/download/${tag}/${f}')
+  && updateSrc.includes('https://raw.gitcode.com/${o}/${r}/releases/download/${tag}/${f}')
+  && updateSrc.includes('https://atomgit.com/${o}/${r}/-/releases/${tag}/downloads/${f}')
+  && updateSrc.includes('const viaMirror = url !== official'))
+// 候选生成行为测试（自有平台渠道顺序与展开范围）
+const updAcc = await import('../src/update.js')
+const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
+const accCands = updAcc.buildDownloadCandidates(ACC_URL)
+assert('候选顺序行为：自有平台×3 → 代理×2 → 官方直连（共 6 源，URL 同构）',
+  accCands.length === 6
+  && accCands[0] === 'https://gitee.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
+  && accCands[1] === 'https://raw.gitcode.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
+  && accCands[2] === 'https://atomgit.com/louhi-zero/qingyu-ledger/-/releases/v3.2/downloads/qingyu-v3.2-android.apk'
+  && accCands[3] === 'https://gh-proxy.com/' + ACC_URL
+  && accCands[4] === 'https://ghfast.top/' + ACC_URL
+  && accCands[5] === ACC_URL)
+assert('非 GitHub 域 URL 不展开多源（单候选原样）',
+  updAcc.buildDownloadCandidates('https://example.com/x.apk').length === 1
+  && updAcc.buildDownloadCandidates('')[0] === '')
 assert('多源下载：停滞看门狗自动换源 + 用户取消出口区分（不误杀用户取消）',
   updateSrc.includes('stallMs = 15_000') && updateSrc.includes('setInterval')
   && updateSrc.includes('if (Date.now() - lastTick > stallMs) cancelApkDownload()')
