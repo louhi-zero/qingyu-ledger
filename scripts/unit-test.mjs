@@ -277,7 +277,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.0', pkgJson.version === '3.0')
+assert('package.json 版本 3.1', pkgJson.version === '3.1')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -413,7 +413,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.0', APP_VERSION === '3.0')
+assert('update.js 版本单一源为 3.1', APP_VERSION === '3.1')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
