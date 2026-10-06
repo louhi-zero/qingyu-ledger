@@ -419,25 +419,27 @@ assert('update.js 版本单一源为 3.2', APP_VERSION === '3.2')
 console.log('v2.0.2 更新下载加速：')
 const updateSrc = readFileSync(new URL('../src/update.js', import.meta.url), 'utf-8')
 const updateCtxSrc = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
-assert('下载多源加速：候选生成（自有平台×3 → gh-proxy/ghfast 前缀代理 → 官方直连兜底，仅 GitHub 域展开）',
+assert('下载多源加速：候选生成（就绪自有平台 → gh-proxy/ghfast 前缀代理 → 官方直连兜底，仅 GitHub 域展开）',
   updateSrc.includes("MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']")
   && updateSrc.includes('export const OWN_RELEASE_HOSTS = [')
-  && updateSrc.includes('https://gitee.com/${o}/${r}/releases/download/${tag}/${f}')
-  && updateSrc.includes('https://raw.gitcode.com/${o}/${r}/releases/download/${tag}/${f}')
-  && updateSrc.includes('https://atomgit.com/${o}/${r}/-/releases/${tag}/downloads/${f}')
+  && updateSrc.includes("repo: 'Roxie-zero/whisper-accounting'")
+  && updateSrc.includes('https://gitee.com/${repo}/releases/download/${tag}/${f}')
+  && updateSrc.includes('https://raw.gitcode.com/${repo}/releases/download/${tag}/${f}')
+  && updateSrc.includes('https://atomgit.com/${repo}/-/releases/${tag}/downloads/${f}')
+  && updateSrc.includes('OWN_RELEASE_HOSTS.filter((h) => h.repo)')
   && updateSrc.includes('const viaMirror = url !== official'))
-// 候选生成行为测试（自有平台渠道顺序与展开范围）
+// 候选生成行为测试（自有平台渠道顺序与展开范围；repo 为空的渠道休眠不产生死候选）
 const updAcc = await import('../src/update.js')
 const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
 const accCands = updAcc.buildDownloadCandidates(ACC_URL)
-assert('候选顺序行为：自有平台×3 → 代理×2 → 官方直连（共 6 源，URL 同构）',
-  accCands.length === 6
-  && accCands[0] === 'https://gitee.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
-  && accCands[1] === 'https://raw.gitcode.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
-  && accCands[2] === 'https://atomgit.com/louhi-zero/qingyu-ledger/-/releases/v3.2/downloads/qingyu-v3.2-android.apk'
-  && accCands[3] === 'https://gh-proxy.com/' + ACC_URL
-  && accCands[4] === 'https://ghfast.top/' + ACC_URL
-  && accCands[5] === ACC_URL)
+assert('候选顺序行为：gitee 实仓 → 代理×2 → 官方直连（共 4 源；未就绪渠道休眠）',
+  accCands.length === 4
+  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.2/qingyu-v3.2-android.apk'
+  && accCands[1] === 'https://gh-proxy.com/' + ACC_URL
+  && accCands[2] === 'https://ghfast.top/' + ACC_URL
+  && accCands[3] === ACC_URL
+  && !accCands.join(' ').includes('gitcode')
+  && !accCands.join(' ').includes('atomgit'))
 assert('非 GitHub 域 URL 不展开多源（单候选原样）',
   updAcc.buildDownloadCandidates('https://example.com/x.apk').length === 1
   && updAcc.buildDownloadCandidates('')[0] === '')

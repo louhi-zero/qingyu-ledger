@@ -267,28 +267,29 @@ export function releasePageUrl(tag) {
 // 校验失败自动删文件并换下一个候选（最终回落官方直连），速度与安全兼得。
 export const MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']
 
-// v3.2.1 自有平台直连渠道：gitee/gitcode/atomgit 同名镜像仓库（账号已注册）。
-// 在各平台发布同名 release 并上传同名 APK+.sha256 后自动生效；
-// 未发布时这些候选快速 404 → 换源逻辑自动跳下一通道，不影响可用性。
-// 模式依据：gitee 官方文档模式；gitcode 资产域经 API 实测为 raw.gitcode.com（附件路径
-// GitHub 风格，待发布后实测）；atomgit 为 GitLab 风格（其 API 匿名访问需 private-token，
+// v3.2.1 自有平台直连渠道：release 资产发布到各平台镜像仓库后自动生效。
+// repo 为各平台实际仓库路径（命名空间/仓库名可与 GitHub 不同：gitee 实测为 Roxie-zero/whisper-accounting）；
+// repo 为空 = 渠道未就绪，生成候选时自动跳过（不留死候选）。
+// URL 模式依据：gitee 官方文档模式；gitcode 资产域经 API 实测为 raw.gitcode.com（附件路径
+// GitHub 风格，待发布后实测）；atomgit 为 GitLab 风格（其 API 匿名需 private-token，
 // 无法核验，待发布后实测）。模式如有出入只需改本表。
 export const OWN_RELEASE_HOSTS = [
-  { id: 'gitee', build: (o, r, tag, f) => `https://gitee.com/${o}/${r}/releases/download/${tag}/${f}` },
-  { id: 'gitcode', build: (o, r, tag, f) => `https://raw.gitcode.com/${o}/${r}/releases/download/${tag}/${f}` },
-  { id: 'atomgit', build: (o, r, tag, f) => `https://atomgit.com/${o}/${r}/-/releases/${tag}/downloads/${f}` },
+  { id: 'gitee', repo: 'Roxie-zero/whisper-accounting', build: (repo, tag, f) => `https://gitee.com/${repo}/releases/download/${tag}/${f}` },
+  { id: 'gitcode', repo: '', build: (repo, tag, f) => `https://raw.gitcode.com/${repo}/releases/download/${tag}/${f}` },
+  { id: 'atomgit', repo: '', build: (repo, tag, f) => `https://atomgit.com/${repo}/-/releases/${tag}/downloads/${f}` },
 ]
 
-// GitHub release 资产直链 → [自有平台×3 → 前缀代理×2 → 官方直连兜底]；其余 URL 原样单候选
+// GitHub release 资产直链 → [就绪的自有平台 → 前缀代理×2 → 官方直连兜底]；其余 URL 原样单候选。
+// tag/file 保留原串（含转义段）；自有平台用各自配置的 repo 路径，owner/repo 仅作 URL 形状校验
 const GITHUB_ASSET_RE = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)\/releases\/download\/([^/\s]+)\/([^\s?#]+)/
 
 export function buildDownloadCandidates(url) {
   const u = String(url || '')
   const m = GITHUB_ASSET_RE.exec(u)
   if (!m) return [u]
-  const [, owner, repo, tag, file] = m // tag/file 保留原串（含转义段），各平台同构复用
+  const [, , , tag, file] = m
   return [
-    ...OWN_RELEASE_HOSTS.map((h) => h.build(owner, repo, tag, file)),
+    ...OWN_RELEASE_HOSTS.filter((h) => h.repo).map((h) => h.build(h.repo, tag, file)),
     ...MIRROR_PREFIXES.map((p) => p + u),
     u,
   ]
