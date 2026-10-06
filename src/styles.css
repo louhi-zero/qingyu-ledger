@@ -1738,6 +1738,14 @@ span.ledger-switch-img {
 .ilib-it img { width: 26px; height: 26px; object-fit: contain; }
 /* v3.1.1 少女线稿满格：人物撑满整个格子（无白边），圆角随格子 */
 .ilib-it img.girl { width: 100%; height: 100%; border-radius: inherit; }
+/* v3.1.2 少女满幅补漏：线稿 PNG 画布自带约 6% 透明边，固定 20px 渲染在 46px 图标卡片
+   （记账页 .gitem .gi / 资产·账本 .gi / 预算等 .cico / 首页 .txicon / 发现页 .gi-cell）里
+   墨迹只占约四成。卡片内统一铺满（objectFit 需 !important 压过组件内联 contain）；
+   行内文本处的少女图不在这些卡片容器内，不受影响 */
+.gi img[src*="/girl/"], .cico img[src*="/girl/"], .txicon img[src*="/girl/"], .gi-cell img[src*="/girl/"] {
+  width: 100% !important; height: 100% !important; object-fit: cover !important;
+  display: block; border-radius: inherit;
+}
 .ilib-it:active { transform: scale(.92); }
 .ilib-it.on { border-color: var(--brand); background: var(--brand-weak); }
 
