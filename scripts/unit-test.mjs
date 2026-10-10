@@ -216,7 +216,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 38 / 3.2', gradle.includes('versionCode 38') && gradle.includes('versionName "3.2"'))
+assert('版本 versionCode 39 / 3.3', gradle.includes('versionCode 39') && gradle.includes('versionName "3.3"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -277,7 +277,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.2', pkgJson.version === '3.2')
+assert('package.json 版本 3.3', pkgJson.version === '3.3')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -413,7 +413,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.2', APP_VERSION === '3.2')
+assert('update.js 版本单一源为 3.3', APP_VERSION === '3.3')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -431,12 +431,12 @@ assert('下载多源加速：候选生成（就绪自有平台 → gh-proxy/ghfa
   && updateSrc.includes('const viaMirror = url !== official'))
 // 候选生成行为测试（自有平台渠道顺序与展开范围；repo 为空的渠道休眠不产生死候选）
 const updAcc = await import('../src/update.js')
-const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.2/qingyu-v3.2-android.apk'
+const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.3/qingyu-v3.3-android.apk'
 const accCands = updAcc.buildDownloadCandidates(ACC_URL)
 assert('候选顺序行为：gitee/gitcode 实仓 → 代理×2 → 官方直连（共 5 源；atomgit 未就绪休眠）',
   accCands.length === 5
-  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.2/qingyu-v3.2-android.apk'
-  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.2/qingyu-v3.2-android.apk'
+  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.3/qingyu-v3.3-android.apk'
+  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.3/qingyu-v3.3-android.apk'
   && accCands[2] === 'https://gh-proxy.com/' + ACC_URL
   && accCands[3] === 'https://ghfast.top/' + ACC_URL
   && accCands[4] === ACC_URL
@@ -1474,6 +1474,53 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
     if (prev === undefined) delete globalThis.localStorage
     else globalThis.localStorage = prev
   }
+}
+
+// ---------- v3.3 启动兜底 + 原生端 SW 摘除 + 记一笔固定底栏 ----------
+{
+  const idx = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+  assert('v3.3 启动页：失败页 + 10s 看门狗 + 错误自报钩子',
+    idx.includes('id="qyBootFail"') && idx.includes('TIMEOUT = 10000')
+    && idx.includes("addEventListener('error'") && idx.includes("addEventListener('unhandledrejection'")
+    && idx.includes('window.__qyBootFail'))
+  assert('v3.3 启动页：失败页在 #root 之外（React 清空容器不会把它一起删掉）',
+    /\n {4}<\/div>\r?\n {4}<div class="boot-fail"/.test(idx))
+  assert('v3.3 启动页：清除缓存逃生口（反注册 SW + 清 Cache Storage）',
+    idx.includes('serviceWorker.getRegistrations') && idx.includes('caches.delete'))
+  assert('v3.3 启动页：解除条件由主界面挂载后的 __qyBootOk 触发',
+    idx.includes('window.__qyBootOk = function') && idx.includes("getElementById('qyBootRetry')"))
+
+  const mainSrc = readFileSync(new URL('../src/main.jsx', import.meta.url), 'utf-8')
+  assert('v3.3 原生端不注册 SW（Capacitor.isNativePlatform 守卫）',
+    mainSrc.includes('!Capacitor.isNativePlatform()') && mainSrc.includes('canUseSW'))
+  assert('v3.3 main.jsx：createRoot 包 try/catch 并回落失败页',
+    mainSrc.includes('window.__qyBootFail') && mainSrc.includes('} catch (e) {'))
+
+  const appSrc = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+  assert('v3.3 App.jsx：Shell 挂载即调用 __qyBootOk 解除看门狗',
+    appSrc.includes('window.__qyBootOk()'))
+
+  const swSrc = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf-8')
+  assert('v3.3 sw.js：VERSION 由构建注入（占位符，不再硬编码）',
+    swSrc.includes("'qingyu-__QY_SW_VERSION__'"))
+
+  const viteSrc = readFileSync(new URL('../vite.config.js', import.meta.url), 'utf-8')
+  assert('v3.3 vite.config.js：swVersion 插件在 closeBundle 注入构建标识',
+    viteSrc.includes('qy-sw-version') && viteSrc.includes('__QY_SW_VERSION__') && viteSrc.includes('closeBundle'))
+
+  const stylesXml = readFileSync(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf-8')
+  assert('v3.3 原生窗口底色非 @null（消冷启动深灰空窗）+ Android12+ 启动屏底色',
+    stylesXml.includes('<item name="android:windowBackground">#f3f5fa</item>')
+    && !stylesXml.includes('<item name="android:background">@null</item>')
+    && stylesXml.includes('windowSplashScreenBackground'))
+
+  const addTxSrc = readFileSync(new URL('../src/pages/AddTx.jsx', import.meta.url), 'utf-8')
+  const css3 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+  assert('v3.3 记一笔：键盘移入固定底栏 .sheet-foot（不再被裁到首屏之外）',
+    addTxSrc.includes('className="sheet-foot"'))
+  assert('v3.3 弹层：固定底栏不参与滚动 + 滚动区滚动条隐藏',
+    css3.includes('.sheet-foot { flex-shrink: 0;')
+    && css3.includes('.sheet-body::-webkit-scrollbar { display: none; }'))
 }
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)

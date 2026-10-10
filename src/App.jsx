@@ -118,6 +118,12 @@ function Shell() {
   const [addOpen, setAddOpen] = useState(false)
   const [editTx, setEditTx] = useState(null)
 
+  // v3.3 启动兜底：主界面组件首次挂载即解除 index.html 的超时看门狗，
+  // 此后不再显示「启动没有完成」失败页（启动页本体已被 createRoot 清空）。
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.__qyBootOk) window.__qyBootOk()
+  }, [])
+
   const push = useCallback((route) => {
     setStack((s) => [...s, route])
     try { history.pushState({ qy: true }, '') } catch { /* ignore */ }

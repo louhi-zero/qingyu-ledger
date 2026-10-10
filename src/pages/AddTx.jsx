@@ -403,6 +403,12 @@ export default function AddTx({ open, editTx, onClose }) {
             </div>
           )}
 
+        </div>
+
+        {/* v3.3 键盘与主操作固定到弹层底部（.sheet-foot 不参与滚动）。
+            此前键盘位于可滚动的 .sheet-body 末尾，手机上「· 0 00 完成」整行落在首屏之外，
+            最高频的「保存」动作需要先滚动才够得到。 */}
+        <div className="sheet-foot">
           {/* 键盘 */}
           {showKp ? (
             <div className="kp">

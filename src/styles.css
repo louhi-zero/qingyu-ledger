@@ -270,7 +270,13 @@ body {
 }
 .sheet-head .st { font-size: 16px; font-weight: 700; }
 .sheet-head .sx { border: none; background: var(--card); width: 30px; height: 30px; border-radius: 10px; cursor: pointer; box-shadow: var(--shadow-sm); color: var(--ink2); }
-.sheet-body { overflow-y: auto; padding: 4px 14px 16px; flex: 1; }
+.sheet-body { overflow-y: auto; padding: 4px 14px 16px; flex: 1; scrollbar-width: none; }
+/* v3.3 弹层滚动区隐藏滚动条：与 .chips/.catbar/.meta-row 口径统一，
+   此前弹层右侧常驻一条灰色滚动条，观感脏且与整体风格不符 */
+.sheet-body::-webkit-scrollbar { display: none; }
+/* v3.3 弹层固定底栏：键盘与主操作不参与滚动，保证「完成」始终可见可点
+   （此前键盘在可滚动区内，手机上最后一行会落到首屏之外） */
+.sheet-foot { flex-shrink: 0; padding: 0 14px 16px; }
 
 /* ---------- 表单 ---------- */
 .field { margin-bottom: 12px; }

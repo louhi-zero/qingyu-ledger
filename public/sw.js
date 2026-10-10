@@ -1,7 +1,13 @@
 /* 轻语记账 Service Worker：离线可用
    策略：导航请求 network-first（回退缓存的 index.html）；
-        静态资源 stale-while-revalidate。 */
-const VERSION = 'qingyu-v2'
+        静态资源 stale-while-revalidate。
+
+   v3.3 修复：VERSION 不再硬编码。构建时由 vite.config.js 的 swVersion 插件把
+   __QY_SW_VERSION__ 替换为本次构建的标识（时间戳 + 产物哈希），
+   保证「每次发版必换缓存桶」——旧版本缓存会在 activate 时被清掉，
+   不会出现「升级后仍命中旧入口页 → 引用已不存在的旧 assets → 卡启动页」。
+   注意：原生端（Capacitor）已不再注册本 SW（见 src/main.jsx），此处只服务纯 Web 部署。 */
+const VERSION = 'qingyu-__QY_SW_VERSION__'
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg']
 
 self.addEventListener('install', (event) => {

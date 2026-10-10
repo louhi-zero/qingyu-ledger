@@ -12,11 +12,17 @@
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@null</item>
+        <!-- v3.3 启动兜底：窗口底色改为品牌浅灰。此前是 @null，原生启动屏撤下到 WebView
+             上屏之间会露出系统默认底色（冷启动深灰屏的直接来源）。 -->
+        <item name="android:background">#f3f5fa</item>
+        <item name="android:windowBackground">#f3f5fa</item>
     </style>
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- v3.3 Android 12+ 系统启动屏（SplashScreen API）底色与品牌一致，
+             缺省为主题默认色，与内联启动页 #f3f5fa 不一致会造成明显跳色。 -->
+        <item name="windowSplashScreenBackground">#f3f5fa</item>
     </style>
 </resources>
