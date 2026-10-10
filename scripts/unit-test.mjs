@@ -218,7 +218,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 40 / 3.4', gradle.includes('versionCode 40') && gradle.includes('versionName "3.4"'))
+assert('版本 versionCode 41 / 3.5', gradle.includes('versionCode 41') && gradle.includes('versionName "3.5"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -279,7 +279,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.4', pkgJson.version === '3.4')
+assert('package.json 版本 3.5', pkgJson.version === '3.5')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -415,7 +415,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.4', APP_VERSION === '3.4')
+assert('update.js 版本单一源为 3.5', APP_VERSION === '3.5')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -433,12 +433,12 @@ assert('下载多源加速：候选生成（就绪自有平台 → gh-proxy/ghfa
   && updateSrc.includes('const viaMirror = url !== official'))
 // 候选生成行为测试（自有平台渠道顺序与展开范围；repo 为空的渠道休眠不产生死候选）
 const updAcc = await import('../src/update.js')
-const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.4/qingyu-v3.4-android.apk'
+const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.5/qingyu-v3.5-android.apk'
 const accCands = updAcc.buildDownloadCandidates(ACC_URL)
 assert('候选顺序行为：gitee/gitcode 实仓 → 代理×2 → 官方直连（共 5 源；atomgit 未就绪休眠）',
   accCands.length === 5
-  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.4/qingyu-v3.4-android.apk'
-  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.4/qingyu-v3.4-android.apk'
+  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.5/qingyu-v3.5-android.apk'
+  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.5/qingyu-v3.5-android.apk'
   && accCands[2] === 'https://gh-proxy.com/' + ACC_URL
   && accCands[3] === 'https://ghfast.top/' + ACC_URL
   && accCands[4] === ACC_URL
@@ -1660,6 +1660,78 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
   assert('图标表：ICONS 里不再出现被覆盖的同名简写',
     !/^\s*wallet,\s*chartBar,\s*compass/m.test(iconsSrc34)
     && /^\s*compass,\s*user,\s*buildingBank,\s*$/m.test(iconsSrc34))
+}
+
+// ---------- v3.5 更新检查页渲染修复 + 自有渠道落实 ----------
+{
+  /* ---- 渲染 bug：更新弹窗 hero 直接渲染 svg: 字符串原文 ---- */
+  const updCtxSrc35 = readFileSync(new URL('../src/update-ctx.jsx', import.meta.url), 'utf-8')
+  assert('v3.5 更新弹窗 hero 渲染修复：改用 ValueIcon 归一 svg: 前缀，不再输出字符串原文',
+    updCtxSrc35.includes("import { ValueIcon } from './ui/icons.jsx'")
+    && /<ValueIcon value=\{heroEmoji\}/.test(updCtxSrc35)
+    && !/<span>\{heroEmoji\}<\/span>/.test(updCtxSrc35))
+  assert('v3.5 hero 保留投影与入场动画（.upd-hero span 仍命中 ValueIcon 渲染出的 span）',
+    /\.upd-hero span \{/.test(readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')))
+
+  /* ---- 渠道配置与软 404 闸门 ---- */
+  const updJsSrc35 = readFileSync(new URL('../src/update.js', import.meta.url), 'utf-8')
+  assert('v3.5 渠道表：gitee 实仓启用 / gitcode 实仓保留 / atomgit 未就绪休眠',
+    updJsSrc35.includes("repo: 'Roxie-zero/whisper-accounting'")
+    && updJsSrc35.includes("repo: 'Roxie-sama/atomgit'")
+    && /id: 'atomgit', repo: ''/.test(updJsSrc35))
+  assert('v3.5 gitee URL 模式（实测端到端可用）',
+    updJsSrc35.includes('https://gitee.com/${repo}/releases/download/${tag}/${f}'))
+  assert('v3.5 软 404 闸门：按发布资产大小比对 + 删除坏文件 + BAD_ASSET 友好文案',
+    updJsSrc35.includes('const expectSize = Number(info.size) || 0')
+    && updJsSrc35.includes('await removeDownloadedFile(res?.path)')
+    && updJsSrc35.includes('BAD_ASSET')
+    && updJsSrc35.includes('某个更新通道返回的不是安装包'))
+
+  /* ---- 运行时验证：坏候选必须换源，而不是整体报错 ---- */
+  const upd35 = await import('../src/update.js')
+  const prevWin35 = globalThis.window
+  const tried35 = []
+  const removed35 = []
+  globalThis.window = {
+    __qyUpdateBridge: {
+      download: async ({ url }) => {
+        tried35.push(url)
+        // 第 1 个候选返回「镜像错误页」大小（实测 GitCode SPA 壳 = 5793 字节）；其余正常
+        if (tried35.length === 1) return { path: '/dl/bad.html', sha256: 'bad', bytes: 5793 }
+        return { path: '/dl/ok.apk', sha256: 'good', bytes: 13526185 }
+      },
+      removeFile: async ({ path }) => { removed35.push(path); return { deleted: true } },
+    },
+  }
+  try {
+    const info35 = {
+      apkUrl: 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.5/qingyu-v3.5-android.apk',
+      apkName: 'qingyu-v3.5-android.apk',
+      size: 13526185,
+    }
+    const res35 = await upd35.downloadWithFallback(info35, () => {}, { stallMs: 60000 })
+    assert('v3.5 软 404 防御：大小不符的候选被跳过并自动换源（不再整体报错）',
+      tried35.length === 2 && res35.bytes === 13526185 && res35.path === '/dl/ok.apk')
+    assert('v3.5 软 404 防御：坏文件被删除（否则下一源断点续传会以它为 base 追加）',
+      removed35.length === 1 && removed35[0] === '/dl/bad.html')
+    assert('v3.5 候选顺序：gitee 优先于 gitcode',
+      tried35[0].startsWith('https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.5/')
+      && tried35[1].startsWith('https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.5/'))
+
+    // 大小未知（size=0）时不得误判：应直接采用首个成功结果
+    const tried36 = []
+    globalThis.window.__qyUpdateBridge.download = async ({ url }) => {
+      tried36.push(url)
+      return { path: '/dl/unknown.apk', sha256: 'x', bytes: 12345 }
+    }
+    const res36 = await upd35.downloadWithFallback(
+      { apkUrl: info35.apkUrl, apkName: info35.apkName, size: 0 }, () => {}, { stallMs: 60000 })
+    assert('v3.5 大小未知（size=0）时不启用闸门，避免误杀可用源',
+      tried36.length === 1 && res36.bytes === 12345)
+  } finally {
+    if (prevWin35 === undefined) delete globalThis.window
+    else globalThis.window = prevWin35
+  }
 }
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)

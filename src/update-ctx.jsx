@@ -22,6 +22,7 @@ import { Icon } from "./ui/icons.jsx"
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useStore } from './store.jsx'
 import { Switch } from './ui.jsx'
+import { ValueIcon } from './ui/icons.jsx'
 import {
   APP_VERSION, checkForUpdate, downloadWithFallback, cancelApkDownload, installerInfo,
   openInstallPermission, launchInstaller, openReleasePage, getUpdateBridge,
@@ -469,7 +470,13 @@ export function UpdatePrompt() {
       <div className="upd-modal" role="dialog" aria-label="软件更新">
         <button className="upd-x" onClick={closePrompt} aria-label="关闭"><Icon name="close" size="1em" className="qy-inline-icon" /></button>
 
-        <div className={`upd-hero ${heroCls}`}><span>{heroEmoji}</span></div>
+        {/* v3.5 渲染修复：此前直接渲染 {heroEmoji} 字符串，弹窗顶部 72×72 色块里
+            显示的是「svg:party」「svg:search」这样的原文（34px 字号直接撑爆色块）。
+            v3.0 只修了设置页卡片的同类问题（见上方注释），漏了这里。
+            改用 ValueIcon 归一 svg: 前缀 → 内联 SVG；.upd-hero span 的投影与入场动画照旧生效。 */}
+        <div className={`upd-hero ${heroCls}`}>
+          <ValueIcon value={heroEmoji} fallback="party" size={34} color="#fff" />
+        </div>
 
         {status === 'checking' && (
           <div className="upd-modal-body upd-center">

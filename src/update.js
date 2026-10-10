@@ -17,7 +17,7 @@
  */
 
 // 版本单一数据源：所有 UI 展示与版本比较都从这里取（避免 NexBox 风险#3 多处硬编码）
-export const APP_VERSION = '3.4'
+export const APP_VERSION = '3.5'
 
 const REPO = 'louhi-zero/qingyu-ledger'
 const API_LATEST = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -270,9 +270,18 @@ export const MIRROR_PREFIXES = ['https://gh-proxy.com/', 'https://ghfast.top/']
 // v3.2.1 自有平台直连渠道：release 资产发布到各平台镜像仓库后自动生效。
 // repo 为各平台实际仓库路径（命名空间/仓库名可与 GitHub 不同：gitee 实测为 Roxie-zero/whisper-accounting）；
 // repo 为空 = 渠道未就绪，生成候选时自动跳过（不留死候选）。
-// URL 模式依据：gitee 官方文档模式；gitcode 资产域经 API 实测为 raw.gitcode.com（附件路径
-// GitHub 风格，待发布后实测）；atomgit 为 GitLab 风格（其 API 匿名需 private-token，
-// 无法核验，待发布后实测）。模式如有出入只需改本表。
+//
+// v3.5 实测结论（2026-10-10，逐条 curl 验证）：
+//   · gitee  ✅ 端到端验证通过：HTTP 200 / application/zip / PK 魔数 / SHA-256 与 GitHub 完全一致
+//   · gitcode ⚠️ 未就绪：仓库里**只有 tag 自动生成的源码包，没有任何上传的 APK 资产**
+//             （API `GET /repos/{r}/releases` 只返回 type=source 的 zip/tar.gz）；
+//             当前 URL 模式对不存在的资产返回 **HTTP 200 + 5793 字节 SPA 壳 HTML**（软 404），
+//             已由 downloadWithFallback 的 expectSize 闸门兜住（判为 BAD_ASSET 自动换源）。
+//             官方文档的 `releases/:tag/attach_files/:file_name/download` 实测返回 NOT_PATH，
+//             无资产可对照，故 URL 模式**待资产上传后复核**（届时用 API 返回的
+//             browser_download_url 为准，不要凭猜）。
+//             启用条件：用 GitCode access token 创建 release 并上传 qingyu-<tag>-android.apk + .sha256。
+//   · atomgit 未就绪（repo 为空，休眠）
 export const OWN_RELEASE_HOSTS = [
   { id: 'gitee', repo: 'Roxie-zero/whisper-accounting', build: (repo, tag, f) => `https://gitee.com/${repo}/releases/download/${tag}/${f}` },
   { id: 'gitcode', repo: 'Roxie-sama/atomgit', build: (repo, tag, f) => `https://raw.gitcode.com/${repo}/releases/download/${tag}/${f}` },
@@ -305,6 +314,7 @@ export async function downloadWithFallback(info, onProgress, opts = {}) {
   const doDownload = transport || downloadApk
   const official = String(info.apkUrl || '')
   const candidates = buildDownloadCandidates(official)
+  const expectSize = Number(info.size) || 0 // 发布资产声明的大小（GitHub release.assets[].size）
   let lastErr = null
   for (let i = 0; i < candidates.length; i++) {
     if (shouldAbort()) throw new Error('CANCELLED')
@@ -318,7 +328,23 @@ export async function downloadWithFallback(info, onProgress, opts = {}) {
       if (Date.now() - lastTick > stallMs) cancelApkDownload()
     }, 2000)
     try {
-      return await doDownload({ ...info, apkUrl: url }, wrapped, { resume })
+      const res = await doDownload({ ...info, apkUrl: url }, wrapped, { resume })
+      // v3.5 软 404 防御（渠道落实的关键修复）：
+      // 部分镜像对「不存在的资产」返回 HTTP 200 + HTML 错误页（实测 GitCode 的 raw 域
+      // 返回 5793 字节 SPA 壳）。原生侧只校验「收到字节数 == 该响应的 Content-Length」，
+      // 拦不住这种自洽的错误页 → 下载会「成功」落下一个 HTML 文件，直到 SHA-256 校验才暴露；
+      // 而 SHA 校验在调用方（update-ctx），失败即整体报错、**不会换源** —— 表现为
+      // 「明明有可用通道，却提示安装包校验失败」。
+      // 这里用发布资产声明的大小做闸门：不一致 → 删掉坏文件 → 换下一个候选。
+      // 必须删除：否则下一个源的断点续传会以这个坏文件为 base 追加，产出永久损坏的包。
+      if (expectSize > 0 && Number(res?.bytes) !== expectSize) {
+        try { await removeDownloadedFile(res?.path) } catch { /* 删不掉也要换源 */ }
+        lastErr = new Error(`BAD_ASSET ${Number(res?.bytes) || 0}/${expectSize}`)
+        updLog('warn', 'download:bad_asset', { url: url.slice(0, 80), got: Number(res?.bytes) || 0, want: expectSize })
+        await new Promise((r) => setTimeout(r, 80))
+        continue
+      }
+      return res
     } catch (e) {
       lastErr = e
       if (shouldAbort()) throw new Error('CANCELLED')
@@ -345,6 +371,7 @@ export function friendlyUpdateError(e) {
   if (/timeout|timed?\s?out|abort/i.test(msg)) return '网络超时，请检查网络后重试'
   if (/ECONN|ENET|INTERNET|UnknownHost|Unable\s+to\s+resolve|Network/i.test(msg)) return '网络不可用，请检查网络连接后重试'
   if (/SIZE_MISMATCH/.test(msg)) return '下载不完整，已保留进度，重试将自动断点续传'
+  if (/^BAD_ASSET/.test(msg)) return '某个更新通道返回的不是安装包（镜像错误页），已自动切换其他通道'
   if (msg === 'ALL_SOURCES_FAILED') return '所有下载通道均失败，请检查网络后重试'
   return '操作失败，请检查网络后重试'
 }
