@@ -4,7 +4,7 @@ import { Icon } from "../ui/icons.jsx"
  */
 import React from 'react'
 import { useStore } from '../store.jsx'
-import { useNav } from '../App.jsx'
+import { useNav, useLock } from '../App.jsx'
 import { TopBar } from '../ui.jsx'
 import { AvatarFace } from '../theme.jsx'
 import { APP_VERSION } from '../update.js'
@@ -14,6 +14,7 @@ export default function Settings({ nav }) {
   const { state } = useStore()
   const s = state.settings
   const upd = useUpdate()
+  const lock = useLock() // v3.4 应用锁状态（仅用于入口角标）
   const go = (section, title) => nav.push({ page: 'settingsSection', title, params: { section } })
 
   return (
@@ -86,6 +87,21 @@ export default function Settings({ nav }) {
             </div>
             <div className="cright">
               {s.notifyCatch && <span className="tico-preview">监控中</span>}
+              <span className="arrow">›</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="group">
+          <div className="gtitle">安全</div>
+          <div className="cell" onClick={() => go('security', '应用锁')}>
+            <div className="cico"><Icon name="lock" size="1em" className="qy-inline-icon" /></div>
+            <div className="cmain">
+              <div className="ctitle">应用锁</div>
+              <div className="cdesc">数字/手势密码 · 自动锁定 · 本机专用</div>
+            </div>
+            <div className="cright">
+              {lock?.on && <span className="lock-badge">已开启</span>}
               <span className="arrow">›</span>
             </div>
           </div>

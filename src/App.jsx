@@ -38,6 +38,8 @@ import ScanReceipt from './pages/ScanReceipt.jsx'
 import Trash from './pages/Trash.jsx'
 import { ThemeProvider, Backdrop, useTabIconImgs } from './theme.jsx'
 import { Splash, Intro } from './Welcome.jsx'
+import LockScreen from './LockScreen.jsx'
+import { useAppLock } from './applock.js'
 import { initSecureStore } from './securestore.js'
 import { parseAppUrl } from './deeplink.js'
 
@@ -48,6 +50,11 @@ initSecureStore()
 
 const NavCtx = createContext(null)
 export const useNav = () => useContext(NavCtx)
+
+// v3.4 应用锁：由 App 顶层持有（唯一的 cfg/locked 状态源），
+// Shell 负责门禁渲染，设置页负责开关与改密——两处共享同一实例，避免状态分叉。
+const LockCtx = createContext(null)
+export const useLock = () => useContext(LockCtx)
 
 const TAB_PAGES = {
   home: { title: '明细', comp: Home },
@@ -113,6 +120,7 @@ const TabBar = memo(function TabBar({ tab, setTab, openAdd, tabImgs = {} }) {
 
 function Shell() {
   const { state, set, toast } = useStore()
+  const lock = useLock() // v3.4 应用锁门禁状态（App 顶层提供）
   const [tab, setTab] = useState('home')
   const [stack, setStack] = useState([])
   const [addOpen, setAddOpen] = useState(false)
@@ -417,6 +425,10 @@ function Shell() {
   if (phase === 'splash') return <Splash onDone={splashDone} />
   if (phase === 'intro') return <Intro onStart={startApp} />
 
+  // v3.4 应用锁门禁：解锁前不渲染任何业务界面（含 tabbar / 弹层），
+  // 但 Shell 的副作用（通知监听、自动同步、公告）照常运行。
+  if (lock && lock.locked) return <LockScreen lock={lock} />
+
   const top = stack[stack.length - 1]
   let Page = null
   let pageTitle = ''
@@ -465,11 +477,15 @@ function Shell() {
 }
 
 export default function App() {
+  // v3.4 应用锁：唯一状态源放在最外层，Shell 门禁与设置页共享同一实例
+  const lock = useAppLock()
   return (
-    <AppProvider>
-      <ThemeProvider>
-        <Shell />
-      </ThemeProvider>
-    </AppProvider>
+    <LockCtx.Provider value={lock}>
+      <AppProvider>
+        <ThemeProvider>
+          <Shell />
+        </ThemeProvider>
+      </AppProvider>
+    </LockCtx.Provider>
   )
 }

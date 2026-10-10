@@ -183,10 +183,15 @@ import qy_chick from '../assets/icons/qy-chick.svg?raw'
 import qy_alipay from '../assets/icons/qy-alipay.svg?raw'
 
 export const ICONS = {
-  wallet, chartBar, compass, user, userCircle, targetArrow, buildingBank, book2, books,
-  wand, camera, creditCard, trendingDown, pigMoney, briefcase, bolt, home, currencyDollar,
-  receipt, download, repeat, bellRinging, heartHandshake, usersGroup, palette, brandQq,
-  messageCircle, droplet, typography, clock, video, trash, robot, deviceGamepad, bilibili, tiktok, tencentqq,
+  // v3.4 清理：本对象原先在简写行里重复声明了 18 个键（wallet / chartBar / userCircle /
+  // targetArrow / book2 / books / camera / creditCard / briefcase / bolt / receipt /
+  // download / repeat / palette / droplet / clock / trash / robot），随后又被下方的
+  // qy_* 显式映射覆盖。对象字面量「后者覆盖前者」，实际生效的一直是 qy_* 少女线稿版，
+  // 简写是死绑定——删除后行为完全不变，并消除 18 条构建期 Duplicate key 警告。
+  compass, user, buildingBank,
+  wand, pigMoney, currencyDollar,
+  heartHandshake, brandQq,
+  typography, video, deviceGamepad, bilibili, tiktok, tencentqq,
   food: qy_food,
   transport: qy_transport,
   shop: qy_shop,

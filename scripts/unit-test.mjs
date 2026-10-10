@@ -13,7 +13,9 @@ import {
   compareVersions, normalizeVersion, pickUpdateAssets, parseRelease,
   shouldAutoCheck, APP_VERSION,
 } from '../src/update.js'
-import { emptyState } from '../src/seed.js'
+import { emptyState, LEDGER_TEMPLATES, templateByName } from '../src/seed.js'
+import { normalizePin, isValidPin, normalizePattern, isValidPattern, shouldRelock, hashCode, LOCK_KEY } from '../src/applock.js'
+import { buildBudgetAdvice, periodProgress } from '../src/budgetadvice.js'
 import {
   collectProfile, buildArchive, validateArchive, shouldUpload,
   parseProfileArchive, profilePatch, PROFILE_ARCHIVE_KIND,
@@ -216,7 +218,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 39 / 3.3', gradle.includes('versionCode 39') && gradle.includes('versionName "3.3"'))
+assert('版本 versionCode 40 / 3.4', gradle.includes('versionCode 40') && gradle.includes('versionName "3.4"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -277,7 +279,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.3', pkgJson.version === '3.3')
+assert('package.json 版本 3.4', pkgJson.version === '3.4')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -413,7 +415,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.3', APP_VERSION === '3.3')
+assert('update.js 版本单一源为 3.4', APP_VERSION === '3.4')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -431,12 +433,12 @@ assert('下载多源加速：候选生成（就绪自有平台 → gh-proxy/ghfa
   && updateSrc.includes('const viaMirror = url !== official'))
 // 候选生成行为测试（自有平台渠道顺序与展开范围；repo 为空的渠道休眠不产生死候选）
 const updAcc = await import('../src/update.js')
-const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.3/qingyu-v3.3-android.apk'
+const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.4/qingyu-v3.4-android.apk'
 const accCands = updAcc.buildDownloadCandidates(ACC_URL)
 assert('候选顺序行为：gitee/gitcode 实仓 → 代理×2 → 官方直连（共 5 源；atomgit 未就绪休眠）',
   accCands.length === 5
-  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.3/qingyu-v3.3-android.apk'
-  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.3/qingyu-v3.3-android.apk'
+  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.4/qingyu-v3.4-android.apk'
+  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.4/qingyu-v3.4-android.apk'
   && accCands[2] === 'https://gh-proxy.com/' + ACC_URL
   && accCands[3] === 'https://ghfast.top/' + ACC_URL
   && accCands[4] === ACC_URL
@@ -952,10 +954,17 @@ assert('v3.0 未登录点头像 → 直接弹头像 Sheet（本地保存）',
   && profileSrc11.includes('title="登录坚果云"') && profileSrc11.includes('同步账单，换机不丢数据'))
 assert('登录引导：打开坚果云登录页 + 去应用内配置',
   profileSrc11.includes('jianguoyun.com/d/login') && profileSrc11.includes("nav.push({ page: 'cloud' })"))
-// v1.11.0 未登录徽标：昵称旁琥珀色「未登录」胶囊（me-cloud），未配置或手动关同步时均显示，点击直达登录引导
+// v1.11.0 未登录徽标：昵称旁胶囊（me-cloud），未配置或手动关同步时均显示，点击直达登录引导
+// v3.4 去冗余：文案由「未登录」改为「登录同步」（昵称行已表达状态，这里给出动作）
 assert('未登录徽标：me-cloud 胶囊仅未登录时显示，点击弹登录引导',
-  profileSrc11.includes("className=\"me-cloud\"") && profileSrc11.includes('aria-label="坚果云未登录，点击登录"')
+  profileSrc11.includes("className=\"me-cloud\"") && profileSrc11.includes('aria-label="坚果云未登录，点击登录同步"')
   && profileSrc11.includes('!loggedIn && (') && profileSrc11.includes('onClick={() => setLoginOpen(true)}'))
+// v3.4 我的页信息三重冗余修复：删掉与「记账天数」重复的「已坚持 X 天」徽标、
+// 以及与「连续打卡」重复的「连击 X 天」文案，打卡态改为状态陈述
+assert('v3.4 我的页去冗余：不再重复展示坚持天数与连击天数',
+  !profileSrc11.includes('className="me-badge"')
+  && !profileSrc11.includes('连击 ${streak} 天')
+  && profileSrc11.includes('今日已打卡'))
 assert('未登录徽标样式：me-tags 并排 + 琥珀色警示（不影响已登录态）',
   css.includes('.me-tags') && css.includes('.me-cloud') && css.includes('#ff9f43'))
 assert('v3.0 昵称：有昵称显示昵称否则「未登录」；未登录也可改名（本地保存）',
@@ -1521,6 +1530,136 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
   assert('v3.3 弹层：固定底栏不参与滚动 + 滚动区滚动条隐藏',
     css3.includes('.sheet-foot { flex-shrink: 0;')
     && css3.includes('.sheet-body::-webkit-scrollbar { display: none; }'))
+}
+
+// ---------- v3.4 应用锁 / 账本模板封面 / 预算建议 / UI 排版 ----------
+{
+  /* ---- 应用锁：校验码规范化（纯函数） ---- */
+  assert('应用锁：PIN 规范化（去非数字 + 截断 6 位）',
+    normalizePin('12a3-45 6789') === '123456' && normalizePin('') === '' && normalizePin(null) === '')
+  assert('应用锁：PIN 有效长度 4~6 位（超长先截断再判）',
+    isValidPin('1234') && isValidPin('123456') && !isValidPin('123')
+    && normalizePin('1234567') === '123456' && isValidPin('1234567'))
+  assert('应用锁：手势规范化（去重 + 顺序保留）',
+    normalizePattern([0, 1, 2, 1, 5]) === '0-1-2-5' && normalizePattern(['3', '4']) === '3-4'
+    && normalizePattern([9, -1, 'x']) === '')
+  assert('应用锁：手势至少 4 个点',
+    isValidPattern([0, 1, 2, 3]) && !isValidPattern([0, 1, 2]) && !isValidPattern([]))
+  assert('应用锁：自动锁定判定（autoMin=-1 表示从不自动锁）',
+    shouldRelock({ on: true, autoMin: 1 }, 61 * 1000) === true
+    && shouldRelock({ on: true, autoMin: 1 }, 30 * 1000) === false
+    && shouldRelock({ on: true, autoMin: 0 }, 1) === true
+    && shouldRelock({ on: true, autoMin: -1 }, 99999999) === false
+    && shouldRelock(null, 99999999) === false)
+  assert('应用锁：哈希确定性 + 加盐隔离', await (async () => {
+    const a1 = await hashCode('s1', '1234')
+    const a2 = await hashCode('s1', '1234')
+    const b1 = await hashCode('s2', '1234')
+    return a1 === a2 && a1 !== b1 && a1.length >= 8
+  })())
+  assert('应用锁：本地专用 key（不入 state、不随云同步）',
+    LOCK_KEY === 'qingyu_lock_v1')
+
+  const lockSrc = readFileSync(new URL('../src/applock.js', import.meta.url), 'utf-8')
+  assert('应用锁：存储只走 localStorage（未接入 store state）',
+    lockSrc.includes("localStorage.setItem(LOCK_KEY") && !lockSrc.includes('useStore'))
+  const lockScreenSrc = readFileSync(new URL('../src/LockScreen.jsx', import.meta.url), 'utf-8')
+  assert('应用锁：解锁页含忘记密码说明且明确无后门',
+    lockScreenSrc.includes('忘记密码？') && lockScreenSrc.includes('没有找回后门'))
+  const lockInputSrc = readFileSync(new URL('../src/ui/lockinput.jsx', import.meta.url), 'utf-8')
+  assert('应用锁：输入控件 PinPad/PatternPad 由解锁页与设置页共用',
+    lockInputSrc.includes('export function PinPad') && lockInputSrc.includes('export function PatternPad')
+    && lockScreenSrc.includes("from './ui/lockinput.jsx'"))
+  const appSrc34 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+  assert('应用锁：门禁接在启动流程之后（解锁前不渲染业务界面）',
+    appSrc34.includes('LockCtx.Provider') && appSrc34.includes('if (lock && lock.locked) return <LockScreen lock={lock} />'))
+  const secSrc = readFileSync(new URL('../src/pages/SettingsSections.jsx', import.meta.url), 'utf-8')
+  assert('应用锁：设置页有 security 二级页（开关/改密/自动锁定）',
+    secSrc.includes("security: '应用锁'") && secSrc.includes('function SecuritySection')
+    && secSrc.includes("section === 'security'") && secSrc.includes('function LockSetup'))
+  const settingsSrc34 = readFileSync(new URL('../src/pages/Settings.jsx', import.meta.url), 'utf-8')
+  assert('应用锁：设置主页有安全分组入口 + 已开启角标',
+    settingsSrc34.includes("go('security', '应用锁')") && settingsSrc34.includes('lock-badge'))
+
+  /* ---- 账本模板封面 ---- */
+  assert('账本模板：共 10 套（对齐薄荷 8 套 + 生意/报销）', LEDGER_TEMPLATES.length === 10)
+  assert('账本模板：每套都有双色渐变封面',
+    LEDGER_TEMPLATES.every((t) => Array.isArray(t.cover) && t.cover.length === 2
+      && t.cover.every((c) => /^#[0-9a-f]{6}$/i.test(c))))
+  assert('账本模板：名称唯一',
+    new Set(LEDGER_TEMPLATES.map((t) => t.name)).size === LEDGER_TEMPLATES.length)
+  assert('账本模板：含薄荷全部 8 类（标准/恋爱/家庭/旅行/汽车/育儿/装修/生意）',
+    ['标准账本', '恋爱账本', '家庭账本', '旅行账本', '汽车账本', '育儿账本', '装修账本', '生意账本']
+      .every((n) => LEDGER_TEMPLATES.some((t) => t.name === n)))
+  assert('账本模板：未知名称回落标准账本（老数据安全）',
+    templateByName('已删除的模板').name === '标准账本' && templateByName('旅行账本').name === '旅行账本'
+    && templateByName(undefined).name === '标准账本')
+  const ledgerSrc = readFileSync(new URL('../src/pages/Ledgers.jsx', import.meta.url), 'utf-8')
+  assert('账本封面：自定义图标优先于模板封面',
+    ledgerSrc.includes('function LedgerCover') && ledgerSrc.includes("if (url) {") && ledgerSrc.includes('ldg-cover-img'))
+  assert('账本封面：列表磁贴 + 切换列表 + 模板选择器三处接入',
+    ledgerSrc.includes('ldg-tile-cover') && ledgerSrc.includes('ldg-cico') && ledgerSrc.includes('tpl-grid'))
+  const css34 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+  assert('账本封面：样式齐备（.ldg-cover/.tpl-cell）',
+    css34.includes('.ldg-cover {') && css34.includes('.tpl-cell {') && css34.includes('.ldg-tile-cover'))
+
+  /* ---- 预算建议（规则引擎，纯函数） ---- */
+  const p10 = periodProgress('2026-10', 1, '2026-10-10')
+  assert('预算建议：账期进度正确（2026-10 / 10 日 → 31 天过 10 天剩 21 天）',
+    p10.total === 31 && p10.elapsed === 10 && p10.left === 21 && Math.abs(p10.ratio - 10 / 31) < 1e-9)
+  const advNoBudget = buildBudgetAdvice({ budget: 0, spent: 800, income: 10000, period: '2026-10', today: '2026-10-10' })
+  assert('预算建议：未设预算 → info 且给出收入 60%~80% 的具体区间',
+    advNoBudget.length > 0 && advNoBudget[0].level === 'info'
+    && advNoBudget[0].text.includes('6000') && advNoBudget[0].text.includes('8000'))
+  const advOver = buildBudgetAdvice({ budget: 3000, spent: 4000, income: 10000, period: '2026-10', today: '2026-10-10' })
+  assert('预算建议：超支 → danger 且带超支金额',
+    advOver.some((a) => a.level === 'danger' && a.title.includes('已超支') && a.title.includes('1000')))
+  const advSlow = buildBudgetAdvice({ budget: 3000, spent: 400, income: 10000, period: '2026-10', today: '2026-10-10' })
+  assert('预算建议：花得比时间慢 → ok',
+    advSlow.some((a) => a.level === 'ok' && a.title.includes('节奏')))
+  const advCat = buildBudgetAdvice({
+    budget: 3000, spent: 1500, income: 10000, period: '2026-10', today: '2026-10-10',
+    cats: [{ id: 'c1', name: '餐饮', value: 600, budget: 500 }],
+  })
+  assert('预算建议：分类超支 → danger 且点名分类与金额',
+    advCat.some((a) => a.level === 'danger' && a.title.includes('分类超支') && a.text.includes('餐饮') && a.text.includes('100')))
+  assert('预算建议：最多 4 条（不变成建议墙）',
+    buildBudgetAdvice({
+      budget: 3000, spent: 4000, income: 10000, period: '2026-10', today: '2026-10-10',
+      cats: [{ id: 'a', name: 'A', value: 900, budget: 100 }, { id: 'b', name: 'B', value: 800, budget: 100 }],
+    }).length <= 4)
+  assert('预算建议：每条都带 level/icon/title/text 且文案非空',
+    [...advNoBudget, ...advOver, ...advSlow, ...advCat].every((a) =>
+      ['ok', 'warn', 'danger', 'info'].includes(a.level) && a.icon && a.title && a.text && a.text.length > 10))
+  const budgetSrc = readFileSync(new URL('../src/pages/Budget.jsx', import.meta.url), 'utf-8')
+  assert('预算建议：预算页渲染建议卡（adv-list）',
+    budgetSrc.includes('buildBudgetAdvice') && budgetSrc.includes('adv-list') && budgetSrc.includes('预算建议'))
+  assert('预算建议：样式齐备（四档语义色）',
+    css34.includes('.adv-item.lv-danger') && css34.includes('.adv-item.lv-warn')
+    && css34.includes('.adv-item.lv-ok') && css34.includes('.adv-item.lv-info'))
+
+  /* ---- UI 排版优化 ---- */
+  assert('UI：支出金额落地语义橙（此前用正文色，与设计系统口径不符）',
+    css34.includes('.txamt.out { color: var(--expense); }'))
+  assert('UI：玻璃弹层/顶栏/底栏 tint 提高一档（.68→.78 / .66→.76）',
+    css34.includes('--g-tint-strong: rgba(255, 255, 255, .78)')
+    && css34.includes('--g-tint-strong: rgba(30, 33, 43, .76)'))
+  assert('UI：横滑区右侧渐隐（.chips/.catbar/.meta-row）',
+    css34.includes('mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%)'))
+
+  /* ---- 图标表重复键清理（构建期 18 条 Duplicate key 警告的根因） ---- */
+  const iconsSrc34 = readFileSync(new URL('../src/ui/icons.jsx', import.meta.url), 'utf-8')
+  assert('图标表：18 个死绑定简写已清理，qy_* 显式映射保留',
+    !/wallet,\s*chartBar,\s*compass/.test(iconsSrc34)
+    && !/wand,\s*camera,\s*creditCard/.test(iconsSrc34)
+    && !/receipt,\s*download,\s*repeat/.test(iconsSrc34)
+    && !/droplet,\s*typography,\s*clock/.test(iconsSrc34)
+    && /receipt:\s*qy_bill/.test(iconsSrc34)
+    && /bolt:\s*qy_bolt/.test(iconsSrc34)
+    && /wallet:\s*qy_salary/.test(iconsSrc34))
+  assert('图标表：ICONS 里不再出现被覆盖的同名简写',
+    !/^\s*wallet,\s*chartBar,\s*compass/m.test(iconsSrc34)
+    && /^\s*compass,\s*user,\s*buildingBank,\s*$/m.test(iconsSrc34))
 }
 
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)

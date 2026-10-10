@@ -83,15 +83,28 @@ export const ACCOUNT_TYPES = [
   { type: 'custom', name: '自定义', icon: "svg:star", desc: '自定义资产', liability: false },
 ]
 
+/* v3.4 账本模板：对齐薄荷记账的模板体系（standard/love/home/travel/car/baby/decoration/trade），
+   额外保留轻语原有的生意/报销两档。cover 为封面渐变（纯 CSS，不引入图片资源）——
+   薄荷用 8 套 JPG 封面（cover_*.jpg 共 18 张图），这里用渐变色 + 图标水印等效表达，
+   包体零增长、任意分辨率不糊。
+   注意：ledger.template 存的是模板 name 字符串，新增模板不影响老数据。 */
 export const LEDGER_TEMPLATES = [
-  { icon: "svg:book", name: '标准账本', desc: '日常收支记录' },
-  { icon: "svg:business", name: '生意账本', desc: '生意经营专用' },
-  { icon: "svg:clipboard", name: '报销账本', desc: '适合记录报销账目' },
-  { icon: "svg:luggage", name: '旅行账本', desc: '旅途花销一目了然' },
-  { icon: "svg:tools", name: '装修账本', desc: '装修支出管理' },
-  { icon: "svg:users", name: '家庭账本', desc: '全家人一起记' },
-  { icon: "svg:edit", name: '自定义', desc: '自定义你的专属账本' },
+  { icon: "svg:book", name: '标准账本', desc: '日常收支记录', cover: ['#2f6fd6', '#6aa8ff'] },
+  { icon: "svg:heart", name: '恋爱账本', desc: '两个人的共同开支', cover: ['#d4537e', '#ff9ab5'] },
+  { icon: "svg:home", name: '家庭账本', desc: '全家人一起记', cover: ['#d4813f', '#ffb27a'] },
+  { icon: "svg:luggage", name: '旅行账本', desc: '旅途花销一目了然', cover: ['#1e9e6e', '#5fd3a3'] },
+  { icon: "svg:fuel", name: '汽车账本', desc: '油费 · 保养 · 保险', cover: ['#4a5568', '#8b98ab'] },
+  { icon: "svg:chick", name: '育儿账本', desc: '宝宝花销单独记', cover: ['#ba7517', '#ffd465'] },
+  { icon: "svg:tools", name: '装修账本', desc: '装修支出管理', cover: ['#7f77dd', '#b3aef0'] },
+  { icon: "svg:business", name: '生意账本', desc: '生意经营专用', cover: ['#0f6e56', '#4fb99b'] },
+  { icon: "svg:clipboard", name: '报销账本', desc: '适合记录报销账目', cover: ['#993556', '#e07a9c'] },
+  { icon: "svg:edit", name: '自定义', desc: '自定义你的专属账本', cover: ['#5f5e5a', '#a5a4a0'] },
 ]
+
+/** 按模板名取模板（老数据里的 name 可能已不在列表内 → 回落到「标准账本」） */
+export function templateByName(name) {
+  return LEDGER_TEMPLATES.find((t) => t.name === name) || LEDGER_TEMPLATES[0]
+}
 
 export function defaultAccounts() {
   return [

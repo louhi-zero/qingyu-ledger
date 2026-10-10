@@ -98,17 +98,19 @@ export default function Profile() {
                 <span className="me-edit"><Icon name="edit" size="1em" className="qy-inline-icon" /></span>
               </div>
               {/* v1.11.0 云状态徽标：未登录（未配置坚果云或手动关闭同步）时可见，点击直达登录引导 */}
+              {/* v3.4 去冗余：删掉「已坚持 X 天」徽标（与下方「记账天数」重复）；
+                  「未登录」改文案为「登录同步」——昵称行已在表达未登录状态，这里改为给出动作 */}
               <div className="me-tags">
-                <span className="me-badge"><Icon name="fire" size="1em" className="qy-inline-icon" /> 已坚持 {days} 天</span>
                 {!loggedIn && (
-                  <button type="button" className="me-cloud" aria-label="坚果云未登录，点击登录" onClick={() => setLoginOpen(true)}>
-                    <Icon name="cloud" size="1em" className="qy-inline-icon" /> 未登录
+                  <button type="button" className="me-cloud" aria-label="坚果云未登录，点击登录同步" onClick={() => setLoginOpen(true)}>
+                    <Icon name="cloud" size="1em" className="qy-inline-icon" /> 登录同步
                   </button>
                 )}
               </div>
             </div>
+            {/* v3.4 去冗余：已打卡态不再重复显示连击天数（下方「连续打卡」已有），改为状态陈述 */}
             <button className={`punch ${checkedToday ? 'done' : ''}`} onClick={punch} disabled={checkedToday}>
-              {checkedToday ? `🔥 连击 ${streak} 天` : <><Icon name="clipboard" size="1em" className="qy-inline-icon" /> 打卡</>}
+              {checkedToday ? <><Icon name="checkCircle" size="1em" className="qy-inline-icon" /> 今日已打卡</> : <><Icon name="clipboard" size="1em" className="qy-inline-icon" /> 打卡</>}
             </button>
           </div>
           <div className="me-stats">

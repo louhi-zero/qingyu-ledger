@@ -5,8 +5,10 @@
  */
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
-import { useNav } from '../App.jsx'
+import { useNav, useLock } from '../App.jsx'
 import { TopBar, Sheet, Switch, Confirm, Seg, EmojiPicker } from '../ui.jsx'
+import { PinPad, PinDots, PatternPad } from '../ui/lockinput.jsx'
+import { LOCK_TYPES, LOCK_AUTO, isValidPin, isValidPattern, normalizePin } from '../applock.js'
 import { AvatarFace, AiFace, useWelcomeBg, useMediaActions, useTabIconImgs, useDiscIconImgs, useTheme } from '../theme.jsx'
 import { DEFAULT_TAB_ICONS } from '../App.jsx'
 import { DISCOVER_TOOLS } from './Discover.jsx'
@@ -83,6 +85,7 @@ const TITLES = {
   ai: 'AI 助手',
   prefs: '记账偏好',
   notify: '提醒与收支监控',
+  security: '应用锁',
   data: '数据与安全',
 }
 
@@ -98,6 +101,7 @@ export default function SettingsSections({ nav, params = {} }) {
         {section === 'ai' && <AiSection ctx={Ctx} nav={nav} />}
         {section === 'prefs' && <PrefsSection ctx={Ctx} />}
         {section === 'notify' && <NotifySection ctx={Ctx} />}
+        {section === 'security' && <SecuritySection />}
         {section === 'data' && <DataSection ctx={Ctx} nav={nav} />}
       </div>
       <SectionSheets ctx={Ctx} section={section} />
@@ -951,6 +955,182 @@ function DataSection({ ctx, nav }) {
         }}
         onCancel={() => ctx.setPending(null)}
       />
+    </>
+  )
+}
+
+/* ---------- v3.4 应用锁 ---------- */
+
+/** 密码录入：pin 走键盘 + 指示点，pattern 走九宫格 */
+function CodeInput({ type, value, onChange, onPattern, expectLen }) {
+  if (type === 'pattern') return <PatternPad onDone={onPattern} />
+  const filled = String(value).length
+  return (
+    <>
+      <PinDots length={Math.max(expectLen || 4, filled, 4)} filled={filled} />
+      <PinPad value={value} onChange={onChange} maxLen={6} autoFocusKey />
+    </>
+  )
+}
+
+/**
+ * 应用锁设置弹层：三种模式共用一个状态机
+ *   enable  : set → confirm
+ *   change  : verify → set → confirm
+ *   disable : verify
+ */
+function LockSetup({ open, mode, lock, toast, onClose }) {
+  const [phase, setPhase] = useState('set')
+  const [type, setType] = useState('pin')
+  const [first, setFirst] = useState('')
+  const [input, setInput] = useState('')
+  const [oldCode, setOldCode] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setPhase(mode === 'enable' ? 'set' : 'verify')
+    setType(lock.type || 'pin')
+    setOldCode(''); setFirst(''); setInput(''); setErr(''); setBusy(false)
+  }, [open, mode, lock.type])
+
+  const submit = async (code) => {
+    if (busy || !code) return
+    if (phase === 'verify') {
+      setBusy(true)
+      const ok = await lock.verify(code)
+      setBusy(false)
+      if (!ok) { setErr('密码不正确'); setInput(''); return }
+      setOldCode(code); setErr(''); setInput('')
+      if (mode === 'disable') {
+        await lock.disable(code)
+        toast?.('应用锁已关闭')
+        onClose()
+      } else setPhase('set')
+      return
+    }
+    if (phase === 'set') {
+      if (type === 'pin' && !isValidPin(code)) { setErr('请输入 4~6 位数字'); return }
+      setFirst(code); setInput(''); setErr(''); setPhase('confirm')
+      return
+    }
+    // confirm
+    if (code !== first) { setErr('两次输入不一致，请重新设置'); setFirst(''); setInput(''); setPhase('set'); return }
+    setBusy(true)
+    const ok = await lock.setCode(type, code, { oldCode })
+    setBusy(false)
+    if (!ok) { setErr('设置失败，请重试'); return }
+    toast?.(mode === 'change' ? '密码已更新' : '应用锁已开启')
+    onClose()
+  }
+
+  const onPinChange = (v) => {
+    setInput(v)
+    setErr('')
+    // verify 阶段已知位数，输满即自动提交
+    if (phase === 'verify' && lock.len && v.length >= lock.len) submit(v)
+  }
+  const onPattern = (code, ok) => {
+    if (!ok) { setErr('手势至少连接 4 个点'); return }
+    submit(code)
+  }
+  const switchType = (t) => { setType(t); setInput(''); setErr(''); if (phase !== 'verify') setFirst('') }
+
+  const title = phase === 'verify' ? '验证当前密码'
+    : phase === 'set' ? (mode === 'change' ? '设置新密码' : '设置密码')
+      : '确认密码'
+  const needButton = type === 'pin' && phase !== 'verify'
+
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      {phase !== 'verify' && (
+        <Seg
+          options={LOCK_TYPES.map((t) => ({ value: t.v, label: t.label }))}
+          value={type}
+          onChange={switchType}
+          style={{ marginBottom: 14 }}
+        />
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <CodeInput
+          type={type}
+          value={input}
+          onChange={onPinChange}
+          onPattern={onPattern}
+          expectLen={phase === 'verify' ? lock.len : 0}
+        />
+        <div className="lock-err" role="alert">{err}</div>
+        {needButton && (
+          <button className="btn" type="button" disabled={busy} onClick={() => submit(input)} style={{ marginTop: 6 }}>
+            {phase === 'set' ? '下一步' : '确认设置'}
+          </button>
+        )}
+        <div className="muted" style={{ marginTop: 12, fontSize: 12, lineHeight: 1.7, textAlign: 'center' }}>
+          {type === 'pin' ? '支持 4~6 位数字' : '至少连接 4 个点'}
+          <br />密码只保存在本机，不上传、不参与云同步
+        </div>
+      </div>
+    </Sheet>
+  )
+}
+
+function SecuritySection() {
+  const lock = useLock()
+  const { toast } = useStore()
+  const [setup, setSetup] = useState(null)
+
+  return (
+    <>
+      <div className="group">
+        <div className="gtitle">应用锁</div>
+        <div className="cell">
+          <div className="cico"><Icon name="lock" size="1em" className="qy-inline-icon" /></div>
+          <div className="cmain">
+            <div className="ctitle">开启应用锁</div>
+            <div className="cdesc">打开应用需验证密码，保护本机账单隐私</div>
+          </div>
+          <Switch on={lock.on} onChange={(v) => setSetup(v ? 'enable' : 'disable')} />
+        </div>
+        {lock.on && (
+          <div className="cell" onClick={() => setSetup('change')}>
+            <div className="cico"><Icon name="key" size="1em" className="qy-inline-icon" /></div>
+            <div className="cmain">
+              <div className="ctitle">修改密码</div>
+              <div className="cdesc">当前方式：{lock.type === 'pin' ? '数字密码' : '手势密码'}</div>
+            </div>
+            <div className="cright"><span className="lock-badge">已开启</span><span className="arrow">›</span></div>
+          </div>
+        )}
+      </div>
+
+      {lock.on && (
+        <div className="group">
+          <div className="gtitle">自动锁定</div>
+          <div className="cell" style={{ display: 'block' }}>
+            <Seg
+              options={LOCK_AUTO.map((a) => ({ value: a.v, label: a.label }))}
+              value={lock.autoMin}
+              onChange={lock.setAutoMin}
+            />
+            <div className="muted" style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.7 }}>
+              离开应用超过该时长后回到前台需重新验证；「不自动锁定」则只在冷启动时验证一次。
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="group">
+        <div className="gtitle">说明</div>
+        <div className="cell" style={{ display: 'block' }}>
+          <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.8 }}>
+            应用锁只保存在本机、不上传、不参与云同步，也没有找回后门——请务必记牢密码。
+            若遗忘，只能清除应用数据（系统设置 → 应用 → 轻语记账 → 存储 → 清除数据）。
+          </div>
+        </div>
+      </div>
+
+      <LockSetup open={!!setup} mode={setup || 'enable'} lock={lock} toast={toast} onClose={() => setSetup(null)} />
     </>
   )
 }

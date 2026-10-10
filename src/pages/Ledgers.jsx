@@ -2,7 +2,7 @@ import { Icon } from "../ui/icons.jsx"
 import React, { useMemo, useRef, useState } from 'react'
 import { useStore } from '../store.jsx'
 import { TopBar, Sheet, Confirm } from '../ui.jsx'
-import { LEDGER_TEMPLATES } from '../seed.js'
+import { LEDGER_TEMPLATES, templateByName } from '../seed.js'
 import { txsOfLedger, uid, fmt } from '../utils.js'
 import { useBookIconUrl, useMediaActions } from '../theme.jsx'
 import { ValueIcon } from '../ui/icons.jsx'
@@ -17,6 +17,39 @@ function LedgerIcon({ l, className = 'gi', style }) {
   const url = useBookIconUrl(l.id)
   if (url) return <div className={`${className} gi-img`} style={style}><img className="gi-img-img" src={url} alt="" decoding="async" draggable={false} /></div>
   return <div className={className} style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ValueIcon value={l.icon} fallback="book" size={22} /></div>
+}
+
+/* v3.4 账本封面：按模板取渐变底 + 图标水印（纯 CSS，无图片资源）。
+   自定义上传图标优先——用户手动设过的图标不该被模板封面盖掉。 */
+function LedgerCover({ ledger, className = '', style }) {
+  const url = useBookIconUrl(ledger?.id)
+  const tpl = templateByName(ledger?.template)
+  const [c1, c2] = tpl.cover || ['#5f5e5a', '#a5a4a0']
+  if (url) {
+    return (
+      <div className={`ldg-cover ldg-cover-img ${className}`} style={style}>
+        <img src={url} alt="" decoding="async" draggable={false} />
+      </div>
+    )
+  }
+  return (
+    <div
+      className={`ldg-cover ${className}`}
+      style={{ backgroundImage: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`, ...style }}
+    >
+      <ValueIcon value={ledger?.icon || tpl.icon} fallback="book" size={20} color="#fff" />
+    </div>
+  )
+}
+
+/** 模板封面缩略图（新建/编辑账本时的模板选择器用，不带自定义图标） */
+function TemplateCover({ tpl, className = '' }) {
+  const [c1, c2] = tpl.cover || ['#5f5e5a', '#a5a4a0']
+  return (
+    <div className={`ldg-cover ldg-tpl-cover ${className}`} style={{ backgroundImage: `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)` }}>
+      <ValueIcon value={tpl.icon} fallback="book" size={20} color="#fff" />
+    </div>
+  )
 }
 
 export default function Ledgers({ nav }) {
@@ -90,12 +123,10 @@ export default function Ledgers({ nav }) {
 
         <div className="grid3">
           {state.ledgers.map((l) => (
-            <button key={l.id} className="gitem" style={{ background: 'var(--card)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', padding: '12px 4px' }}
+            <button key={l.id} className={'gitem ldg-tile' + (state.currentLedgerId === l.id ? ' on' : '')}
               onClick={() => setEdit({ ...l })}>
-              <LedgerIcon l={l} style={state.currentLedgerId === l.id ? { background: 'var(--brand-weak)', boxShadow: 'inset 0 0 0 2px var(--brand)' } : {}} />
-              <span style={{ color: 'var(--ink)', fontWeight: 700, maxWidth: 100, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                {l.name}
-              </span>
+              <LedgerCover ledger={l} className="ldg-tile-cover" />
+              <span className="ldg-tile-name">{l.name}</span>
               <span className="muted">{counts[l.id] || 0} 笔{state.currentLedgerId === l.id ? ' · 使用中' : ''}</span>
             </button>
           ))}
@@ -109,7 +140,7 @@ export default function Ledgers({ nav }) {
               set((d) => { d.currentLedgerId = l.id })
               toast(`已切换到「${l.name}」`)
             }}>
-              <LedgerIcon l={l} className="cico" />
+              <LedgerCover ledger={l} className="ldg-cico" />
               <div className="cmain">
                 <div className="ctitle">{l.name}</div>
                 <div className="cdesc">{l.template} · {counts[l.id] || 0} 笔账单</div>
@@ -129,12 +160,13 @@ export default function Ledgers({ nav }) {
           <>
             <div className="field">
               <label>选择模板</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              <div className="tpl-grid">
                 {LEDGER_TEMPLATES.map((t) => (
-                  <button key={t.name} className={`gitem ${edit.template === t.name ? 'on' : ''}`}
+                  <button key={t.name} type="button" className={'tpl-cell' + (edit.template === t.name ? ' on' : '')}
+                    title={t.desc}
                     onClick={() => setEdit({ ...edit, template: t.name, icon: t.icon })}>
-                    <div className="gi" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}><ValueIcon value={t.icon} fallback="book" size={22} /></div>
-                    <span>{t.name}</span>
+                    <TemplateCover tpl={t} />
+                    <span className="tpl-cell-name">{t.name}</span>
                   </button>
                 ))}
               </div>

@@ -5,8 +5,9 @@ import { TopBar, Sheet, Bar, Empty, CatIcon } from '../ui.jsx'
 import { Ring } from '../charts.jsx'
 import {
   currentPeriod, periodAdd, periodLabel, txsOfPeriod, sumBy,
-  statByCategory, findCat, fmt, round2,
+  statByCategory, findCat, fmt, round2, todayStr,
 } from '../utils.js'
+import { buildBudgetAdvice } from '../budgetadvice.js'
 
 export default function Budget({ nav }) {
   const { state, set, toast } = useStore()
@@ -42,6 +43,17 @@ export default function Budget({ nav }) {
 
   // 有支出但未设预算的分类，提示补充
   const byCat = state.budgets?.byCategory || {}
+
+  // v3.4 预算建议：规则引擎，纯本地计算（见 budgetadvice.js）
+  const advice = useMemo(() => buildBudgetAdvice({
+    budget: total,
+    spent: exp,
+    income: sumBy(txs, 'income'),
+    period,
+    monthStartDay: state.settings.monthStartDay,
+    today: todayStr(),
+    cats: stats.map((s) => ({ id: s.id, name: s.name, value: s.value, budget: byCat[s.id] || 0 })),
+  }), [total, exp, txs, period, state.settings.monthStartDay, stats, byCat])
 
   return (
     <>
@@ -94,6 +106,26 @@ export default function Budget({ nav }) {
             </div>
           )}
         </div>
+
+        {/* v3.4 预算建议（规则引擎）：每条都带具体数字与可执行动作 */}
+        {advice.length > 0 && (
+          <div className="card" style={{ padding: 0 }}>
+            <div className="card-title" style={{ padding: '14px 14px 8px' }}>
+              <Icon name="brain" size="1em" className="qy-inline-icon" /> 预算建议
+            </div>
+            <div className="adv-list">
+              {advice.map((a, i) => (
+                <div key={i} className={'adv-item lv-' + a.level}>
+                  <span className="adv-ico"><Icon name={a.icon} size="1em" className="qy-inline-icon" /></span>
+                  <div className="adv-main">
+                    <div className="adv-title">{a.title}</div>
+                    <div className="adv-text">{a.text}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 分类预算 */}
         <div className="card" style={{ padding: 0 }}>

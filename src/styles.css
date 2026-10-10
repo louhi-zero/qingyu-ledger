@@ -175,6 +175,12 @@ body {
 .searchbar input { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; color: var(--ink); }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
+/* v3.4 横滑区右侧渐隐：此前最后一枚 chip 被硬裁，看不出「还能往右滑」。
+   用 mask 而非伪元素，不占布局、不遮挡点击。 */
+.chips, .catbar, .meta-row {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent 100%);
+}
 .chip {
   flex-shrink: 0; border: none; background: var(--card); color: var(--ink2);
   padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; box-shadow: var(--shadow-sm);
@@ -205,7 +211,10 @@ body {
 .txnote { font-size: 12px; color: var(--ink3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .txamt { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .txamt.in { color: var(--income); }
-.txamt.out { color: var(--ink); }
+/* v3.4 语义色落地：支出金额此前用正文色 var(--ink)，与设计系统宣称的
+   「账单行着色（支出橙 #e07840 / 收入绿 / 转账蓝）」不符，列表里只能靠 +/- 区分。
+   现改为语义橙，三色齐备。 */
+.txamt.out { color: var(--expense); }
 .txamt.tr { color: var(--transfer); }
 
 /* ---------- 底部导航 ---------- */
@@ -732,7 +741,9 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 :root[data-glass="on"] {
   --g-tint: rgba(255, 255, 255, .48);
   --g-tint-2: rgba(255, 255, 255, .42);
-  --g-tint-strong: rgba(255, 255, 255, .68);
+  /* v3.4 可读性：.68 时弹层/顶栏/底栏下方的文字仍会隐约透出（截图中「餐饮」行可见），
+     提到 .78 —— 仍保留磨砂观感，但正文不再被底层内容干扰 */
+  --g-tint-strong: rgba(255, 255, 255, .78);
   --g-rim: rgba(255, 255, 255, .95);
   --g-border: rgba(255, 255, 255, .55);
   --g-press: rgba(255, 255, 255, .35);
@@ -746,7 +757,8 @@ table.plain th { color: var(--ink3); font-weight: 600; }
 :root[data-theme="dark"][data-glass="on"] {
   --g-tint: rgba(40, 44, 58, .52);
   --g-tint-2: rgba(40, 44, 58, .4);
-  --g-tint-strong: rgba(30, 33, 43, .66);
+  /* v3.4 同亮色：.66 → .76，深色下底层内容更易透出，提高一档 */
+  --g-tint-strong: rgba(30, 33, 43, .76);
   --g-rim: rgba(255, 255, 255, .16);
   --g-border: rgba(255, 255, 255, .09);
   --g-press: rgba(255, 255, 255, .08);
@@ -1786,3 +1798,168 @@ span.ledger-switch-img {
   background: var(--card); border-radius: 14px; padding: 8px 10px;
   box-shadow: var(--shadow); z-index: 80;
 }
+
+/* ============ v3.4 应用锁 ============ */
+/* 全屏门禁：z-index 高于启动页失败页(10000)之外的一切内容层，
+   但低于原生启动屏（原生层不受 CSS 影响） */
+.lock {
+  position: fixed; inset: 0; z-index: 9998;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  padding: 24px; box-sizing: border-box;
+}
+.lock-inner {
+  width: 100%; max-width: 320px;
+  display: flex; flex-direction: column; align-items: center;
+}
+.lock-inner.shake { animation: lockShake .38s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes lockShake {
+  10%, 90% { transform: translateX(-2px) }
+  20%, 80% { transform: translateX(4px) }
+  30%, 50%, 70% { transform: translateX(-7px) }
+  40%, 60% { transform: translateX(7px) }
+}
+.lock-icon { width: 56px; height: 56px; border-radius: 15px; margin-bottom: 14px; }
+.lock-title { font-size: 17px; font-weight: 700; color: var(--ink); letter-spacing: 1px; }
+.lock-sub { font-size: 12.5px; color: var(--ink3); margin-top: 5px; min-height: 18px; }
+
+/* PIN 指示点 */
+.lock-dots { display: flex; gap: 12px; margin: 26px 0 22px; }
+.lock-dotp {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 1.5px solid var(--ink3); background: transparent;
+  transition: background .12s ease, border-color .12s ease, transform .12s ease;
+}
+.lock-dotp.on { background: var(--brand); border-color: var(--brand); transform: scale(1.12); }
+
+/* PIN 键盘 */
+.lock-kp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; }
+.lock-kp-btn {
+  height: 58px; border: none; border-radius: 16px;
+  background: var(--card); color: var(--ink);
+  font-size: 24px; font-weight: 600; font-family: inherit;
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lock-kp-btn:active { background: var(--brand-weak); transform: scale(.96); }
+.lock-kp-blank { height: 58px; }
+
+/* 手势九宫格 */
+.lock-pad {
+  position: relative; width: 232px; height: 232px;
+  margin: 22px 0 18px; touch-action: none; user-select: none;
+}
+.lock-pad-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.lock-pad-line { stroke: var(--brand); stroke-width: 2.5; stroke-linecap: round; opacity: .85; }
+.lock-dot {
+  position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  border-radius: 50%; background: var(--card2);
+  box-shadow: inset 0 0 0 1.5px var(--ink3);
+  transition: background .1s ease, box-shadow .1s ease;
+}
+.lock-dot.on { background: var(--brand); box-shadow: inset 0 0 0 1.5px var(--brand), 0 0 0 7px var(--brand-weak); }
+
+.lock-err { min-height: 20px; margin-top: 6px; font-size: 12.5px; color: var(--expense); font-weight: 500; }
+.lock-forgot {
+  margin-top: 4px; border: none; background: transparent;
+  color: var(--ink3); font-size: 12.5px; font-family: inherit; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.lock-hint {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--card2); color: var(--ink2);
+  font-size: 12px; line-height: 1.8; text-align: left;
+}
+
+/* 设置页：锁状态角标 */
+.lock-badge {
+  font-size: 11.5px; font-weight: 600; color: var(--brand);
+  background: var(--brand-weak); border-radius: 99px; padding: 3px 9px;
+}
+
+/* ============ v3.4 账本模板封面 ============ */
+/* 纯 CSS 渐变封面 + 图标水印，替代薄荷记账的 8 套 JPG 封面（零资源、任意分辨率不糊） */
+.ldg-cover {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; overflow: hidden; flex: none;
+}
+.ldg-cover-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 账本列表磁贴 */
+.ldg-tile { background: var(--card); border-radius: 16px; box-shadow: var(--shadow-sm); padding: 10px 6px 12px; }
+.ldg-tile.on { box-shadow: inset 0 0 0 2px var(--brand), var(--shadow-sm); }
+.ldg-tile-cover { width: 100%; height: 52px; margin-bottom: 8px; }
+.ldg-tile-name {
+  color: var(--ink); font-weight: 700; max-width: 100%;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* 切换账本列表里的小封面 */
+.ldg-cico { width: 40px; height: 40px; border-radius: 12px; }
+
+/* 模板选择器（新建/编辑账本） */
+.tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tpl-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 4px; border: none; border-radius: 14px; background: var(--card);
+  box-shadow: var(--shadow-sm); cursor: pointer; font-family: inherit;
+}
+.tpl-cell.on { box-shadow: inset 0 0 0 2px var(--brand); }
+.ldg-tpl-cover { width: 100%; height: 40px; }
+.tpl-cell-name { font-size: 11.5px; color: var(--ink2); font-weight: 600; }
+.tpl-cell.on .tpl-cell-name { color: var(--brand); }
+
+/* ============ v3.4 账本模板封面 ============ */
+/* 纯 CSS 渐变封面 + 图标水印，替代薄荷记账的 8 套 JPG 封面（零资源、任意分辨率不糊） */
+.ldg-cover {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; overflow: hidden; flex: none;
+}
+.ldg-cover-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 账本列表磁贴 */
+.ldg-tile { background: var(--card); border-radius: 16px; box-shadow: var(--shadow-sm); padding: 10px 6px 12px; }
+.ldg-tile.on { box-shadow: inset 0 0 0 2px var(--brand), var(--shadow-sm); }
+.ldg-tile-cover { width: 100%; height: 52px; margin-bottom: 8px; }
+.ldg-tile-name {
+  color: var(--ink); font-weight: 700; max-width: 100%;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* 切换账本列表里的小封面 */
+.ldg-cico { width: 40px; height: 40px; border-radius: 12px; }
+
+/* 模板选择器（新建/编辑账本） */
+.tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tpl-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 4px; border: none; border-radius: 14px; background: var(--card);
+  box-shadow: var(--shadow-sm); cursor: pointer; font-family: inherit;
+}
+.tpl-cell.on { box-shadow: inset 0 0 0 2px var(--brand); }
+.ldg-tpl-cover { width: 100%; height: 40px; }
+.tpl-cell-name { font-size: 11.5px; color: var(--ink2); font-weight: 600; }
+.tpl-cell.on .tpl-cell-name { color: var(--brand); }
+
+/* ============ v3.4 预算建议 ============ */
+.adv-list { display: flex; flex-direction: column; gap: 2px; padding: 0 10px 12px; }
+.adv-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 11px 12px; border-radius: 13px; background: var(--card2);
+}
+.adv-ico {
+  flex: none; width: 26px; height: 26px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--ink2); font-size: 15px;
+}
+.adv-main { min-width: 0; }
+.adv-title { font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
+.adv-text { font-size: 12.5px; color: var(--ink2); line-height: 1.7; margin-top: 3px; }
+/* 语义色只染图标与标题，正文保持中性，避免整块花掉 */
+.adv-item.lv-danger .adv-ico { background: var(--expense-weak); color: var(--expense); }
+.adv-item.lv-danger .adv-title { color: var(--expense); }
+.adv-item.lv-warn .adv-ico { background: var(--warn-weak, #fdf3e3); color: var(--warn, #ba7517); }
+.adv-item.lv-warn .adv-title { color: var(--warn, #ba7517); }
+.adv-item.lv-ok .adv-ico { background: var(--income-weak); color: var(--income); }
+.adv-item.lv-ok .adv-title { color: var(--income); }
+.adv-item.lv-info .adv-ico { background: var(--transfer-weak); color: var(--transfer); }
