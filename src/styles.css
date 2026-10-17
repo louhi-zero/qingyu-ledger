@@ -1977,3 +1977,4 @@ span.ledger-switch-img {
 .tcard .tbtn { margin-top: auto; border: none; background: var(--brand-weak); color: var(--brand); font-size: 12.5px; font-weight: 700; padding: 8px 0; border-radius: 10px; cursor: pointer; transition: transform .12s ease, opacity .15s ease; }
 .tcard .tbtn:disabled { opacity: .55; }
 .tcard .tbtn:active { transform: scale(.97); }
+.tcard .tprev { min-height: 180px; } /* 老 WebView 无 aspect-ratio 时的塌陷兜底 */
