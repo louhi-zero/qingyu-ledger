@@ -218,7 +218,7 @@ const gradle = readFileSync(new URL('../android/app/build.gradle', import.meta.u
 assert('release 默认使用入库密钥 qingyu-release.p12', gradle.includes('qingyu-release.p12'))
 assert('release buildType 固定 signingConfig（无签名包禁止发布）', gradle.includes('signingConfig signingConfigs.release'))
 assert('启用 v1/v2/v3 签名方案', gradle.includes('enableV3Signing') && gradle.includes('v2SigningEnabled true'))
-assert('版本 versionCode 41 / 3.5', gradle.includes('versionCode 41') && gradle.includes('versionName "3.5"'))
+assert('版本 versionCode 47 / 3.6.5', gradle.includes('versionCode 47') && gradle.includes('versionName "3.6.5"'))
 const workflow = readFileSync(new URL('../.github/workflows/android.yml', import.meta.url), 'utf-8')
 assert('CI 始终构建 release APK（Secrets 仅用于可选覆盖）',
   workflow.includes('./gradlew assembleRelease')
@@ -279,7 +279,7 @@ assert('个性化预览卡样式齐备（skin-grid/卡/缩略图）',
   css2.includes('.skin-grid') && css2.includes('.skin-card') && css2.includes('.skin-thumb'))
 assert('账本切换器样式齐备（ledger-switch/bookicon）', css2.includes('.ledger-switch') && css2.includes('.bookicon-preview'))
 const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf-8'))
-assert('package.json 版本 3.5', pkgJson.version === '3.5')
+assert('package.json 版本 3.6.5', pkgJson.version === '3.6.5')
 // v1.10.0 起快照版本号由 syncOnce 打包，CloudBackup 不再直接引用 APP_VERSION
 for (const f of ['Settings.jsx', 'Profile.jsx']) {
   const src = readFileSync(new URL(`../src/pages/${f}`, import.meta.url), 'utf-8')
@@ -415,7 +415,7 @@ assert('FileProvider 覆盖 app-specific Download 目录', filePaths.includes('<
 const mainAct = readFileSync(new URL('../android/app/src/main/java/com/qingyu/ledger/MainActivity.java', import.meta.url), 'utf-8')
 assert('MainActivity 注册 AppUpdate 插件', mainAct.includes('registerPlugin(UpdatePlugin.class)'))
 assert('CI 随包生成并上传 .sha256', workflow.includes('sha256sum') && workflow.includes('.apk.sha256'))
-assert('update.js 版本单一源为 3.5', APP_VERSION === '3.5')
+assert('update.js 版本单一源为 3.6.5', APP_VERSION === '3.6.5')
 
 // ---------- v2.0.2 下载加速（参考 NexBox 多源/探测思路） ----------
 console.log('v2.0.2 更新下载加速：')
@@ -433,12 +433,12 @@ assert('下载多源加速：候选生成（就绪自有平台 → gh-proxy/ghfa
   && updateSrc.includes('const viaMirror = url !== official'))
 // 候选生成行为测试（自有平台渠道顺序与展开范围；repo 为空的渠道休眠不产生死候选）
 const updAcc = await import('../src/update.js')
-const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.5/qingyu-v3.5-android.apk'
+const ACC_URL = 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.6.5/qingyu-v3.6.5-android.apk'
 const accCands = updAcc.buildDownloadCandidates(ACC_URL)
 assert('候选顺序行为：gitee/gitcode 实仓 → 代理×2 → 官方直连（共 5 源；atomgit 未就绪休眠）',
   accCands.length === 5
-  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.5/qingyu-v3.5-android.apk'
-  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.5/qingyu-v3.5-android.apk'
+  && accCands[0] === 'https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.6.5/qingyu-v3.6.5-android.apk'
+  && accCands[1] === 'https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.6.5/qingyu-v3.6.5-android.apk'
   && accCands[2] === 'https://gh-proxy.com/' + ACC_URL
   && accCands[3] === 'https://ghfast.top/' + ACC_URL
   && accCands[4] === ACC_URL
@@ -1705,7 +1705,7 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
   }
   try {
     const info35 = {
-      apkUrl: 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.5/qingyu-v3.5-android.apk',
+      apkUrl: 'https://github.com/louhi-zero/qingyu-ledger/releases/download/v3.6.5/qingyu-v3.6.5-android.apk',
       apkName: 'qingyu-v3.5-android.apk',
       size: 13526185,
     }
@@ -1715,8 +1715,8 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
     assert('v3.5 软 404 防御：坏文件被删除（否则下一源断点续传会以它为 base 追加）',
       removed35.length === 1 && removed35[0] === '/dl/bad.html')
     assert('v3.5 候选顺序：gitee 优先于 gitcode',
-      tried35[0].startsWith('https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.5/')
-      && tried35[1].startsWith('https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.5/'))
+      tried35[0].startsWith('https://gitee.com/Roxie-zero/whisper-accounting/releases/download/v3.6.5/')
+      && tried35[1].startsWith('https://raw.gitcode.com/Roxie-sama/atomgit/releases/download/v3.6.5/'))
 
     // 大小未知（size=0）时不得误判：应直接采用首个成功结果
     const tried36 = []
