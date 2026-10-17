@@ -13,6 +13,14 @@
     <link rel="apple-touch-icon" href="./icon-192.png" />
     <title>轻语记账</title>
     <style>
+      /* v3.6.3【关键修复】[hidden] 兜底。
+         根因：`hidden` 属性只是浏览器 UA 样式表里的 `[hidden]{display:none}`，
+         而 **UA 规则永远输给作者规则**（与选择器优先级无关）。失败页 .boot-fail 自己写了
+         `display:flex`，于是 hidden 形同虚设 —— 失败页从 v3.3 起每次启动都全屏可见
+         （position:fixed + inset:0 + z-index:10000 + 不透明背景），把正常运行的 App 整个盖住。
+         表现就是「启动没有完成」，但诊断里 boot:ok、0 错误、数据正常 —— App 其实每次都起来了。
+         用 !important 把它钉死，同时兜住未来任何「hidden + 作者 display」的组合。 */
+      [hidden] { display: none !important; }
       /* v3.2 OPPO 等低端机启动灰屏修复：内联零 JS 启动画面。
          灰屏根因：原生 splash 收起后到 React 首帧之间 WebView 无内容可画（慢机上 1-3s），
          这段空窗只有整页底色。此处纯 HTML/CSS，WebView 一解析到 body 即渲染品牌启动页；

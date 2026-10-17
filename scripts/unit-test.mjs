@@ -1734,5 +1734,31 @@ assert('检测链路全程埋点（check:start/fetch:start/check:done/check:fail
   }
 }
 
+// ---------- v3.6.3 [hidden] 级联陷阱：失败页常显，把正常运行的 App 整个盖住 ----------
+// 根因：hidden 只是 UA 样式表的 [hidden]{display:none}，而 **UA 规则永远输给作者规则**
+// （与选择器优先级无关）。.boot-fail 自己写了 display:flex → hidden 形同虚设 →
+// 失败页从 v3.3 起每次启动都全屏可见（fixed/inset:0/z-index:10000/不透明底），
+// 表现为「启动没有完成」，但 App 其实每次都成功启动了。
+{
+  const idx63 = readFileSync(new URL('../index.html', import.meta.url), 'utf-8')
+  assert('v3.6.3 [hidden] 兜底规则存在且必须带 !important（去掉即复发）',
+    /\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/.test(idx63))
+  assert('v3.6.3 失败页 .boot-fail 仍声明 display（这正是必须兜底的原因，改动时需复核）',
+    /\.boot-fail\s*\{[^}]*display:\s*flex/.test(idx63))
+  assert('v3.6.3 失败页元素初始带 hidden 属性',
+    /class="boot-fail"[^>]*\shidden(\s|>)/.test(idx63))
+  assert('v3.6.3 失败页显示走「移除属性」而非改 style —— 与 !important 规则兼容',
+    idx63.includes('fail.hidden = false') && idx63.includes('if (!fail || !fail.hidden) return'))
+  // 同类隐患扫描：index.html 里除失败页外不应再有「hidden 元素 + 作者 display」的组合
+  const hiddenTags63 = [...idx63.matchAll(/<[a-z][^>]*\shidden(\s|>)/g)].map((m) => m[0])
+  assert('v3.6.3 同类隐患扫描：index.html 内只有失败页一处 hidden 元素',
+    hiddenTags63.length === 1)
+  // 应用内其它 hidden 用法（<input type="file" hidden>）必须没有被作者样式声明 display，
+  // 否则同样会被压掉、露出多余的文件选择按钮
+  const css63 = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf-8')
+  assert('v3.6.3 无「裸 input 选择器声明 display」压掉 file input 的 hidden',
+    !/(^|\})\s*input\s*\{[^}]*display\s*:/m.test(css63))
+}
+
 console.log(failed === 0 ? `\n全部通过：${passed} 项` : `\n${failed} 项失败`)
 process.exit(failed ? 1 : 0)
