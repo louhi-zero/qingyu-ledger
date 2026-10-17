@@ -11,6 +11,7 @@ import { getNotice, unreadNotice, loadRead, saveRead, noticeKey } from '../notic
 
 // v1.6.8 发现页功能图标自定义：key 与设置弹层共用
 export const DISCOVER_TOOLS = [
+  { key: 'themeshop', icon: 'palette', name: '主题商城', page: 'themeshop' },
   { key: 'scan', icon: 'camera', name: '扫票记账', page: 'scan' },
   { key: 'assets', icon: 'buildingBank', name: '资产管家', page: 'assets' },
   { key: 'creditCards', icon: 'creditCard', name: '信用卡', page: 'creditCards' },

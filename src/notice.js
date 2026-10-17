@@ -13,7 +13,8 @@
 // 公告源：仓库公开后生效（私有仓库 raw 会 404，客户端静默降级为缓存/空列表，不影响使用）
 export const NOTICE_URL = 'https://raw.githubusercontent.com/louhi-zero/qingyu-ledger/master/notice.json'
 // 可选镜像源（如 Gitee raw），留空则不启用；主源失败时依次尝试
-export const NOTICE_MIRROR_URL = ''
+// v3.6.6：gitee 镜像仓库已公开（Roxie-zero/whisper-accounting），国内连通性差的场景走此源
+export const NOTICE_MIRROR_URL = 'https://gitee.com/Roxie-zero/whisper-accounting/raw/master/notice.json'
 
 const LS_CACHE = 'qingyu_notice_cache_v1'
 const LS_READ = 'qingyu_notice_read_v1' // 最近一次查看公告的日期 YYYY-MM-DD

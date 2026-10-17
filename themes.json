@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "list": [
+    {
+      "id": "sakura",
+      "name": "樱语 · 粉樱",
+      "author": "轻语官方",
+      "desc": "内置樱花插画，窗边与花瓣，温柔以待每一笔",
+      "file": "public/bg/bg-sakura.jpg"
+    },
+    {
+      "id": "sunset",
+      "name": "暮野 · 黄昏",
+      "author": "轻语官方",
+      "desc": "内置黄昏插画，落日余晖里把今天记完",
+      "file": "public/bg/bg-sunset.jpg"
+    },
+    {
+      "id": "night",
+      "name": "夜航 · 静夜",
+      "author": "轻语官方",
+      "desc": "内置夜色插画，深夜记账也不刺眼",
+      "file": "public/bg/bg-night.jpg"
+    },
+    {
+      "id": "room",
+      "name": "暖屋 · 书桌",
+      "author": "轻语官方",
+      "desc": "内置书桌插画，像在书桌前翻开账本",
+      "file": "public/bg/bg-room.jpg"
+    }
+  ]
+}

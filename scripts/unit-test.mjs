@@ -209,7 +209,7 @@ assert('发现图标存储动作（144 裁切，不做白底拦截）',
   themeJs2.includes('saveDiscIcon') && themeJs2.includes(`replaceBlob(`) && themeJs2.includes("maxSize: 144"))
 assert('发现图标 hook useDiscIconImgs 存在', themeJs2.includes('export function useDiscIconImgs'))
 const discoverJs = readFileSync(new URL('../src/pages/Discover.jsx', import.meta.url), 'utf-8')
-assert('发现页导出 14 项工具表', (discoverJs.match(/key: '/g) || []).length === 14)
+assert('发现页导出 15 项工具表（v3.6.6 + 主题商城）', (discoverJs.match(/key: '/g) || []).length === 15)
 assert('发现页渲染自定义图片图标', discoverJs.includes('useDiscIconImgs') && discoverJs.includes("discImgs[t.key] ? ' gi-img'"))
 assert('发现页有自定义入口', discoverJs.includes('自定义图标'))
 assert('发现图标不做白底限制（文案明确）', settingsJs.includes('任意背景图片均可'))
@@ -662,6 +662,50 @@ assert('hydrate 竞态防护：缓存非空不覆盖（启动早期保存不被�
     settingsSectSrcV32.includes('小岛模式')
     && settingsSectSrcV32.includes('启用会对看不清字的人有显著的帮助哦')
     && settingsSectSrcV32.includes('name="beach"'))
+  // ---------- v3.6.6 仓库即 CMS：support/themes 远端列表 + 主题商城 ----------
+  console.log('v3.6.6 CMS 远端列表（赞助/内测/主题商城）：')
+  const cmsV366 = await import('../src/cms.js')
+  const noticeSrcV366 = readFileSync(new URL('../src/notice.js', import.meta.url), 'utf-8')
+  const discoverSrcV366 = readFileSync(new URL('../src/pages/Discover.jsx', import.meta.url), 'utf-8')
+  const appSrcV366 = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf-8')
+  assert('CMS 渠道链：gitee 直连 → jsDelivr CN CDN → github 权威（三源同构拼接，容忍前导斜杠）',
+    cmsV366.CMS_BASES.length === 3
+    && cmsV366.CMS_BASES[0].includes('gitee.com/Roxie-zero/whisper-accounting/raw/master')
+    && cmsV366.CMS_BASES[1].includes('cdn.jsdelivr.net/gh/louhi-zero/qingyu-ledger@master')
+    && cmsV366.CMS_BASES[2].includes('raw.githubusercontent.com/louhi-zero/qingyu-ledger/master')
+    && cmsV366.cmsFileUrls('a.json')[0].endsWith('/a.json')
+    && !cmsV366.cmsFileUrls('/a.json')[1].includes('//a.json'))
+  assert('parseSupport：白名单过滤 + 去空白 + 金额钳制 + 非法入参拒绝',
+    (() => {
+      const ok = cmsV366.parseSupport('{"sponsors":[{"id":" 小明 ","amount":10},{"id":"","amount":5},{"bad":1},{"id":"老王","amount":-3}],"testers":[" 阿强 ","  ","ok人"]}')
+      if (!ok) return false
+      const good = ok.sponsors.length === 2 && ok.sponsors[0].id === '小明' && ok.sponsors[0].amount === 10
+        && ok.sponsors[1].amount === 0 && ok.testers.length === 2 && ok.testers[0] === '阿强'
+      const bad = cmsV366.parseSupport('not-json') === null && cmsV366.parseSupport('{"version":1}') === null
+      return good && bad
+    })())
+  assert('parseThemes：id 去重 + 路径穿越拒绝 + 后缀白名单 + 字段截断回落佚名',
+    (() => {
+      const long = 'x'.repeat(200)
+      const ok = cmsV366.parseThemes('{"version":2,"list":[{"id":"a","name":" 主题A ","file":"public/bg/bg-sakura.jpg"},{"id":"a","file":"public/bg/bg-sunset.jpg"},{"id":"b","file":"../secrets.jpg"},{"id":"c","file":"bg/evil.svg"},{"id":"d"},{"id":"e","file":"bg/bg-night.jpg","desc":"' + long + '"}]}')
+      if (!ok) return false
+      const list = ok.list
+      return ok.version === 2 && list.length === 2 && list[0].name === '主题A' && list[0].author === '佚名'
+        && list[1].id === 'e' && list[1].desc.length === 80
+        && cmsV366.parseThemes('broken') === null && cmsV366.parseThemes('{"list":{}}') === null
+    })())
+  assert('远端数据文件入库自检：themes.json 可解析且所有主题图存在于仓库，support.json 结构合法',
+    (() => {
+      const themes = cmsV366.parseThemes(readFileSync(new URL('../themes.json', import.meta.url), 'utf-8'))
+      if (!themes || !themes.list.length) return false
+      if (!themes.list.every((t) => existsSync(new URL('../' + t.file, import.meta.url)))) return false
+      const sup = cmsV366.parseSupport(readFileSync(new URL('../support.json', import.meta.url), 'utf-8'))
+      return !!sup && Array.isArray(sup.sponsors) && Array.isArray(sup.testers)
+    })())
+  assert('主题商城接线：Discover 工具入口 + App 路由注册 + 公告镜像源指向 gitee raw',
+    discoverSrcV366.includes("key: 'themeshop', icon: 'palette', name: '主题商城', page: 'themeshop'")
+    && appSrcV366.includes("themeshop: ThemeShop")
+    && noticeSrcV366.includes("NOTICE_MIRROR_URL = 'https://gitee.com/Roxie-zero/whisper-accounting/raw/master/notice.json'"))
   assert('OPPO 灰屏修复：index.html 内联零 JS 启动画面（图标 data URI 内联零请求，WebView 解析即渲染，React 挂载后自动替换）',
     indexHtmlV32.includes('boot-splash') && indexHtmlV32.includes('src="data:image/png;base64,')
     && indexHtmlV32.includes('@keyframes bootSlide'))

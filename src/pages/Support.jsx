@@ -1,17 +1,29 @@
 /* v2.5 赞助与鸣谢页：收款码（微信/支付宝，点击放大）+ 赞助名单 + 内测鸣谢名单
- * 名单数据维护在 src/support.js（SPONSORS / TESTERS 两个常量数组）
+ * 名单数据源（v3.6.6）：远端 support.json 优先（仓库即 CMS，改文件 + push 即更新名单），
+ * 拉取失败回落 src/support.js 内置兜底数组——离线/私有仓库期页面永不空白。
  * v2.8 移除「找到作者」分组：社交入口与发现页作者卡重复，统一保留发现页入口
  */
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNav } from '../App.jsx'
 import { TopBar, Sheet } from '../ui.jsx'
 import { SPONSORS, TESTERS } from '../support.js'
+import { getCmsJson, parseSupport } from '../cms.js'
 import { round2 } from '../utils.js'
 
 export default function Support({ nav }) {
   const nav2 = useNav()
   const [zoom, setZoom] = useState(null) // { title, src }
-  const total = round2(SPONSORS.reduce((a, s) => a + Number(s.amount || 0), 0))
+  const [remote, setRemote] = useState(null)
+  useEffect(() => {
+    let alive = true
+    getCmsJson('support.json', { cacheKey: 'qingyu_support_cache_v1', parse: parseSupport }).then((d) => {
+      if (alive) setRemote(d)
+    })
+    return () => { alive = false }
+  }, [])
+  const sponsors = remote ? remote.sponsors : SPONSORS
+  const testers = remote ? remote.testers : TESTERS
+  const total = round2(sponsors.reduce((a, s) => a + Number(s.amount || 0), 0))
 
   return (
     <>
@@ -37,10 +49,10 @@ export default function Support({ nav }) {
 
         {/* 赞助名单 */}
         <div className="group">
-          <div className="gtitle">赞助名单{SPONSORS.length > 0 && `（共 ${SPONSORS.length} 人 · ¥${total}）`}</div>
-          {SPONSORS.length > 0 ? (
+          <div className="gtitle">赞助名单{sponsors.length > 0 && `（共 ${sponsors.length} 人 · ¥${total}）`}</div>
+          {sponsors.length > 0 ? (
             <div className="roll-list">
-              {SPONSORS.map((s, i) => (
+              {sponsors.map((s, i) => (
                 <div className="roll-item" key={i}>
                   <span className="ridx">{i + 1}</span>
                   <span className="rname">{s.id}</span>
@@ -56,10 +68,10 @@ export default function Support({ nav }) {
         {/* 内测鸣谢 */}
         <div className="group">
           <div className="gtitle">内测鸣谢</div>
-          {TESTERS.length > 0 ? (
+          {testers.length > 0 ? (
             <div className="roll-list">
               <div className="tester-flow">
-                {TESTERS.map((t, i) => <span className="tester-chip" key={i}>{t}</span>)}
+                {testers.map((t, i) => <span className="tester-chip" key={i}>{t}</span>)}
               </div>
             </div>
           ) : (

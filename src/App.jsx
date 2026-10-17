@@ -24,6 +24,7 @@ import { loadAiCfg } from './ai.js'
 import { startNotifyCatch, stopNotifyCatch, makeNotifyHandler, fetchPendingNotifies, removePendingNotifies } from './notifyCatch.js'
 import { startA11yCatch, stopA11yCatch, makeA11yHandler, fetchPendingPages, removePendingPages } from './a11ycatch.js'
 import CategoryManage from './pages/CategoryManage.jsx'
+import ThemeShop from './pages/ThemeShop.jsx'
 import CloudBackup from './pages/CloudBackup.jsx'
 import AddTx from './pages/AddTx.jsx'
 import AiInsight from './pages/AiInsight.jsx'
@@ -79,6 +80,7 @@ const SUB_PAGES = {
   invoice: Invoices,
   settings: Settings,
   support: Support,
+  themeshop: ThemeShop,
   settingsSection: SettingsSections,
   category: CategoryManage,
   cloud: CloudBackup,
